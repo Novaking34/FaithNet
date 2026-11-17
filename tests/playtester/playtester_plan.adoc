@@ -126,6 +126,9 @@ field execution:
 * `reports/SESSION_002_WAVE8_HARDENED.adoc` — Wave 8 Before/After empirical
   proof closing all 3 Session 001 gaps (`SILENT_BLACKHOLE_AUTO_CASCADE` `2/2`,
   `0..4,000`-sample acoustic mic lock `6/6`, LAN UDP broadcast + REPL).
+* `reports/SESSION_003_LIVE_TWO_DEVICE.adoc` — First live two-device Wi-Fi
+  field playtest (`192.168.1.217` <-> `seanje-lenox-wise-Inspiron-5579`
+  `192.168.1.99`): 4/4 checks PASS + Wave 9 3-Tier Adaptive TLS Trust Ladder.
 
 // =============================================================================
 // BLOCK 5: CLOSING BLOCK / PLAYTEST DISCIPLINE

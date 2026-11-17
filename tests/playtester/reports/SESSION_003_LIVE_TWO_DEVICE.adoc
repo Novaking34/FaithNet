@@ -1,0 +1,127 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_003_LIVE_TWO_DEVICE.adoc
+@id            playtest.report.session_003
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 003 Report)
+@archetype     report | live_two_device_field_report
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Field Kit 01 — First Live Two-Device Wi-Fi Playtest
+@role          Historic First Real Physical Cross-Device Playtest & TLS Ladder
+@maturity      Rev 5 Baseline | Wave 9 3-Tier Adaptive TLS Trust Ladder
+================================================================================
+////
+= Playtest Session 003: First Live Two-Device Wi-Fi Field Test
+CreativeWorkzStudio LLC / ProfessorSeanEX
+2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / PHYSICAL TOPOLOGY & HISTORIC MILESTONE
+// =============================================================================
+
+toc::[]
+
+== Physical Hardware Topology (Zero Simulation)
+
+* **Home Anchor (Laptop #1):** `professorseanex-Inspiron-16-5640`
+  (`192.168.1.217` on `wlp3s0`, Linux 7.0, `faithnet-node` running
+  `Home-Anchor` `0xFA17000000000001` on `RUNG_3_LOCAL` + The Well on `:8077`).
+* **Visitor / Peer Device (Laptop #2):** `seanje-lenox-wise-Inspiron-5579`
+  (`192.168.1.99` on same home Wi-Fi, standard web browser + `curl`, zero
+  FaithNet software installed).
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / REAL-WORLD CATCH (GAP #4) & LIVE 4/4 FIELD RESULTS
+// =============================================================================
+
+== Live Playtest Discovery (Gap #4 — Caught in < 60 Seconds!)
+
+* **Initial Browser Attempt from Laptop #2:** Firefox/modern HTTPS-Only Mode
+  auto-upgraded `192.168.1.217:8077` to `https://192.168.1.217:8077/`, hitting
+  the plain-HTTP Well listener and triggering
+  **`SSL_ERROR_RX_RECORD_TOO_LONG`** (blocking further browser checks).
+* **Immediate Live Fix Deployed:** Upgraded `interpreter/captive_web.go` with a
+  pure-stdlib **dual-mode protocol-peek listener** (`0x16` TLS ClientHello vs.
+  plain HTTP on the exact same port `:8077`).
+
+== Live Field Kit 01 Verification Results (Laptop #2 -> Laptop #1)
+
+[cols="2,3,1", options="header"]
+|===
+| Live Field Check | Observed Physical Behavior on `Inspiron-5579` | Result
+
+| **Check 1: Zero-Install Well & Clean Post**
+| Opened The Well in real browser across Wi-Fi; typed `"hello"`; appeared on
+  bulletin board stamped with **`0:AWAIT`** quarantine badge.
+| **PASS**
+
+| **Check 2: Live Genesis 3 Airlock Defense**
+| Submitted hostile web attack payload from Laptop #2 browser; Genesis 3
+  Airlock rejected request (`403 Forbidden`) and incremented block counter.
+| **PASS**
+
+| **Check 3: Captive Portal Redirect**
+| Visited `/generate_204`; browser automatically redirected cleanly back to `/`
+  (The Well main portal).
+| **PASS**
+
+| **Check 4: Live `curl` JSON Telemetry**
+| `curl -s http://192.168.1.217:8077/api/status` returned live JSON matching
+  exact bulletin (`1`) and Airlock block (`1`) counts.
+| **PASS**
+|===
+
+=== Captured Live `/api/status` Payload
+
+[source,json]
+----
+{"node_id":"0xFA17000000000001","label":"Home-Anchor","active_rung":"RUNG_3_LOCAL","peer_count":0,"bulletins":1,"airlock_blocked":1}
+----
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / WAVE 9 3-TIER ADAPTIVE TLS TRUST LADDER
+// =============================================================================
+
+== Rollout Insight & Wave 9 Solution: 3-Tier Adaptive TLS Trust Ladder
+
+Real browser testing surfaced a crucial rollout psychology insight: **during
+community rollouts, visitors must never see scary red self-signed browser
+warning screens that make FaithNet look untrustworthy.**
+
+Wave 9 upgraded `interpreter/captive_web.go` and `cmd/faithnet-node/main.go`
+with a zero-external-dependency **3-Tier Adaptive TLS Trust Ladder**:
+
+1. **Tier 3 — Public Rollout PEMs (`--tls-cert` & `--tls-key`):** Standard
+   CA-signed PEMs (e.g., Let's Encrypt DNS-01 for public/hybrid venues) giving
+   every visitor phone a native browser-trusted padlock with zero setup.
+2. **Tier 2 — Persistent Sovereign Local Root CA (`--tls-ca-dir`):** Generates
+   and persists `ca.crt` + signed leaf `server.crt` covering all local IPs and
+   hostnames, downloadable directly via `GET /faithnet-root-ca.crt` for a
+   permanent **100% offline green padlock** across home/community devices.
+3. **Tier 1 — Ephemeral Emergency Floor:** Zero-config in-memory ECDSA P-256
+   fallback ensuring `SSL_ERROR_RX_RECORD_TOO_LONG` never hard-blocks a visitor.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SESSION 003 SIGN-OFF
+// =============================================================================
+
+== Session 003 Sign-Off
+
+FaithNet has officially crossed from single-machine verification into **real
+multi-device physical wireless networking** (`Inspiron-16-5640` <->
+`Inspiron-5579`) with live Airlock enforcement and a 3-Tier Adaptive TLS Trust
+Ladder verified under strict `x509.CertPool` validation (`InsecureSkipVerify:
+false`).
+
+// End of tests/playtester/reports/SESSION_003_LIVE_TWO_DEVICE.adoc

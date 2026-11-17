@@ -48,10 +48,13 @@ package interpreter_unit_test
 
 // --- Tier 1: Standard Go Library Packages ---
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -208,6 +211,112 @@ func TestCaptiveWebUnit_Sec4_CaptiveProbesAndDumpCard(t *testing.T) {
 	if !strings.Contains(card, "THE WELL CAPTIVE PORTAL") {
 		t.Fatalf("[SEC 4] unexpected Well dump card:\n%s", card)
 	}
+}
+
+func TestCaptiveWebUnit_Sec4_DualModeHTTPAndOfflineHTTPSOnSamePort(t *testing.T) {
+	disp, _ := orchestrator.NewDispatcher(
+		data.DefaultNodeManifest(common.NodeAlpha, "dual-proto-well"), engine.NewMockClock(0),
+	)
+	defer func() { _ = disp.Close() }()
+
+	well := interpreter.NewWellServer(disp, "127.0.0.1:0")
+	if err := well.Start(); err != nil {
+		t.Fatalf("[SEC 4] WellServer.Start failed: %v", err)
+	}
+	defer func() { _ = well.Close() }()
+
+	addr := well.ListenAddr()
+
+	// 1. Plain HTTP works cleanly on addr.
+	httpResp, err := http.Get("http://" + addr + "/api/status")
+	if err != nil {
+		t.Fatalf("[SEC 4] plain HTTP GET failed: %v", err)
+	}
+	_ = httpResp.Body.Close()
+	if httpResp.StatusCode != http.StatusOK {
+		t.Fatalf("[SEC 4] expected HTTP 200, got %d", httpResp.StatusCode)
+	}
+
+	// 2. HTTPS (Firefox/Chrome HTTPS-Only Mode) ALSO works on the EXACT same port!
+	httpsClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	httpsResp, err := httpsClient.Get("https://" + addr + "/api/status")
+	if err != nil {
+		t.Fatalf("[SEC 4] offline HTTPS GET on same port failed: %v", err)
+	}
+	_ = httpsResp.Body.Close()
+	if httpsResp.StatusCode != http.StatusOK {
+		t.Fatalf("[SEC 4] expected HTTPS 200, got %d", httpsResp.StatusCode)
+	}
+}
+
+func TestCaptiveWebUnit_Sec4_Tier2SovereignRootCAAndTier3PublicPEMLadder(t *testing.T) {
+	disp, _ := orchestrator.NewDispatcher(
+		data.DefaultNodeManifest(common.NodeAlpha, "ca-trust-well"), engine.NewMockClock(0),
+	)
+	defer func() { _ = disp.Close() }()
+
+	// Tier 2: Persistent Sovereign Local Root CA validates leaf with STRICT TLS!
+	caDir := t.TempDir()
+	wellT2 := interpreter.NewWellServer(disp, "127.0.0.1:0")
+	wellT2.SetTLSOptions(interpreter.WellTLSOptions{CADir: caDir})
+	if err := wellT2.Start(); err != nil {
+		t.Fatalf("[SEC 4] Tier 2 WellServer.Start failed: %v", err)
+	}
+	defer func() { _ = wellT2.Close() }()
+
+	if wellT2.TLSTrustTier() != "TIER_2_SOVEREIGN_CA" {
+		t.Fatalf("[SEC 4] expected TIER_2_SOVEREIGN_CA, got %s", wellT2.TLSTrustTier())
+	}
+
+	// Download /faithnet-root-ca.crt and verify STRICT x509 chain (InsecureSkipVerify: false)!
+	caResp, err := http.Get("http://" + wellT2.ListenAddr() + "/faithnet-root-ca.crt")
+	if err != nil || caResp.StatusCode != http.StatusOK {
+		t.Fatalf("[SEC 4] GET /faithnet-root-ca.crt failed: err=%v", err)
+	}
+	caPEM, _ := io.ReadAll(caResp.Body)
+	_ = caResp.Body.Close()
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caPEM) {
+		t.Fatal("[SEC 4] failed parsing downloaded Sovereign Root CA PEM")
+	}
+	strictClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: pool},
+		},
+	}
+	strictResp, err := strictClient.Get("https://" + wellT2.ListenAddr() + "/api/status")
+	if err != nil {
+		t.Fatalf("[SEC 4] STRICT CA-verified HTTPS failed: %v", err)
+	}
+	_ = strictResp.Body.Close()
+	if strictResp.StatusCode != http.StatusOK {
+		t.Fatalf("[SEC 4] STRICT HTTPS expected 200, got %d", strictResp.StatusCode)
+	}
+
+	// Tier 3: Load signed server.crt + server.key via CertFile/KeyFile rollout path!
+	wellT3 := interpreter.NewWellServer(disp, "127.0.0.1:0")
+	wellT3.SetTLSOptions(interpreter.WellTLSOptions{
+		CertFile: filepath.Join(caDir, "server.crt"),
+		KeyFile:  filepath.Join(caDir, "server.key"),
+	})
+	if err := wellT3.Start(); err != nil {
+		t.Fatalf("[SEC 4] Tier 3 WellServer.Start failed: %v", err)
+	}
+	defer func() { _ = wellT3.Close() }()
+
+	if wellT3.TLSTrustTier() != "TIER_3_PUBLIC_PEM" {
+		t.Fatalf("[SEC 4] expected TIER_3_PUBLIC_PEM, got %s", wellT3.TLSTrustTier())
+	}
+	strictResp3, err := strictClient.Get("https://" + wellT3.ListenAddr() + "/api/status")
+	if err != nil {
+		t.Fatalf("[SEC 4] Tier 3 STRICT HTTPS failed: %v", err)
+	}
+	_ = strictResp3.Body.Close()
 }
 
 // ==============================================================================

@@ -122,6 +122,9 @@ type NodeCLIOptions struct {
 	UDPAddr           string
 	BroadcastAddr     string
 	WellAddr          string
+	TLSCertFile       string
+	TLSKeyFile        string
+	TLSCADir          string
 	BeaconSSID        string
 	PingTimeoutMs     int
 	EnableWell        bool
@@ -228,10 +231,15 @@ func runSovereignNode(opts NodeCLIOptions) error {
 		fmt.Println(beacon.ExecuteBeaconDumpCard())
 	}
 
-	// Optional Well captive HTML portal.
+	// Optional Well captive HTML portal (with 3-Tier Adaptive TLS Trust Ladder).
 	var well *interpreter.WellServer
 	if opts.EnableWell {
 		well = interpreter.NewWellServer(disp, opts.WellAddr)
+		well.SetTLSOptions(interpreter.WellTLSOptions{
+			CertFile: opts.TLSCertFile,
+			KeyFile:  opts.TLSKeyFile,
+			CADir:    opts.TLSCADir,
+		})
 		if !opts.ProbeOnly {
 			if err := well.Start(); err != nil {
 				return fmt.Errorf("failed starting The Well portal: %w", err)
@@ -239,6 +247,9 @@ func runSovereignNode(opts NodeCLIOptions) error {
 			defer func() { _ = well.Close() }()
 		}
 		fmt.Println(well.ExecuteWellDumpCard())
+		if !opts.ProbeOnly {
+			fmt.Printf("The Well TLS Trust Tier: %s\n", well.TLSTrustTier())
+		}
 	}
 
 	if opts.ProbeOnly {
@@ -501,6 +512,10 @@ func ValidateNodeCLIOptions(opts NodeCLIOptions) data.AuditResult {
 		return data.AuditFail(data.AuditSeverityCritical, ModuleIDNodeCLI, check,
 			"CLI --beacon-ssid must be 1..32 bytes (IEEE 802.11 bound).")
 	}
+	if (opts.TLSCertFile != "") != (opts.TLSKeyFile != "") {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDNodeCLI, check,
+			"CLI --tls-cert and --tls-key must be supplied together as a pair.")
+	}
 	return data.AuditPass(ModuleIDNodeCLI, check,
 		"NodeCLIOptions sovereign ID and beacon bounds verified.")
 }
@@ -606,6 +621,9 @@ func main() {
 	flag.StringVar(&opts.UDPAddr, "udp", rung3_local.DefaultLocalUDPAddr, "Rung 3 Local UDP listen address")
 	flag.StringVar(&opts.BroadcastAddr, "broadcast-addr", "", "Optional LAN UDP broadcast address (auto-detected when --beacon is on)")
 	flag.StringVar(&opts.WellAddr, "well-addr", data.DefaultWellListenAddr, "The Well HTML portal listen address")
+	flag.StringVar(&opts.TLSCertFile, "tls-cert", "", "Tier 3 public rollout PEM certificate chain for The Well")
+	flag.StringVar(&opts.TLSKeyFile, "tls-key", "", "Tier 3 public rollout PEM private key for The Well")
+	flag.StringVar(&opts.TLSCADir, "tls-ca-dir", "", "Tier 2 persistent offline Sovereign Local Root CA directory")
 	flag.StringVar(&opts.BeaconSSID, "beacon-ssid", data.DefaultBeaconSSID, "Room Beacon SSID (1..32 bytes)")
 	flag.IntVar(&opts.PingTimeoutMs, "ping-timeout", DefaultLANPingTimeoutMs, "Live LAN ping timeout in milliseconds")
 	flag.BoolVar(&opts.EnableWell, "well", false, "Enable The Well zero-install HTML captive portal")

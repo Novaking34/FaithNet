@@ -17,7 +17,9 @@ echo "The Well URL: http://${HOST_IP}:8077/"
 echo "LAN UDP Port: ${HOST_IP}:7777"
 echo ""
 echo "From Laptop #2 or Phone on the same Wi-Fi, open:"
-echo "  http://${HOST_IP}:8077/"
+echo "  http://${HOST_IP}:8077/  (or https://${HOST_IP}:8077/)"
+echo "Download Sovereign Root CA once for permanent offline green padlock:"
+echo "  http://${HOST_IP}:8077/faithnet-root-ca.crt"
 echo "Or test via curl:"
 echo "  curl -s http://${HOST_IP}:8077/api/status"
 echo "  curl -s -X POST -d 'Hello from Laptop 2' http://${HOST_IP}:8077/api/message"
@@ -28,6 +30,7 @@ exec go run ./cmd/faithnet-node \
   --udp="0.0.0.0:7777" \
   --well \
   --well-addr="0.0.0.0:8077" \
+  --tls-ca-dir="/tmp/faithnet-sovereign-ca" \
   --beacon \
   --beacon-ssid="FaithNet-HomeRoom" \
   "$@"

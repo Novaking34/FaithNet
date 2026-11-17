@@ -108,6 +108,11 @@ dist/
 *.pcm
 *.wav
 
+# Local TLS private keys, sovereign Root CA directories & rollout PEMs
+*.key
+*.pem
+.faithnet-certs/
+
 # ------------------------------------------------------------------------------
 # [ SUB-ASSEMBLY 3.2: DOCUMENTATION TOOLCHAIN TEMPORARY ARTIFACTS ]
 # Mission: Prevent transient Asciidoctor and PDF compile intermediates.

@@ -60,14 +60,25 @@ package interpreter
 
 // --- Tier 1: Standard Go Library Packages ---
 import (
+	"bufio"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"html"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -130,6 +141,18 @@ type WellStatusPayload struct {
 	AirlockBlocked uint64 `json:"airlock_blocked"`
 }
 
+// WellTLSOptions configures The Well's 3-Tier Adaptive TLS Trust Ladder:
+//   - Tier 3 (Public Rollout): CertFile + KeyFile (browser-trusted PEMs).
+//   - Tier 2 (Offline Sovereign Root CA): CADir (persistent local Root CA +
+//     signed server leaf cert, downloadable at GET /faithnet-root-ca.crt).
+//   - Tier 1 (Emergency Floor): Ephemeral in-memory ECDSA P-256 cert when
+//     neither Tier 3 nor Tier 2 is supplied.
+type WellTLSOptions struct {
+	CertFile string // Tier 3: Operator-supplied PEM certificate chain
+	KeyFile  string // Tier 3: Operator-supplied PEM private key
+	CADir    string // Tier 2: Persistent local Sovereign Root CA directory
+}
+
 // WellServer hosts FaithNet's zero-install local HTML captive portal.
 //
 // ### For Architects, Operators & Non-Programmers:
@@ -137,7 +160,8 @@ type WellStatusPayload struct {
 // phone or laptop browser can read local news and post safe messages.
 //
 // ### For Systems Programmers & Engine Architects:
-// Mutex-guarded `[32]BulletinEntry` ring + stdlib `http.ServeMux` / `http.Server`.
+// Mutex-guarded `[32]BulletinEntry` ring + stdlib `http.ServeMux` / `http.Server`
+// with a 3-Tier Adaptive TLS Trust Ladder (`dualProtoListener`).
 type WellServer struct {
 	dispatcher *orchestrator.Dispatcher
 	translator *Translator
@@ -150,10 +174,13 @@ type WellServer struct {
 	nextSeq       atomic.Uint32
 	blockedPosts  atomic.Uint64
 
-	srvMu    sync.Mutex
-	server   *http.Server
-	listener net.Listener
-	mux      *http.ServeMux
+	srvMu      sync.Mutex
+	server     *http.Server
+	listener   net.Listener
+	mux        *http.ServeMux
+	tlsOpts    WellTLSOptions
+	tlsTier    string
+	rootCAPEM  []byte
 }
 
 // ------------------------------------------------------------------------------
@@ -339,6 +366,53 @@ func (w *WellServer) handlePostMessage(rw http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// SetTLSOptions configures The Well's 3-Tier Adaptive TLS Trust Ladder prior
+// to calling Start().
+//
+// ### For Architects, Operators & Non-Programmers:
+// Lets an operator supply public rollout certificates (zero browser warnings)
+// or a persistent local Sovereign Root CA directory (offline green padlock).
+//
+// ### For Systems Programmers & Engine Architects:
+// Mutex-guarded configuration setter consumed by `WellServer.Start()`.
+func (w *WellServer) SetTLSOptions(opts WellTLSOptions) {
+	w.srvMu.Lock()
+	w.tlsOpts = opts
+	w.srvMu.Unlock()
+}
+
+// TLSTrustTier reports the active TLS trust tier ("TIER_3_PUBLIC_PEM",
+// "TIER_2_SOVEREIGN_CA", "TIER_1_EPHEMERAL", or "UNSTARTED").
+//
+// ### For Architects, Operators & Non-Programmers:
+// Tells the operator which certificate trust level The Well is currently using.
+//
+// ### For Systems Programmers & Engine Architects:
+// Mutex-guarded O(1) string telemetry getter.
+func (w *WellServer) TLSTrustTier() string {
+	w.srvMu.Lock()
+	defer w.srvMu.Unlock()
+	if w.tlsTier == "" {
+		return "UNSTARTED"
+	}
+	return w.tlsTier
+}
+
+func (w *WellServer) handleRootCADownload(rw http.ResponseWriter, _ *http.Request) {
+	w.srvMu.Lock()
+	caPEM := make([]byte, len(w.rootCAPEM))
+	copy(caPEM, w.rootCAPEM)
+	w.srvMu.Unlock()
+
+	if len(caPEM) == 0 {
+		http.Error(rw, "Sovereign Local Root CA not enabled on this node (start with --tls-ca-dir)", http.StatusNotFound)
+		return
+	}
+	rw.Header().Set("Content-Type", "application/x-x509-ca-cert")
+	rw.Header().Set("Content-Disposition", `attachment; filename="faithnet-root-ca.crt"`)
+	_, _ = rw.Write(caPEM)
+}
+
 func (w *WellServer) handleHomeHTML(rw http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(rw, r)
@@ -372,7 +446,17 @@ func (w *WellServer) handleHomeHTML(rw http.ResponseWriter, r *http.Request) {
 			html.EscapeString(e.Message),
 		))
 	}
-	sb.WriteString("</ul></body></html>")
+	sb.WriteString("</ul>")
+	w.srvMu.Lock()
+	hasCA := len(w.rootCAPEM) > 0
+	tier := w.tlsTier
+	w.srvMu.Unlock()
+	if hasCA {
+		sb.WriteString(`<hr><p><small>TLS Trust: `)
+		sb.WriteString(html.EscapeString(tier))
+		sb.WriteString(` | Offline Green Padlock: <a href="/faithnet-root-ca.crt">Download FaithNet Sovereign Root CA (.crt)</a></small></p>`)
+	}
+	sb.WriteString("</body></html>")
 
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = rw.Write([]byte(sb.String()))
@@ -596,24 +680,40 @@ func NewWellServer(disp *orchestrator.Dispatcher, listenAddr string) *WellServer
 	w.mux.HandleFunc("/", w.handleHomeHTML)
 	w.mux.HandleFunc("/api/status", w.handleStatus)
 	w.mux.HandleFunc("/api/message", w.handlePostMessage)
+	w.mux.HandleFunc("/faithnet-root-ca.crt", w.handleRootCADownload)
 	w.mux.HandleFunc("/generate_204", w.handleCaptiveRedirect)
 	w.mux.HandleFunc("/hotspot-detect.html", w.handleCaptiveRedirect)
 	w.mux.HandleFunc("/connecttest.txt", w.handleCaptiveRedirect)
 	return w
 }
 
-// Start binds the TCP listener and serves The Well HTTP portal in the background.
+// Start binds the TCP listener and serves The Well portal in dual-mode
+// (accepting BOTH plain HTTP and TLS on the exact same port via first-byte
+// 0x16 peeking), resolving TLS credentials across the 3-Tier Adaptive Trust
+// Ladder: Tier 3 (Public Rollout PEMs) -> Tier 2 (Persistent Sovereign Local
+// Root CA) -> Tier 1 (Ephemeral Emergency ECDSA Floor).
 //
 // ### For Architects, Operators & Non-Programmers:
-// Opens The Well's local webpage so phones and laptops can connect immediately.
+// Opens The Well's local webpage so phones and laptops can connect cleanly via
+// http:// or https://, using trusted rollout certs when supplied or an offline
+// Sovereign Root CA so neighbors see a trusted padlock instead of scary warnings.
 //
 // ### For Systems Programmers & Engine Architects:
-// Synchronously binds `net.Listen("tcp", listenAddr)` so `ListenAddr()` returns
-// the exact ephemeral port immediately upon return.
+// Resolves Tier 3 -> Tier 2 -> Tier 1 via pure Go stdlib `crypto/x509` +
+// `crypto/tls`, wraps `net.Listener` in `dualProtoListener`, and serves live.
 func (w *WellServer) Start() error {
-	ln, err := net.Listen("tcp", w.listenAddr)
+	rawLn, err := net.Listen("tcp", w.listenAddr)
 	if err != nil {
 		return err
+	}
+	w.srvMu.Lock()
+	opts := w.tlsOpts
+	w.srvMu.Unlock()
+
+	tlsCfg, tier, caPEM, err := resolveAdaptiveWellTLS(opts)
+	var ln net.Listener = rawLn
+	if err == nil && tlsCfg != nil {
+		ln = newDualProtoListener(rawLn, tlsCfg)
 	}
 	srv := &http.Server{
 		Handler:           w.mux,
@@ -622,12 +722,322 @@ func (w *WellServer) Start() error {
 	w.srvMu.Lock()
 	w.listener = ln
 	w.server = srv
+	w.tlsTier = tier
+	w.rootCAPEM = caPEM
 	w.srvMu.Unlock()
 
 	go func() {
 		_ = srv.Serve(ln)
 	}()
 	return nil
+}
+
+func resolveAdaptiveWellTLS(opts WellTLSOptions) (*tls.Config, string, []byte, error) {
+	// Tier 3: Operator-supplied publicly trusted PEM cert & key (Rollout Phase).
+	if opts.CertFile != "" && opts.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(opts.CertFile, opts.KeyFile)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		return &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}, "TIER_3_PUBLIC_PEM", nil, nil
+	}
+
+	// Tier 2: Persistent Sovereign Local Root CA + Signed Leaf Cert (100% Offline).
+	if opts.CADir != "" {
+		cfg, caPEM, err := loadOrCreateSovereignLocalCA(opts.CADir)
+		if err == nil {
+			return cfg, "TIER_2_SOVEREIGN_CA", caPEM, nil
+		}
+	}
+
+	// Tier 1: Ephemeral Emergency Floor (zero-config fallback).
+	cfg, err := buildOfflineWellTLSConfig()
+	if err != nil {
+		return nil, "PLAIN_HTTP_ONLY", nil, err
+	}
+	return cfg, "TIER_1_EPHEMERAL", nil, nil
+}
+
+func collectLocalSANs() ([]net.IP, []string) {
+	ips := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, a := range addrs {
+			if ipNet, ok := a.(*net.IPNet); ok && ipNet.IP != nil {
+				ips = append(ips, ipNet.IP)
+			}
+		}
+	}
+	dnsNames := []string{"localhost", "faithnet.local"}
+	if host, err := os.Hostname(); err == nil && host != "" {
+		dnsNames = append(dnsNames, host, host+".local")
+	}
+	return ips, dnsNames
+}
+
+// loadOrCreateSovereignLocalCA persists a FaithNet Sovereign Root CA (ca.crt +
+// ca.key) in caDir and issues a fresh signed leaf certificate covering all
+// current local IPs and hostnames so trusted community devices get an offline
+// green padlock across reboots.
+func loadOrCreateSovereignLocalCA(caDir string) (*tls.Config, []byte, error) {
+	if err := os.MkdirAll(caDir, 0700); err != nil {
+		return nil, nil, err
+	}
+	caCertPath := filepath.Join(caDir, "ca.crt")
+	caKeyPath := filepath.Join(caDir, "ca.key")
+
+	var caCert *x509.Certificate
+	var caKey *ecdsa.PrivateKey
+	var caPEM []byte
+
+	if certBytes, err := os.ReadFile(caCertPath); err == nil {
+		if keyBytes, kErr := os.ReadFile(caKeyPath); kErr == nil {
+			cb, _ := pem.Decode(certBytes)
+			kb, _ := pem.Decode(keyBytes)
+			if cb != nil && kb != nil {
+				if parsedCert, pErr := x509.ParseCertificate(cb.Bytes); pErr == nil {
+					if parsedKey, pkErr := x509.ParseECPrivateKey(kb.Bytes); pkErr == nil {
+						caCert = parsedCert
+						caKey = parsedKey
+						caPEM = certBytes
+					}
+				}
+			}
+		}
+	}
+
+	if caCert == nil || caKey == nil {
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, nil, err
+		}
+		serialLimit := new(big.Int).Lsh(big.NewInt(1), 62)
+		serial, err := rand.Int(rand.Reader, serialLimit)
+		if err != nil {
+			return nil, nil, err
+		}
+		now := time.Now()
+		caTmpl := &x509.Certificate{
+			SerialNumber: serial,
+			Subject: pkix.Name{
+				Organization: []string{"CreativeWorkzStudio LLC / FaithNet"},
+				CommonName:   "FaithNet Sovereign Local Root CA",
+			},
+			NotBefore:             now.Add(-5 * time.Minute),
+			NotAfter:              now.Add(10 * 365 * 24 * time.Hour),
+			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature,
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+			MaxPathLen:            1,
+		}
+		caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &priv.PublicKey, priv)
+		if err != nil {
+			return nil, nil, err
+		}
+		caCert, err = x509.ParseCertificate(caDER)
+		if err != nil {
+			return nil, nil, err
+		}
+		caKey = priv
+		caPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
+		keyDER, err := x509.MarshalECPrivateKey(priv)
+		if err != nil {
+			return nil, nil, err
+		}
+		keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+		if err := os.WriteFile(caCertPath, caPEM, 0644); err != nil {
+			return nil, nil, err
+		}
+		if err := os.WriteFile(caKeyPath, keyPEM, 0600); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// Sign leaf server certificate with FaithNet Sovereign Local Root CA.
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	serialLimit := new(big.Int).Lsh(big.NewInt(1), 62)
+	serial, err := rand.Int(rand.Reader, serialLimit)
+	if err != nil {
+		return nil, nil, err
+	}
+	ips, dnsNames := collectLocalSANs()
+	now := time.Now()
+	leafTmpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			Organization: []string{"CreativeWorkzStudio LLC / FaithNet"},
+			CommonName:   "FaithNet Local Well",
+		},
+		NotBefore:             now.Add(-5 * time.Minute),
+		NotAfter:              now.Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IPAddresses:           ips,
+		DNSNames:              dnsNames,
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	leafPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafDER})
+	leafKeyDER, err := x509.MarshalECPrivateKey(leafKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	leafKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: leafKeyDER})
+	_ = os.WriteFile(filepath.Join(caDir, "server.crt"), leafPEM, 0644)
+	_ = os.WriteFile(filepath.Join(caDir, "server.key"), leafKeyPEM, 0600)
+
+	tlsCert := tls.Certificate{
+		Certificate: [][]byte{leafDER, caCert.Raw},
+		PrivateKey:  leafKey,
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+		MinVersion:   tls.VersionTLS12,
+	}, caPEM, nil
+}
+
+// buildOfflineWellTLSConfig synthesizes an ephemeral offline ECDSA P-256 X.509
+// certificate valid for localhost and all local IPv4/IPv6 addresses using 100%
+// Go stdlib crypto—zero CA, zero internet, zero disk files.
+func buildOfflineWellTLSConfig() (*tls.Config, error) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	serialLimit := new(big.Int).Lsh(big.NewInt(1), 62)
+	serial, err := rand.Int(rand.Reader, serialLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	ips := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, a := range addrs {
+			if ipNet, ok := a.(*net.IPNet); ok && ipNet.IP != nil {
+				ips = append(ips, ipNet.IP)
+			}
+		}
+	}
+	dnsNames := []string{"localhost", "faithnet.local"}
+	if host, err := os.Hostname(); err == nil && host != "" {
+		dnsNames = append(dnsNames, host, host+".local")
+	}
+
+	now := time.Now()
+	tmpl := x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			Organization: []string{"FaithNet Sovereign Offline Well"},
+			CommonName:   "FaithNet Local Well",
+		},
+		NotBefore:             now.Add(-5 * time.Minute),
+		NotAfter:              now.Add(30 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IPAddresses:           ips,
+		DNSNames:              dnsNames,
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, err
+	}
+	cert := tls.Certificate{
+		Certificate: [][]byte{derBytes},
+		PrivateKey:  priv,
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}, nil
+}
+
+// peekConn replays buffered peek bytes before reading from the underlying conn.
+type peekConn struct {
+	net.Conn
+	br *bufio.Reader
+}
+
+func (c *peekConn) Read(p []byte) (int, error) {
+	return c.br.Read(p)
+}
+
+// dualProtoListener accepts TCP connections and inspects byte 0 concurrently:
+// 0x16 (TLS ClientHello) is wrapped in tls.Server; all other traffic passes
+// through as plain HTTP without blocking Accept().
+type dualProtoListener struct {
+	net.Listener
+	tlsCfg  *tls.Config
+	readyCh chan net.Conn
+	errCh   chan error
+	doneCh  chan struct{}
+	once    sync.Once
+}
+
+func newDualProtoListener(inner net.Listener, tlsCfg *tls.Config) *dualProtoListener {
+	dl := &dualProtoListener{
+		Listener: inner,
+		tlsCfg:   tlsCfg,
+		readyCh:  make(chan net.Conn, 64),
+		errCh:    make(chan error, 1),
+		doneCh:   make(chan struct{}),
+	}
+	go dl.acceptLoop()
+	return dl
+}
+
+func (dl *dualProtoListener) acceptLoop() {
+	for {
+		raw, err := dl.Listener.Accept()
+		if err != nil {
+			select {
+			case dl.errCh <- err:
+			default:
+			}
+			return
+		}
+		go func(c net.Conn) {
+			_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+			br := bufio.NewReaderSize(c, 64)
+			first, peekErr := br.Peek(1)
+			_ = c.SetReadDeadline(time.Time{})
+
+			wrapped := net.Conn(&peekConn{Conn: c, br: br})
+			if peekErr == nil && len(first) == 1 && first[0] == 0x16 {
+				wrapped = tls.Server(wrapped, dl.tlsCfg)
+			}
+			select {
+			case dl.readyCh <- wrapped:
+			case <-dl.doneCh:
+				_ = wrapped.Close()
+			}
+		}(raw)
+	}
+}
+
+func (dl *dualProtoListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-dl.readyCh:
+		return c, nil
+	case err := <-dl.errCh:
+		return nil, err
+	case <-dl.doneCh:
+		return nil, net.ErrClosed
+	}
+}
+
+func (dl *dualProtoListener) Close() error {
+	dl.once.Do(func() { close(dl.doneCh) })
+	return dl.Listener.Close()
 }
 
 // Close gracefully shuts down the HTTP server and closes its TCP listener.

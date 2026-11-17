@@ -16,7 +16,7 @@ BLOCK 1: METADATA BLOCK
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
 @system        FaithNet Sovereign Adaptive Networking Substrate
 @role          Root Orientation, Architectural Specification & Verification Index
-@maturity      Rev 5 Baseline | Wave 8 Complete (Session 002 All Gaps Closed)
+@maturity      Rev 5 Baseline | Wave 9 Complete (Live Two-Device Field Test & 3-Tier TLS)
 @chassis       zero-external-deps | Pure Go 1.26.8 Standard Library Substrate
 @scale         O(1) orientation across 5 layers, 4 adaptive rungs & 4 test tiers
 @seams         in: docs/ROADMAP.adoc | exports: operator & engineer entrypoint
@@ -59,7 +59,7 @@ PURPOSE & ARCHITECTURAL ROLE:
 | **Memory Discipline** | `ALLOC_ZERO_HEAP` (0.00 allocs/op) on Layer 0/1 wire & heartbeat hot paths |
 | **Adaptive Resilience** | 4-Rung Bidirectional Ladder (`Rung 1 Floor` $\leftrightarrow$ `Rung 4 Global`) |
 | **Verification Matrix** | **4x4 Lab Matrix** (46 test files, 329 tests) + **`tests/playtester/`** (5 live harnesses, 4 field kits) |
-| **Current Milestone** | **Wave 8 Complete** (All 3 Session 001 Gaps Closed & Verified in Session 002; Field-Test Ready) |
+| **Current Milestone** | **Wave 9 Complete** (Live Two-Device Wi-Fi Field Test 4/4 PASS & 3-Tier Adaptive TLS Trust Ladder) |
 | **Documentation Series** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc) & [`docs/01..05`](docs/01_WHAT_IS_FAITHNET.adoc) |
 
 ---
@@ -229,7 +229,7 @@ go run ./cmd/faithnet-node --probe-only --beacon --well
 | **Chaos Weather & Cascade** | PASS (`-race`) | **PASS:** `8/8` bit-flips caught; `UDP->RAM` hard-cut `21 us`; **Silent Blackhole auto-cascade rescued `2/2` on `RUNG_2_HOST`!** | Field Kit 04 (`ip netns` + `tc netem`) staged |
 | **Rung 1 SLIP Serial** | PASS (`-race`) | **PASS:** Real kernel FIFO `1,126.6 KB/s` (`9.23 Mbps`), glitch resync `126.9 us` | Field Kit 03 (`socat` installed + `/dev/ttyUSB0` copper checklist) |
 | **Rung 1 AFSK & Morse** | PASS (`-race`) | **PASS:** Survives `+3.93 dB` SNR, `1%` vol, `ffmpeg` 32k MP3 & phone bandpass; **mic leading silence `0..4,000` samples `6/6` PASS!** | Field Kit 02 (`aplay`/`arecord`) ready for live room-air test |
-| **The Well & Airlock** | PASS (`-race`) | **PASS:** `3,375–4,887 req/s`, `p50=2.1–2.9 ms`, `120/120` attacks blocked (`0` breaches) | Field Kit 01 ready for live phone / Laptop #2 browser test |
+| **The Well & Airlock** | PASS (`-race`) | **PASS:** `6,126 req/s`, `p50=1.66 ms`, `120/120` attacks blocked (`0` breaches) | **LIVE FIELD VERIFIED (Session 003):** `4/4` PASS from `Inspiron-5579` (`192.168.1.99`) + 3-Tier Adaptive TLS (`--tls-cert`/`--tls-ca-dir`/ephemeral) |
 
 ### Documentation Series (`docs/`)
 
