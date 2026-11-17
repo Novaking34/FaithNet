@@ -1,0 +1,143 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc
+@id            docs.series.04_playtesting_benchmarks
+@layer         Layer 5: Sovereign Documentation Series (Volume 04)
+@archetype     documentation | empirical_benchmarks_and_gaps
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Sovereign Adaptive Networking Substrate
+@role          Volume 04: 4x4 Verification, Live Playtesting, Benchmarks & Gaps
+@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+================================================================================
+////
+= Volume 04: Verification, Playtesting, Benchmarks & Honest Gaps
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / TWO HALVES OF ENGINEERING TRUTH
+// =============================================================================
+
+toc::[]
+
+== The Lab (`4x4 Matrix`) vs. The Field Lab (`tests/playtester/`)
+
+FaithNet treats software assurance as two distinct disciplines that cannot
+replace each other:
+
+1. **The 4x4 Verification Matrix (`tests/{functional,unit,integrated,system}`):**
+   **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 per-cog
+   unit, `6` integrated, `5` system) + `tests/common/fixtures.go` = **329
+   verified test functions**, **22 live Block 4 pre-flight gates**, and **0
+   data races** under `go test -count=1 -race ./tests/...`.
+2. **The Playtester Proving Ground (`tests/playtester/`):** Live multi-process
+   arenas, userspace chaos weather proxies, real kernel FIFO serial streams,
+   real 16-bit PCM `.wav` acoustic torture benches, live TCP HTTP Well load
+   tests, and physical **Field Kits**.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / VERIFIED EMPIRICAL BENCHMARKS (SESSION 001)
+// =============================================================================
+
+== Consolidated Empirical Benchmarks (Inspiron-16-5640, Linux 7.0, Go 1.26.8)
+
+[cols="2,3,2", options="header"]
+|===
+| Subsystem / Arena | Real Empirical Measurement | Key Invariant Proven
+
+| **Layer 1 Wire Codec**
+| `EncodeInto`: `50.89 ns/op`; `DecodeFrom`: `86.72 ns/op`
+| **`0 B/op, 0 allocs/op`** (`ALLOC_ZERO_HEAP`)
+
+| **Cross-Process Rung 3 UDP**
+| `100/100` (`0%` loss), `p50 = 51.0 us`, `p95 = 137.5 us`, `p99 = 220.7 us`
+| `0` bytes shared RAM; `0.85 MB` heap
+
+| **Cross-Process Rung 4 TCP**
+| `100/100` (`0%` loss), `p50 = 404.5 us`, `p95 = 715.9 us`, `p99 = 974.4 us`
+| `0` bytes shared RAM; `1.28 MB` heap
+
+| **Hard-Cut 3-Rung Cascade**
+| `UDP -> RAM` in `254 us`; `RAM -> AFSK` in `0.8 ms`; total `1.41 ms`
+| `0%` packet loss across live medium cuts
+
+| **Storm Wire Bit-Flips**
+| `4` wire bit-flips injected by chaos proxy -> `4` caught by Codec
+| **`100%` corruption rejection (`0` leaks)**
+
+| **Rung 1 OS FIFO SLIP**
+| `200` worst-case 512B escape frames in `151.16 ms` = **`620.2 KB/s`**
+| Auto-resync after 10B glitch in `376.4 us`
+
+| **Rung 1 AFSK Acoustic Lab**
+| Mod `0.25 ms` / Demod `0.12 ms`; survives **`+3.93 dB` SNR**, **`1%` vol**,
+  **`ffmpeg` 32kbps MP3**, and **300–3400 Hz phone bandpass**
+| Exact empirical knee at `+2.32 dB` SNR
+
+| **Rung 1 1844 Morse CW**
+| `60B` wire -> `671` Morse chars -> `1,967` pulses
+| `100%` lossless round-trip
+
+| **Live Well HTTP Portal**
+| `480` concurrent reqs (12 workers, 6 OSes): **`4,887 req/s`**, `p50 = 2.14 ms`
+| **`120/120` attacks blocked (`0` breaches)**, `1.58 MB` heap
+
+| **Real Physical LAN Recon**
+| Laptop #2 (`seanje-lenox-wise-Inspiron-5579.local`, `192.168.1.99`):
+  `3/3` ICMP, `min/avg/max = 47.6 / 179.6 / 347.4 ms` (`mdev = 125 ms`)
+| Live physical Wi-Fi peer verified on `wlp3s0`
+|===
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / WHAT PLAYTESTING CAUGHT THAT TESTS MISSED
+// =============================================================================
+
+== Honest Gaps Exposed by Playtesting (Driving Wave 8)
+
+None of the 329 passing lab tests flagged these three physical-world behaviors;
+every one of them was surfaced directly by **Playtest Session 001**
+(`tests/playtester/reports/SESSION_001_BASELINE.adoc`):
+
+1. **Silent Blackhole Blind Spot (`chaos_weather_proxy` Regime 4):**
+   When `100%` of UDP packets were silently dropped (no OS socket error), all 5
+   pings timed out while `AdaptiveLadder` stayed on `RUNG_3_LOCAL`.
+   *Next Wave Action:* Implement heartbeat-driven passive degradation in
+   `Dispatcher` (`N` missed Pongs -> degrade rung -> `EVT_CASCADE_DOWN`).
+2. **Asynchronous Microphone Start-Offset (`audio_torture_bench` Section 3):**
+   `DemodulateAFSK` decoded cleanly with `0` or `5` samples of leading silence
+   (`<= 0.52 ms`), but failed at `>= 16` samples (`1.67 ms`) because preamble
+   detection assumes bit-aligned sample index `0`.
+   *Next Wave Action:* Add a sliding sample-by-sample energy gate + preamble
+   correlator (`0xAA 0x55`) before running live Laptop #1 -> Laptop #2 room-air
+   acoustic playtests.
+3. **Real-LAN Wireless Jitter & Zero-Config Discovery:**
+   Live ICMP to Laptop #2 (`192.168.1.99`) showed `47.6 ms` to `347.4 ms`
+   power-save spikes (and another LAN peer dropped ICMP entirely behind a host
+   firewall).
+   *Next Wave Action:* Default real-LAN ping timeouts to `>= 1500 ms`, emit live
+   UDP broadcast `OpBeacon` frames (`255.255.255.255:7777`), and add an
+   interactive playtest REPL to `cmd/faithnet-node`.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SERIES NAVIGATION
+// =============================================================================
+
+== Series Navigation
+
+* **Previous:** `docs/03_FAITHNET_VS_MODERN_INTERNET.adoc`
+* **Next:** `docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc`
+* **Raw Session Telemetry:** `tests/playtester/reports/SESSION_001_BASELINE.adoc`
+
+// End of docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc

@@ -1,0 +1,230 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_001_BASELINE.adoc
+@id            playtest.report.session_001
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 001 Report)
+@archetype     report | empirical_playtest_ledger
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Playtester Empirical Baseline (Wave 7A)
+@role          Hard Empirical Benchmarks, Verified Strengths & Uncovered Gaps
+@maturity      Rev 5 Baseline | Executed Live on Inspiron-16-5640 (Linux 7.0)
+================================================================================
+////
+= Playtest Session 001: Wave 7A Empirical Baseline & Gap Discovery
+CreativeWorkzStudio LLC / ProfessorSeanEX
+2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / HOST ENVIRONMENT & REAL LAN RECON
+// =============================================================================
+
+toc::[]
+
+== Host Environment & Physical LAN Context
+
+* **Home Host (Laptop #1):** `professorseanex-Inspiron-16-5640`
+  (`Linux 7.0.0-43-generic x86_64`, 12 CPU cores, `Go 1.26.8`, `wlp3s0` =
+  `192.168.1.217/24`).
+* **Baseline Tooling Installed & Verified:** `socat 1.8.1.1`, `aplay`,
+  `arecord`, `ffmpeg`, `tc`, `ip`, `ss`, `nc`, `curl`, `asciidoctor`.
+* **Live Physical LAN Peers Observed on `wlp3s0` (`192.168.1.0/24`):**
+  * `192.168.1.1` (Router): `3/3` ICMP, `min/avg/max = 5.23 / 8.92 / 13.11 ms`
+  * `192.168.1.99` (**Laptop #2:** `seanje-lenox-wise-Inspiron-5579.local`):
+    resolved live via mDNS (`ttl=64`), `3/3` ICMP (`0%` loss),
+    **`min/avg/max/mdev = 47.61 / 179.57 / 347.38 / 124.98 ms`** (proving real
+    Wi-Fi power-save spikes exceed 300 ms—so real-LAN timeouts must be
+    `>= 1500 ms`!).
+  * `192.168.1.117`: `3/3` ICMP, `min/avg/max = 8.48 / 50.40 / 97.09 ms`
+    (`mdev = 36.33 ms` — real Wi-Fi power-save jitter!)
+  * `192.168.1.196`: `2/3` ICMP (`33.3%` loss), `avg = 93.70 ms`
+  * `192.168.1.94`: ARP `REACHABLE`, ICMP `100%` filtered (real host firewall!)
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / EMPIRICAL BENCHMARK RESULTS (ALL 5 HARNESSES)
+// =============================================================================
+
+== Harness 1: Multi-Process OS Isolation Arena (`0` Bytes Shared RAM)
+
+Two genuinely separate OS processes (`--role=responder` and initiator) exchanged
+100 sovereign pings per medium through the Linux kernel socket stack:
+
+[cols="2,1,1,1,1,1,1,1", options="header"]
+|===
+| Medium | Sent/Recv | Loss | Min | p50 | p95 | p99 | Heap
+
+| **Rung 3 UDP** (Cross-Process)
+| `100/100`
+| `0.0%`
+| `33.9 us`
+| `51.0 us`
+| `137.5 us`
+| `220.7 us`
+| `0.85 MB`
+
+| **Rung 4 TCP** (Cross-Process)
+| `100/100`
+| `0.0%`
+| `241.6 us`
+| `404.5 us`
+| `715.9 us`
+| `974.4 us`
+| `1.28 MB`
+|===
+
+== Harness 2: Userspace Chaos Weather Proxy
+
+Two live `Dispatcher` nodes routed all UDP datagrams through an adversarial
+userspace impairment proxy across 5 weather regimes:
+
+[cols="2,1,1,2,2", options="header"]
+|===
+| Regime | Success | Avg RTT | Proxy Faults Injected | Observed Behavior
+
+| `CLEAR_SKY`
+| `30/30` (`100%`)
+| `0.15 ms`
+| `0` drop / `0` corrupt / `0` dup
+| Rock solid on `RUNG_3_LOCAL`.
+
+| `CONGESTED_LAN`
+| `22/30` (`73.3%`)
+| `15.47 ms`
+| `8` drop / `0` corrupt / `2` dup
+| Survived duplicates & jitter with 0 panic or state drift.
+
+| `STORM_CORRUPTION`
+| `11/30` (`36.7%`)
+| `21.00 ms`
+| `15` drop / `4` bit-flips / `2` dup
+| **`codecDecodeErrsCaught = 4` (100% of bit-flips caught by FNV-1a; 0 corrupt deliveries).**
+
+| `SILENT_BLACKHOLE`
+| `0/5` (`0.0%`)
+| `N/A`
+| `5` silent drops (`100%`)
+| **GAP EXPOSED:** `activeRung` stayed `RUNG_3_LOCAL` (see Gap #1 below).
+
+| `HARD_LINK_CUT`
+| `3/3` (`100%`)
+| `1.41 ms` total
+| Cut UDP -> Cut RAM
+| `UDP->RAM` failover in `254 us`; `RAM->AFSK` failover in `0.8 ms`; `0%` loss!
+|===
+
+== Harness 3: Rung 1 OS Kernel FIFO SLIP Serial Benchmark
+
+* **OS Kernel FIFO Ping (`50/50`, `0%` loss):** `avgRTT = 207.0 us`.
+* **Worst-Case 512B Floppy Sector Burst** (66% literal `0xC0 SLIPEND` /
+  `0xDB SLIPESC` stuffing across `200` frames = `96,000` payload bytes):
+  completed in `151.16 ms` = **`620.2 KB/s` (`5.08 Mbps`)** over Linux kernel
+  FIFOs (`0%` loss).
+* **Cable-Glitch Noise Resync:** Injected `10` corrupted bytes including an
+  illegal `SLIPESC 0x99` sequence -> next ping resynced automatically via RFC
+  1055 double-END framing in **`376.4 us`**.
+
+== Harness 4: Rung 1 Acoustic AFSK (1200/2400 Hz) & 1844 Morse Torture Lab
+
+* **Baseline Frame:** `60` wire bytes -> `8,192` PCM samples at `9,600 Hz`
+  (`0.85 s` air time). CPU cost: **Modulate `0.25 ms`**, **Demodulate `0.12 ms`**.
+* **Empirical Additive White Noise / SNR Breaking-Point Curve:**
+
+[cols="2,2,1", options="header"]
+|===
+| Noise Amplitude (`int16`) | Measured SNR (dB) | Decode Result
+
+| `+/- 0` | `+99.90 dB` | **PASS**
+| `+/- 2,000` | `+23.33 dB` | **PASS**
+| `+/- 5,000` | `+15.45 dB` | **PASS**
+| `+/- 10,000` | `+9.38 dB` | **PASS**
+| `+/- 15,000` | `+6.20 dB` | **PASS**
+| `+/- 20,000` | **`+3.93 dB`** | **PASS** (lowest clean floor!)
+| `+/- 25,000` | `+2.32 dB` | FAIL (empirical knee)
+| `+/- 30,000` | `+0.84 dB` | FAIL
+|===
+
+* **Volume Attenuation Invariance:** `100%`, `50%`, `25%`, `10%`, `5%`, **`1%`**
+  -> **100% PASS across the entire dynamic range!**
+* **Real `ffmpeg` Codec & Telephone Bandpass Torture:**
+  * `ffmpeg` **lossy MP3 32 kbps round-trip** (`8192 -> 8192` samples): **PASS**!
+  * `ffmpeg` **300–3400 Hz analog telephone bandpass filter**: **PASS**!
+* **Microphone Start-Offset (Leading Silence) Probe — GAP EXPOSED:**
+  * `0` samples (`0.00 ms`) -> **PASS**
+  * `5` samples (`0.52 ms`) -> **PASS**
+  * `16` samples (`1.67 ms`) -> **FAIL** (`AFSK sync preamble not detected`)
+  * `40 / 200 / 4,000` samples -> **FAIL** (see Gap #2 below).
+* **1844 ITU Morse CW Floor:** `60` wire bytes -> `671` Morse chars -> `1,967`
+  keying pulses -> **100% lossless round-trip**.
+
+== Harness 5: Live Well HTTP Portal Load & Airlock Stress
+
+* **Real TCP HTTP Endpoint (`12` concurrent workers, `6` OS User-Agents):**
+  `480` requests completed in `98.2 ms` = **`4,887 req/s`** (`0` network errors).
+* **Latency Percentiles:** `min = 188 us`, **`p50 = 2.14 ms`**,
+  `p95 = 5.23 ms`, `p99 = 7.06 ms`, `max = 8.65 ms`, Heap = **`1.58 MB`**.
+* **Genesis 3 Airlock Live Enforcement:** `240` clean GET/POST OK, `120`
+  captive portal `302` redirects OK, **`120/120` hostile attacks blocked (`0`
+  breaches)**, bounded 32-slot bulletin ring held steady at `32/32`.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / HONEST STRENGTHS VS. UNCOVERED GAPS
+// =============================================================================
+
+== Honest Engineering Synthesis: Strengths vs. Gaps
+
+=== Verified Strengths
+1. **Sub-millisecond cross-process overhead** (`51 us` UDP, `405 us` TCP) with
+   `~1 MB` total heap and `0 B/op` Layer 0/1 hot-path allocations.
+2. **100% integrity & security under live bombardment:** FNV-1a caught `4/4`
+   injected wire bit-flips and Genesis 3 Airlock blocked `120/120` live HTTP
+   attacks at `4,887 req/s` with `0` breaches.
+3. **Shockingly resilient Rung 1 AFSK tone math:** survives down to **`+3.93 dB`
+   SNR**, **1% volume**, **32 kbps lossy MP3**, and **300–3400 Hz analog
+   telephone filtering** in `0.12 ms` of CPU time.
+4. **Fast hard-cut failover:** `UDP -> RAM -> AFSK` cascades in `1.41 ms` total
+   with `0%` frame loss.
+
+=== Honest Gaps Exposed *Only* by Playtesting (Wave 8 Engineering Backlog)
+1. **Gap #1 — Passive Silent-Blackhole Detection (`orchestrator/ladder.go`):**
+   Under `REGIME 4 (SILENT_BLACKHOLE)`, UDP `Send()` returns `nil` while all
+   packets vanish silently, so `activeRung` never leaves `RUNG_3_LOCAL`.
+   *Fix for Wave 8:* Wire a heartbeat-watchdog counter into `Dispatcher` so `N`
+   consecutive missed Pongs mark the active rung degraded and trigger
+   `EVT_CASCADE_DOWN` automatically, with periodic probe retries for Rising Up.
+2. **Gap #2 — Sliding-Window Acoustic Preamble Sync (`transport/rung1_floor/audio.go`):**
+   `DemodulateAFSK` currently aligns strictly to sample index `0` and fails once
+   leading silence reaches `>= 16` samples (`1.67 ms`). Real microphone capture
+   between Laptop #1 and Laptop #2 always has arbitrary leading silence.
+   *Fix for Wave 8:* Add a sample-sliding energy-gate + preamble correlator
+   (`0xAA 0x55`) so `DemodulateAFSK` locks onto frames anywhere inside a raw
+   microphone recording!
+3. **Gap #3 — Zero-Config LAN Broadcast Discovery & Interactive Playtest REPL (`cmd/faithnet-node`):**
+   Real LAN recon found `seanje-lenox-wise-Inspiron-5579.local` (`192.168.1.99`),
+   plus real Wi-Fi jitter (`8.5–97 ms`) and firewall filtering. Adding live UDP
+   broadcast `OpBeacon` emission (`255.255.255.255:7777`) and an interactive
+   terminal mode (`peers`, `ping`, `say`, `cut`) will let Laptop #1 and Laptop
+   #2 auto-discover and converse live with zero manual IP wiring.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SESSION SIGN-OFF
+// =============================================================================
+
+== Session Sign-Off
+
+Session 001 confirmed that FaithNet's core substrate operates cleanly across
+real OS process, socket, FIFO, audio-codec, and HTTP boundaries—and fulfilled
+the highest purpose of playtesting by exposing three exact physical-world gaps
+invisible to unit tests.
+
+// End of tests/playtester/reports/SESSION_001_BASELINE.adoc

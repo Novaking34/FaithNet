@@ -1,0 +1,38 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+@project       FaithNet
+@file          tests/playtester/field_kits/03_copper_serial_rf_kit/CHECKLIST.adoc
+@id            playtest.field_kit.copper_serial_rf
+@layer         Layer 4: Proving Ground (Field Kit 03 — Copper Serial & RF VOX)
+@interface_rev Rev 5
+================================================================================
+////
+= Field Kit 03: Physical Copper Serial (USB-TTL) & Walkie-Talkie RF/VOX Kit
+:toc: macro
+
+== 1. Objective
+Verify FaithNet Rung 1 Civilizational Floor over physical copper wire (`SerialTransceiver`, RFC 1055 SLIP) and analog handheld radio VOX (`AudioTransceiver` 1200/2400 Hz AFSK / `MorseTransceiver` CW).
+
+== 2. Virtual PTY Pre-Test (Single Machine with `socat`)
+Before plugging in copper hardware, verify real Linux TTY line discipline via `socat`:
+[source,bash]
+----
+socat -d -d pty,raw,echo=0 pty,raw,echo=0
+# Prints two live kernel TTY paths, e.g. /dev/pts/4 and /dev/pts/5
+----
+
+== 3. Physical USB-TTL / Null-Modem Checklist
+* [ ] Cross-wire TX -> RX, RX -> TX, and GND -> GND between two USB-TTL adapters (`/dev/ttyUSB0` on Laptop #1 and `/dev/ttyUSB0` on Laptop #2).
+* [ ] Configure raw 8N1 serial mode on both hosts:
++
+[source,bash]
+----
+stty -F /dev/ttyUSB0 115200 raw -echo -echoe -echok
+----
+* [ ] Transmit 100 full 512-byte Floppy Sector frames; unplug GND/TX mid-burst for 2 seconds; reconnect and confirm RFC 1055 double-END resync delivers frame N+1 cleanly.
+
+== 4. Analog Handheld Radio (FRS/GMRS/Ham VOX) Checklist
+* [ ] Connect Laptop #1 headphone-out (via attenuation cable/isolation transformer) to Radio #1 mic-in (VOX enabled, low squelch).
+* [ ] Connect Radio #2 speaker-out to Laptop #2 line-in/mic-in.
+* [ ] Measure clean decode distance across walls / down the street ("Across the Street" relay test).

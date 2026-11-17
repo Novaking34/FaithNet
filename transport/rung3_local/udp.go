@@ -64,15 +64,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/CreativeWorkzStudio/FaithNet/data"
+	"github.com/CreativeWorkzStudio/FaithNet/transport"
 )
 
 // --- Tier 2: External Library Dependencies (None — 100% Go Stdlib Invariant) ---
 
 // --- Tier 3: Internal FaithNet Foundation Packages ---
-import (
-	"github.com/CreativeWorkzStudio/FaithNet/data"
-	"github.com/CreativeWorkzStudio/FaithNet/transport"
-)
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 2.1: Pre-Conditions & Poll Bounds
@@ -335,6 +334,8 @@ func (u *UDPTransceiver) Receive(ctx context.Context) (transport.WireEnvelope, e
 // @triggers
 //   - Block 4 Audits : (*UDPTransceiver).AuditState(), PreflightLocalUDP(),
 //                      AuditLocalUDP()
+//   - Layer 4 Tests  : tests/unit/transport/rung3_local_test.go,
+//                      tests/integrated/room_and_well_test.go
 //   - Layer 4 Tests  : tests/functional/transport_functional_test.go,
 //                      tests/unit/transport/udp_test.go,
 //                      tests/integrated/room_and_well_test.go,

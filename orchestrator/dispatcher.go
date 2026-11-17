@@ -66,18 +66,17 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-// --- Tier 2: External Library Dependencies (None — 100% Go Stdlib Invariant) ---
-
-// --- Tier 3: Internal FaithNet Foundation Packages ---
-import (
 	"github.com/CreativeWorkzStudio/FaithNet/data"
 	"github.com/CreativeWorkzStudio/FaithNet/engine"
 	"github.com/CreativeWorkzStudio/FaithNet/engine/covenant"
 	"github.com/CreativeWorkzStudio/FaithNet/transport"
 	"github.com/CreativeWorkzStudio/FaithNet/transport/rung2_host"
 )
+
+// --- Tier 2: External Library Dependencies (None — 100% Go Stdlib Invariant) ---
+
+// --- Tier 3: Internal FaithNet Foundation Packages ---
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 2.1: Pre-Conditions & Dispatcher Sentinel Errors

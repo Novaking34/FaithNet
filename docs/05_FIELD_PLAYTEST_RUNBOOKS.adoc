@@ -1,0 +1,141 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc
+@id            docs.series.05_field_runbooks
+@layer         Layer 5: Sovereign Documentation Series (Volume 05)
+@archetype     documentation | operator_field_runbooks
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Sovereign Adaptive Networking Substrate
+@role          Volume 05: Ready-to-Run Physical Field Playtest Runbooks
+@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+================================================================================
+////
+= Volume 05: Physical Field Playtest Runbooks
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / PURPOSE & SAFETY INVARIANT
+// =============================================================================
+
+toc::[]
+
+== Purpose
+
+This volume documents how to execute the four physical-world **Field Kits**
+staged inside `tests/playtester/field_kits/`—covering everything that requires
+two physical machines, room air, copper wires, or privileged kernel network
+namespaces.
+
+[IMPORTANT]
+====
+**Zero-Brick Safety Rule:** None of these runbooks modify permanent host
+networking, boot configuration, or firewall defaults on either Laptop #1
+(`professorseanex-Inspiron-16-5640`) or Laptop #2
+(`seanje-lenox-wise-Inspiron-5579`). All namespace tests use ephemeral isolated
+namespaces with automatic cleanup traps.
+====
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / THE FOUR STAGED FIELD KITS
+// =============================================================================
+
+== Field Kit 01: Two-Device Room & The Well (`192.168.1.217` <-> `192.168.1.99`)
+
+* **Kit Path:** `tests/playtester/field_kits/01_two_device_room_well/`
+* **Ready Now:** Both laptops are verified live on `wlp3s0` (`192.168.1.0/24`).
+* **Step 1 (Home Laptop #1 — `192.168.1.217`):**
++
+[source,bash]
+----
+./tests/playtester/field_kits/01_two_device_room_well/run_room_well_host.sh
+----
+* **Step 2 (Peer Laptop #2 — `seanje-lenox-wise-Inspiron-5579` or Phone):**
+  Open `http://192.168.1.217:8077/` in a browser, verify OS detection, submit a
+  clean bulletin (`202 Accepted`, `0:AWAIT`), submit `<script>alert(1)</script>`
+  (`403 Forbidden`), and toggle Wi-Fi off/on to test recovery.
+* **What to Log:** Real browser screenshots/notes, any `ufw`/firewall prompts,
+  and `/api/status` JSON output saved into `tests/playtester/reports/SESSION_002_*.adoc`.
+
+== Field Kit 02: Acoustic Air-Gap Playtest (Speaker -> Room Air -> Mic)
+
+* **Kit Path:** `tests/playtester/field_kits/02_acoustic_airgap_kit/`
+* **Prerequisites:** `aplay` and `arecord` (already verified installed).
+* **Note:** Session 001 revealed Gap #2 (sliding preamble sync for `>= 16`
+  samples leading silence). Use this kit both to *confirm* the offset behavior
+  in real room air and to *verify* the Wave 8 sliding-correlator upgrade!
+* **Execution:**
++
+[source,bash]
+----
+# Laptop #2 (start recording first):
+./tests/playtester/field_kits/02_acoustic_airgap_kit/rx_mic.sh 4
+
+# Laptop #1 (play modulated 1200/2400 Hz FaithNet AFSK WAV):
+./tests/playtester/field_kits/02_acoustic_airgap_kit/tx_speaker.sh "BLOCK-7-LIVE-AIRGAP"
+----
+
+== Field Kit 03: Copper Serial (`socat` PTY -> USB-TTL `/dev/ttyUSB0`) & RF VOX
+
+* **Kit Path:** `tests/playtester/field_kits/03_copper_serial_rf_kit/`
+* **Virtual PTY Pre-Test (`socat` is installed on Home Host):**
++
+[source,bash]
+----
+socat -d -d pty,raw,echo=0 pty,raw,echo=0
+----
+* **Physical Copper Test:** Wire two USB-TTL adapters TX<->RX + GND<->GND,
+  set `stty -F /dev/ttyUSB0 115200 raw -echo`, and verify RFC 1055 double-END
+  resync after physically pulling and re-seating the TX wire mid-burst.
+
+== Field Kit 04: Isolated Linux Kernel `ip netns` & `tc netem` Chaos
+
+* **Kit Path:** `tests/playtester/field_kits/04_kernel_chaos_netns/`
+* **Execution (Privileged, Isolated Ephemeral Namespaces `fn_a` <-> `fn_b`):**
++
+[source,bash]
+----
+./tests/playtester/field_kits/04_kernel_chaos_netns/run_netns_chaos.sh
+----
+* Injects real Linux kernel packet delay (`80ms +-20ms`), `20%` packet loss,
+  and `5%` corruption strictly between temporary veth namespaces without ever
+  touching host `wlp3s0`.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / PLAYTEST REPORTING TEMPLATE
+// =============================================================================
+
+== How to Log Future Field Sessions
+
+Copy `tests/playtester/reports/SESSION_001_BASELINE.adoc` to
+`SESSION_002_<TOPIC>.adoc` and record:
+
+1. **Exact hardware & OS** for every participating device.
+2. **Raw observed metrics** (RTT percentiles, SNR, distance, packet loss,
+   firewall behavior).
+3. **Honest Gaps Discovered** — every unexpected failure becomes a numbered
+   engineering item for the next FaithNet wave.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SERIES NAVIGATION
+// =============================================================================
+
+== Series Navigation
+
+* **Previous:** `docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc`
+* **Master Roadmap:** `docs/ROADMAP.adoc`
+* **Playtester Plan:** `tests/playtester/playtester_plan.adoc`
+
+// End of docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc

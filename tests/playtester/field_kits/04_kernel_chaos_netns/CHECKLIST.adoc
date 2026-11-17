@@ -1,0 +1,25 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+@project       FaithNet
+@file          tests/playtester/field_kits/04_kernel_chaos_netns/CHECKLIST.adoc
+@id            playtest.field_kit.kernel_chaos_netns
+@layer         Layer 4: Proving Ground (Field Kit 04 — Kernel netns + tc netem)
+@interface_rev Rev 5
+================================================================================
+////
+= Field Kit 04: Isolated Linux Kernel `ip netns` & `tc netem` Chaos Playtest
+:toc: macro
+
+== 1. Objective
+Subject FaithNet binaries to real Linux kernel packet scheduling impairments (latency, jitter, loss, duplication, corruption, and multi-hop isolated namespaces) without ever altering the host machine's primary Wi-Fi/Ethernet interfaces.
+
+== 2. Safety Invariant
+All `ip netns` links live inside ephemeral namespaces (`fn_a`, `fn_b`) with an automatic `trap cleanup EXIT`. The host's `wlp3s0` / routing table is never modified.
+
+== 3. Execution
+[source,bash]
+----
+chmod +x tests/playtester/field_kits/04_kernel_chaos_netns/run_netns_chaos.sh
+./tests/playtester/field_kits/04_kernel_chaos_netns/run_netns_chaos.sh
+----

@@ -1,0 +1,143 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/playtester_plan.adoc
+@id            playtest.plan.proving_ground
+@layer         Layer 4: Proving Ground (Playtester Methodology & Ledger Index)
+@archetype     documentation | playtester_methodology
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Playtester Proving Ground (First of Its Kind in OmniCode)
+@role          Bridge Between Lab Verification (4x4 Matrix) & Physical Reality
+@maturity      Rev 5 Baseline | Wave 7A Playtester Proving Ground
+================================================================================
+////
+= FaithNet Playtester Proving Ground: Methodology & Arena Map
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / WHY PLAYTESTING EXISTS BEYOND THE 4x4 MATRIX
+// =============================================================================
+
+toc::[]
+
+== Why `tests/playtester/` Exists
+
+In game development, unit and system tests prove that **the rules of physics do
+not crash the engine**. They cannot prove that you actually have a playable
+game. Networking obeys the same law:
+
+* **The 4x4 Verification Matrix (`functional/`, `unit/`, `integrated/`,
+  `system/`)** is *The Lab*. It verifies contracts, memory bounds
+  (`ALLOC_ZERO_HEAP`), race freedom (`-race`), and deterministic edge cases
+  across 329 automated tests.
+* **The Playtester (`tests/playtester/`)** is *The Field Lab*. It removes
+  in-process laboratory assumptions—splitting nodes into separate OS processes,
+  routing frames through hostile userspace network weather, crossing real Linux
+  kernel file descriptors and real 16-bit PCM `.wav` codecs, and staging
+  plug-and-play **Field Kits** for physical multi-device, acoustic air-gap,
+  copper serial, and kernel `tc netem` drills.
+
+[IMPORTANT]
+====
+**Honesty Rule:** A playtest is considered *successful* when it uncovers a real
+breaking point or blind spot that unit tests missed. Never hide a gap—log it
+empirically so the next engineering wave closes it permanently.
+====
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / PLAYTEST ARENA MAP (EXECUTABLE NOW VS. FIELD KITS)
+// =============================================================================
+
+== Playtestable Now (`harness/`)
+
+Five executable Go playtester harnesses run directly on the Home Host
+(`professorseanex-Inspiron-16-5640`, `linux/amd64`) with zero external Go
+dependencies:
+
+[cols="2,3,3", options="header"]
+|===
+| Harness | What It Exercises | Empirical Telemetry Captured
+
+| `harness/multiprocess_arena`
+| Spawns genuinely separate OS child processes (`0` bytes shared RAM) over real
+  kernel UDP (Rung 3) and TCP (Rung 4) sockets.
+| Cross-process `min/p50/p95/p99/max` RTT, loss %, Go heap MB.
+
+| `harness/chaos_weather_proxy`
+| Userspace UDP impairment proxy between two live nodes: Clear Sky, Congested
+  LAN, Storm Corruption, Silent Blackhole, and Active Link-Cut Cascade.
+| Loss/jitter survival, FNV-1a corruption catch rate, silent-blackhole behavior,
+  microsecond cascade timing.
+
+| `harness/pty_serial_bench`
+| Real Linux kernel named FIFOs (`syscall.Mkfifo`) driving Rung 1 RFC 1055 SLIP
+  with worst-case 512B escape payloads and deliberate cable-glitch injection.
+| Real OS stream throughput (KB/s & bps), RTT, and double-END resync latency.
+
+| `harness/audio_torture_bench`
+| Real 16-bit PCM RIFF/WAVE export/decode for Rung 1 AFSK (1200/2400 Hz) + 1844
+  Morse CW, additive noise SNR sweep, volume invariance, mic offset, and real
+  `ffmpeg` MP3 32kbps & 300-3400 Hz phone-line bandpass torture.
+| Exact SNR breaking point (dB), volume floor (%), mic start-offset sensitivity,
+  and codec resilience.
+
+| `harness/well_live_load`
+| Real TCP HTTP `WellServer` hammered concurrently by 12 workers across 6 OS
+  User-Agents mixing clean posts, captive probes, and XSS/SQLi/PHP/OOM attacks.
+| Live HTTP req/s, `p50/p95/p99` latency, heap MB, and Airlock breach count (`0`).
+|===
+
+== Staged Field Kits (`field_kits/`)
+
+Capabilities requiring a second physical device, physical copper/RF cables, or
+privileged `CAP_NET_ADMIN` are pre-built, scripted, and ready for immediate
+field execution:
+
+1. `field_kits/01_two_device_room_well/` — Live Wi-Fi Room & Well host launcher
+   for Home Host (`192.168.1.217`) + Peer Laptop #2
+   (`seanje-lenox-wise-Inspiron-5579.local`, `192.168.1.99`) or mobile phone.
+2. `field_kits/02_acoustic_airgap_kit/` — Live `aplay` speaker -> room air ->
+   `arecord` microphone WAV air-gap transmit/receive scripts.
+3. `field_kits/03_copper_serial_rf_kit/` — `socat` virtual PTY pre-test plus
+   USB-TTL `/dev/ttyUSB0` null-modem & handheld radio VOX runbook.
+4. `field_kits/04_kernel_chaos_netns/` — Isolated ephemeral `ip netns` (`fn_a`
+   <-> `fn_b`) + `tc netem` chaos script that never touches host `wlp3s0`.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / SESSION LEDGER INDEX
+// =============================================================================
+
+== Empirical Session Reports (`reports/`)
+
+* `reports/SESSION_001_BASELINE.adoc` — Wave 7A initial empirical baseline across
+  all 5 executable harnesses, real LAN peer discovery, exact SNR/offset breaking
+  points, and prioritized Wave 8 hardening backlog.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / PLAYTEST DISCIPLINE
+// =============================================================================
+
+== Re-Running the Full Local Playtest Battery
+
+[source,bash]
+----
+go run ./tests/playtester/harness/multiprocess_arena --count=100
+go run ./tests/playtester/harness/chaos_weather_proxy
+go run ./tests/playtester/harness/pty_serial_bench
+go run ./tests/playtester/harness/audio_torture_bench
+go run ./tests/playtester/harness/well_live_load
+----
+
+// End of tests/playtester/playtester_plan.adoc

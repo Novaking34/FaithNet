@@ -65,15 +65,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/CreativeWorkzStudio/FaithNet/data"
+	"github.com/CreativeWorkzStudio/FaithNet/transport"
 )
 
 // --- Tier 2: External Library Dependencies (None — 100% Go Stdlib Invariant) ---
 
 // --- Tier 3: Internal FaithNet Foundation Packages ---
-import (
-	"github.com/CreativeWorkzStudio/FaithNet/data"
-	"github.com/CreativeWorkzStudio/FaithNet/transport"
-)
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 2.1: Pre-Conditions & TCP Framing Limits

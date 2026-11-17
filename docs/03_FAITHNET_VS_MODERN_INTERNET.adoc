@@ -1,0 +1,143 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/03_FAITHNET_VS_MODERN_INTERNET.adoc
+@id            docs.series.03_faithnet_vs_internet
+@layer         Layer 5: Sovereign Documentation Series (Volume 03)
+@archetype     documentation | comparative_architecture
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Sovereign Adaptive Networking Substrate
+@role          Volume 03: FaithNet vs. Modern Commercial Internet Architecture
+@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+================================================================================
+////
+= Volume 03: FaithNet vs. Modern Commercial Internet Design
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / WHY COMPARE FIRST PRINCIPLES AGAINST TODAY'S STACK
+// =============================================================================
+
+toc::[]
+
+== Compatibility Without Dependency
+
+FaithNet was not built to pretend the modern internet does not exist. It was
+built to end the silent assumption that **communication requires commercial
+infrastructure to survive**.
+
+Modern internet architecture grew over 50 years by layering specialized
+protocols—Ethernet, ARP, IPv4/IPv6, DHCP, DNS, BGP, TCP/QUIC, TLS, HTTP/3,
+JSON/GraphQL, and cloud CDNs—assuming abundant bandwidth, always-on power,
+trusted institutional registries, and central servers. That stack excels at
+global streaming and cloud commerce, **but collapses catastrophically at the
+local room and neighborhood edge whenever upstream power, fiber, or DNS breaks.**
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / SIDE-BY-SIDE ARCHITECTURAL MATRIX
+// =============================================================================
+
+== Direct Architectural Comparison
+
+[cols="2,3,3", options="header"]
+|===
+| Dimension | Modern Commercial Internet Stack | FaithNet Substrate
+
+| **Node Identity**
+| Ephemeral ISP-leased IPv4/IPv6 addresses + centralized ICANN/DNS + paid TLS
+  Certificate Authorities. Lose DHCP/DNS and local apps stall.
+| Sovereign 64-bit `NodeID` (`data/types.go`). Location-independent,
+  DHCP/DNS-free, works identically across RAM, LAN UDP, copper serial, or Morse.
+
+| **Packet Framing & MTU**
+| Variable multi-layer encapsulation (Ethernet 1500B + IP 20–40B + TCP 20B +
+  TLS records + HTTP headers + JSON). Heavy heap parsing.
+| **512-Byte Floppy Sector Invariant** (`32B` fixed header + `<= 480B` inline
+  payload). Bit-exact across all 4 rungs; **`0 B/op, 0 allocs/op`** codec.
+
+| **Failure & Degradation Model**
+| Binary connectivity: if Wi-Fi/TCP/ISP drops, sockets return errors and apps
+  display "No Internet Connection."
+| **Bidirectional 4-Rung Adaptive Ladder (`[5][4]` multi-sibling chassis):**
+  Rises Up when rich links appear; executes `EVT_CASCADE_DOWN` across sibling
+  and lower rungs (`TCP -> UDP -> RAM/IPC -> SLIP -> AFSK -> Morse`).
+
+| **Trust & Security Model**
+| Binary perimeter (allowed or blocked), with browsers routinely executing
+  untrusted remote JS/HTML directly on user machines.
+| **Genesis 3 Airlock ($\mathbb{T}_4$):** Sovereign traffic (`+1`), clean
+  external empirical data quarantined strictly as `0:AWAIT`, hostile payloads
+  halted (`-1` / `NULL`). Zero third-party scripts ever served by The Well.
+
+| **Multi-OS Onboarding**
+| Requires app stores, accounts, cloud login, and internet downloads before two
+  people in the same room can exchange messages.
+| **The Well (`interpreter/captive_web.go`):** Zero-install offline HTML
+  portal adapting cleanly to Windows, macOS, Linux, Android, iOS, and `curl`.
+
+| **Runtime & Dependency Footprint**
+| Multi-gigabyte runtimes, `node_modules` / `pip` / container layers tied to
+  online package registries.
+| **Single native compiled Go binary**, `0` external dependencies, `~1 MB` live
+  RAM footprint—part of OmniCode's compiled **C / Rust / Go** trinity.
+|===
+
+== Why the Compiled Trinity (C, Rust, Go) Matters Here
+
+Modern web culture favors interpreted/dynamic runtimes (JavaScript/TypeScript,
+Python) because they defer type, memory, and edge-case checks to runtime,
+making Hour 1 feel fast when backed by cloud restarts.
+
+For sovereign infrastructure and game engines alike, runtime-only error
+discovery is a fatal liability:
+
+* An **emergency fallback path** (such as Rung 1 Morse CW or an Airlock edge
+  case) may never execute during sunny-day operation. In a dynamic runtime, a
+  typo or type mismatch can sleep silently in that branch until the exact
+  blackout night it is needed.
+* Compiled native code (**C** for silicon/kernel, **Rust** for zero-cost
+  structural tooling, **Go** for single-binary concurrent networking) forces
+  every wire offset, error path, memory bound, and concurrency race to be
+  settled *before* deployment—leaving **playtesting** free to expose real
+  physical-world emergence instead of debugging typos in the dark.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / BRIDGING STRATEGY
+// =============================================================================
+
+== How FaithNet Speaks to the Modern World Safely
+
+FaithNet bridges to existing OSes and the commercial web through **two tightly
+guarded airlocks**—ensuring *compatibility without dependency*:
+
+1. **Inbound Human/OS Bridge (`interpreter/` — "The Well"):** Existing phones
+   and laptops talk plain HTTP over local Wi-Fi to The Well. Every message is
+   screened by `covenant.Filter` and wrapped as `OpLegacyWrap` (`0:AWAIT`).
+2. **Outbound Empirical Bridge (`transport/rung4_global/egress.go`):** Disabled
+   by default (`AllowGlobalEgress = false`). When an operator explicitly opts
+   in, remote web responses are bounded strictly to `481` bytes via
+   `io.LimitReader` (preventing OOM DoS), screened through the Genesis 3
+   Airlock, and quarantined as `0:AWAIT`.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SERIES NAVIGATION
+// =============================================================================
+
+== Series Navigation
+
+* **Previous:** `docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc`
+* **Next:** `docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc`
+
+// End of docs/03_FAITHNET_VS_MODERN_INTERNET.adoc

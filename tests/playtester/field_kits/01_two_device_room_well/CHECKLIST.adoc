@@ -1,0 +1,33 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+@project       FaithNet
+@file          tests/playtester/field_kits/01_two_device_room_well/CHECKLIST.adoc
+@id            playtest.field_kit.two_device_room_well
+@layer         Layer 4: Proving Ground (Field Kit 01 — Two-Device LAN Room)
+@interface_rev Rev 5
+================================================================================
+////
+= Field Kit 01: Two-Device Room & The Well Playtest Checklist
+:toc: macro
+
+== 1. Objective
+Verify real physical Wi-Fi/LAN communication between **Home Host (Laptop #1: `professorseanex-Inspiron-16-5640`, `192.168.1.217`)** and **Peer Device (Laptop #2: `seanje-lenox-wise-Inspiron-5579.local`, `192.168.1.99`, or mobile phone)** across real NICs, switches, routers, and OS firewalls—with zero app installation on the visitor device.
+
+NOTE: Baseline Session 001 live ICMP probe to `seanje-lenox-wise-Inspiron-5579.local` (`192.168.1.99`) succeeded `3/3 (0% loss)` with `min/avg/max = 47.6 / 179.6 / 347.4 ms` (`mdev = 125 ms`), confirming active Wi-Fi reachability and illustrating real-world wireless power-save jitter.
+
+== 2. Launch Procedure (Laptop #1 — Home Anchor)
+[source,bash]
+----
+chmod +x tests/playtester/field_kits/01_two_device_room_well/run_room_well_host.sh
+./tests/playtester/field_kits/01_two_device_room_well/run_room_well_host.sh
+----
+
+== 3. Live Playtest Checks (From Laptop #2 or Phone)
+* [ ] **Reachability:** Open `http://<HOST_IP>:8077/` in a real browser. Confirm zero external CDN requests (DevTools Network tab shows 100% local origin).
+* [ ] **OS Detection:** Confirm the page detects Laptop #2 / Phone OS accurately (`Windows`, `macOS`, `Linux`, `Android`, or `iOS`).
+* [ ] **Clean Bulletin (`0:AWAIT`):** Submit a plain text message; confirm HTTP `202 Accepted` and visible `0:AWAIT` quarantine badge on refresh.
+* [ ] **Genesis 3 Airlock Live Defense:** Submit `<script>alert(1)</script>` and `1 UNION SELECT password FROM users`; confirm HTTP `403 Forbidden` and incremented `airlock_blocked` counter in `/api/status`.
+* [ ] **Captive Portal Redirect:** Visit `http://<HOST_IP>:8077/generate_204`; confirm HTTP `302 Found` redirect to `/`.
+* [ ] **Firewall Observation:** Record whether `ufw` / Windows Defender / macOS Firewall blocked TCP `8077` or UDP `7777` and exact rule needed.
+* [ ] **Physical Link Cut:** Toggle Wi-Fi off on Laptop #2 for 5 seconds, toggle back on, and verify clean reconnection without restarting Laptop #1.

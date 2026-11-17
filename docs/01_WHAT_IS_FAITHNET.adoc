@@ -1,0 +1,196 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/01_WHAT_IS_FAITHNET.adoc
+@id            docs.series.01_what_is_faithnet
+@layer         Layer 5: Sovereign Documentation Series (Volume 01)
+@archetype     documentation | conceptual_foundation
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Sovereign Adaptive Networking Substrate
+@role          Volume 01: Philosophy, First Principles, CPI-SI & The 5 Cogs
+@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+================================================================================
+////
+= Volume 01: What Is FaithNet?
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / EXECUTIVE THESIS & FOUNDING QUESTION
+// =============================================================================
+
+toc::[]
+
+== The Founding Premise
+
+**FaithNet** is a sovereign, offline-first, data-driven adaptive networking
+substrate built in pure Go (100% standard library, zero external dependencies)
+for the **OmniCode** framework and **MillenniumOS**.
+
+It begins with a question that sounds strange only until the power or ISP goes
+out:
+
+[quote]
+____
+*What is the oldest technology a modern network can still speak—so that even
+when commercial infrastructure vanishes, our block is still able to pass local
+news?*
+____
+
+Most modern software treats "networking" as renting permission from a fragile
+chain of third-party gatekeepers: an ISP, DHCP lease, recursive DNS resolver,
+BGP transit provider, TLS Certificate Authority, and cloud API server. If *any*
+link in that chain breaks—or refuses service—two laptops sitting three feet
+apart in the same room suddenly cannot exchange a single sentence.
+
+FaithNet rejects that dependency from first principles. For **Covenant
+Partnered Intelligence - Structured Intelligence (CPI-SI)** and
+**MillenniumOS**, sending a packet is not an HTTP request to a rented server:
+**it is one sovereign body speaking directly to another sovereign body.**
+
+== The Core Design Principles
+
+1. **First-Principles Decomposition (The 5 Irreducible Cogs):** Instead of one
+   monolithic network stack where every edit becomes a global risk assessment,
+   FaithNet isolates networking into five portable, self-contained cogs.
+2. **Adaptive Body Sovereignty (Rising Up & Defensive Cascade):** Mirroring
+   MillenniumOS Track 0 boot progression (`Legacy BIOS` <-> `Stage 2` <->
+   `Multiboot` <-> `UEFI`), FaithNet probes whatever physical host it wakes up
+   on. It **Rises Up** to use the fastest available hardware and **Cascades
+   Down (`EVT_CASCADE_DOWN`)** gracefully as links fail—all the way down to
+   copper serial, analog audio chirps, and 1844 Morse code pulses.
+3. **Compatibility Without Dependency:** FaithNet speaks to Windows, macOS,
+   Linux, Android, iOS, and the legacy web—*without ever depending on them to
+   exist.* Any visitor phone in a room can open **The Well** (a zero-install
+   local HTML portal) while FaithNet's core remains 100% sovereign and offline.
+4. **Constraint Is Not Limitation:** A strict **512-byte Floppy Sector
+   Invariant** (`32B` header + `480B` max payload), zero external dependencies,
+   and `ALLOC_ZERO_HEAP` hot paths guarantee that the exact same binary envelope
+   survives on bare-metal serial links, walkie-talkies, and modern gigabit LANs.
+5. **The Compiled Trinity Discipline (C, Rust, Go):** Rooted in game-engine
+   engineering, OmniCode builds load-bearing systems in compiled native
+   languages so structural, type, memory, and concurrency failures are caught
+   *before* a binary ever ships—never hidden inside a dynamic runtime waiting
+   to explode on an emergency fallback branch at 2 AM.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / THE 5 IRREDUCIBLE COGS & 4-RUNG SURVIVAL LADDER
+// =============================================================================
+
+== The 5 Irreducible Cogs of Communication
+
+Every FaithNet node—whether on a bare-metal microcontroller or a 12-core Linux
+workstation—is built from the exact same five cogs:
+
+[cols="1,2,3,2", options="header"]
+|===
+| Cog | Name | First-Principles Purpose | Source Anchor
+
+| **Cog 1**
+| Sovereign Identity
+| 64-bit `NodeID` independent of IP, DHCP, DNS, or MAC registries (`0x0` null,
+  `0xFFFF...` broadcast).
+| `data/types.go`
+
+| **Cog 2**
+| Canonical Envelope & Codec
+| 32-byte fixed header (`0xFA17`) + `<= 480B` inline payload (`<= 512B` total),
+  sealed with zero-heap FNV-1a 32-bit integrity checks.
+| `data/frame.go`, `engine/codec.go`
+
+| **Cog 3**
+| Polymorphic Transceiver
+| Universal `Send` / `Receive(ctx)` / `Healthy` / `Close` wall-plug abstracting
+  RAM, IPC, UDP, TCP, SLIP serial, AFSK audio, and Morse CW.
+| `transport/transceiver.go`
+
+| **Cog 4**
+| Offline Monotonic Clock
+| NTP-free hardware stopwatch (`MonotonicClock`) paired with an atomic
+  `MockClock` for zero-flake deterministic testing.
+| `engine/clock.go`
+
+| **Cog 5**
+| Heartbeat & Echo Engine
+| Fixed 64-slot `PingEngine` ring + zero-alloc `ReflectPingInto` mirror
+  measuring exact min/avg/max RTT and packet loss.
+| `engine/ping.go`
+|===
+
+== The 4-Rung Adaptive Survival Ladder
+
+[cols="1,2,3,2", options="header"]
+|===
+| Rung | Layer Name | Physical / Virtual Mediums | Civilizational Role
+
+| **Rung 1**
+| Civilizational Floor
+| RFC 1055 SLIP Serial (`serial.go`), 1200/2400 Hz AFSK Audio Modem + Goertzel
+  DFT (`audio.go`), 1844 ITU Morse CW Pulses (`morse.go`).
+| Works over copper wire, dial-up tones, analog handheld radios, or bare keying
+  pulses when IP/Wi-Fi/ISPs are gone.
+
+| **Rung 2**
+| Host Substrate
+| Zero-NIC In-Memory Bus (`memory.go`) and Local Unix Domain Datagrams
+  (`ipc.go`).
+| Zero-hardware host IPC and deterministic loopback proof.
+
+| **Rung 3**
+| The Room & The Well
+| Auto-learning LAN UDP (`udp.go`), Wi-Fi Room Beacon Switch (`beacon.go`), and
+  zero-install HTML Captive Portal (`interpreter/captive_web.go`).
+| Immediate neighborhood & room collaboration for Windows, Mac, Linux, iOS, and
+  Android with zero internet required.
+
+| **Rung 4**
+| Global Compatibility
+| Length-prefixed TCP streams (`tcp.go`) and opt-in Airlock-gated HTTP
+  `EgressGateway` (`egress.go`).
+| Optional federation and vetted factual fetches from the commercial internet
+  (disabled by default; strictly quarantined as `0:AWAIT`).
+|===
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / COVENANT GOVERNANCE
+// =============================================================================
+
+== Truth Space & The Genesis 3 Airlock
+
+Every FaithNet frame carries a **Balanced Ternary Quad-State** verdict
+(`data.QuadState`, $\mathbb{T}_4$):
+
+* **`+1` (`QuadPositive` / `ALIGNED`):** Verified sovereign FaithNet peer
+  traffic.
+* **`0` (`QuadAwait` / `QUARANTINE`):** Clean empirical external data (from
+  The Well or opt-in Rung 4 Egress). Allowed for human review, *never* silently
+  elevated into sovereign core truth.
+* **`-1` (`QuadNegative` / `REJECT`):** Hostile payload (XSS, SQLi, PHP tags,
+  null-byte smuggling, >480B overflow, or forged `FlagCovenantVerified`) halted
+  immediately at the Airlock door.
+* **`NULL` (`QuadNull` / `HALT`):** Structurally malformed or uninitialized
+  frames stopped before parsing.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SERIES NAVIGATION
+// =============================================================================
+
+== Series Navigation
+
+* **Next:** `docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc` (Layer-by-layer
+  code walkthrough, wire format, `[5][4]` multi-sibling ladder & Block 4
+  standard).
+* **Master Plan:** `docs/ROADMAP.adoc`.
+
+// End of docs/01_WHAT_IS_FAITHNET.adoc

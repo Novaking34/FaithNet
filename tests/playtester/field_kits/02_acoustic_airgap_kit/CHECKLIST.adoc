@@ -1,0 +1,39 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+@project       FaithNet
+@file          tests/playtester/field_kits/02_acoustic_airgap_kit/CHECKLIST.adoc
+@id            playtest.field_kit.acoustic_airgap
+@layer         Layer 4: Proving Ground (Field Kit 02 — Acoustic Speaker-to-Mic)
+@interface_rev Rev 5
+================================================================================
+////
+= Field Kit 02: Acoustic Air-Gap Speaker-to-Microphone Playtest
+:toc: macro
+
+== 1. Objective
+Transmit a genuine 512-byte-invariant FaithNet Rung 1 AFSK (1200/2400 Hz) frame across **physical air** from Laptop #1's speakers to Laptop #2's microphone (or loopback cable) with Wi-Fi and Ethernet completely disabled.
+
+== 2. Hardware & Setup
+* Laptop #1 speaker volume at ~60% (avoid clipping distortion).
+* Laptop #2 microphone positioned 0.3m - 1.0m away in a normal room.
+* Both devices in Airplane Mode to prove 100% physical air-gap transmission.
+
+== 3. Execution
+1. On **Laptop #2 (Receiver)** start capture first:
++
+[source,bash]
+----
+./tests/playtester/field_kits/02_acoustic_airgap_kit/rx_mic.sh 4
+----
+2. Immediately on **Laptop #1 (Transmitter)** play the chirp:
++
+[source,bash]
+----
+./tests/playtester/field_kits/02_acoustic_airgap_kit/tx_speaker.sh "HELLO-ACROSS-AIR"
+----
+
+== 4. What to Observe & Log
+* Compare direct `.wav` decode vs. live room-air capture.
+* Note exact impact of leading recording silence / sample alignment (see `SESSION_001_BASELINE.adoc` empirical finding on preamble synchronization!).
+* Record room distance, ambient noise, and whether preamble sync upgrade is required for asynchronous mic capture.

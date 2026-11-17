@@ -16,7 +16,7 @@ BLOCK 1: METADATA BLOCK
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
 @system        FaithNet Sovereign Adaptive Networking Substrate
 @role          Root Orientation, Architectural Specification & Verification Index
-@maturity      Rev 5 Baseline | Wave 6 Complete (4x4 Symmetry & 1:1 Pairing)
+@maturity      Rev 5 Baseline | Wave 7 Complete (Playtester & Docs Series)
 @chassis       zero-external-deps | Pure Go 1.26.8 Standard Library Substrate
 @scale         O(1) orientation across 5 layers, 4 adaptive rungs & 4 test tiers
 @seams         in: docs/ROADMAP.adoc | exports: operator & engineer entrypoint
@@ -58,9 +58,9 @@ PURPOSE & ARCHITECTURAL ROLE:
 | **Frame Invariant** | 32-Byte Fixed Header + 480-Byte Floor MTU = **512-Byte Floppy Sector Invariant** |
 | **Memory Discipline** | `ALLOC_ZERO_HEAP` (0.00 allocs/op) on Layer 0/1 wire & heartbeat hot paths |
 | **Adaptive Resilience** | 4-Rung Bidirectional Ladder (`Rung 1 Floor` $\leftrightarrow$ `Rung 4 Global`) |
-| **Verification Matrix** | **4x4 Macro-Micro Suite** (`functional/`, `unit/`, `integrated/`, `system/` $\times$ 4 Micro Sections) |
-| **Current Milestone** | **Wave 6 Complete** (All 4 Rungs, Multi-Sibling Ladder, 28:28 1:1 Unit Matrix, 46 Test Files) |
-| **Canonical Roadmap** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc) |
+| **Verification Matrix** | **4x4 Lab Matrix** (46 test files, 329 tests) + **`tests/playtester/`** (5 live harnesses, 4 field kits) |
+| **Current Milestone** | **Wave 7 Complete** (Playtester Proving Ground, Session 001 Telemetry & 5-Volume `.adoc` Series) |
+| **Documentation Series** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc) & [`docs/01..05`](docs/01_WHAT_IS_FAITHNET.adoc) |
 
 ---
 
@@ -152,13 +152,20 @@ FaithNet/
 ├── cmd/                        # Layer 4: Thin Imperative CLI Entrypoints
 │   ├── faithnet-ping/          #   Standalone offline 5-Cog ping & --audit (9 gates) CLI
 │   └── faithnet-node/          #   Full orchestrated node, --audit (22 gates) & The Well CLI
-├── docs/ROADMAP.adoc           # Canonical 5-Block AsciiDoc Architecture & Wave Plan
-└── tests/                      # Layer 4: 4x4 Macro-Micro Verification Matrix (47 files)
+├── docs/                       # Layer 5: Canonical Roadmap & 5-Volume AsciiDoc Series
+│   ├── ROADMAP.adoc            #   Master 5-Block Architecture & Wave Plan
+│   ├── 01_WHAT_IS_FAITHNET.adoc                # Vol 01: Philosophy, CPI-SI & The 5 Cogs
+│   ├── 02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc # Vol 02: Layer-by-Layer Code & 5-Block Guide
+│   ├── 03_FAITHNET_VS_MODERN_INTERNET.adoc     # Vol 03: Comparison vs Commercial Internet Stack
+│   ├── 04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc # Vol 04: Empirical Benchmarks & Honest Gaps
+│   └── 05_FIELD_PLAYTEST_RUNBOOKS.adoc         # Vol 05: Physical Field Playtest Runbooks
+└── tests/                      # Layer 4: 4x4 Lab Matrix + Playtester Proving Ground
     ├── common/fixtures.go      #   Shared identities, forensic AuditResult asserts & anchors
     ├── functional/             #   Tier 1: 7 per-subsystem public API suites + benchmarks
     ├── unit/                   #   Tier 2: 28 strict 1:1 per-cog unit suites (all 28 prod files)
     ├── integrated/             #   Tier 3: 6 cross-subsystem multi-combination suites
-    └── system/                 #   Tier 4: 5 full-stack E2E, blackout, hostility, CLI & stress suites
+    ├── system/                 #   Tier 4: 5 full-stack E2E, blackout, hostility, CLI & stress suites
+    └── playtester/             #   Proving Ground: 5 live OS/chaos/audio harnesses, 4 field kits & reports
 ```
 
 ### Universal 5-Block Lifecycle Protocol (Rev 5) & Go Block 4 Standard
@@ -209,11 +216,28 @@ go run ./cmd/faithnet-ping --mode=ipc --count=4
 go run ./cmd/faithnet-node --probe-only --beacon --well
 ```
 
-### Verified Baseline Telemetry (Wave 6 Complete)
+### Verified Baseline Telemetry & Reality Matrix (Wave 7 Complete)
 
 * **External Dependencies:** `0` (`go list -m all` reports only `github.com/CreativeWorkzStudio/FaithNet`).
-* **Wire Codec Throughput:** `BenchmarkEncodeInto` $\approx 29\text{ ns/op}$ (`0 B/op, 0 allocs/op`), `BenchmarkDecodeFrom` $\approx 25\text{ ns/op}$ (`0 B/op, 0 allocs/op`).
-* **Full 4x4 Verification Matrix:** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 per-cog unit, `6` multi-combination integrated, `5` full-stack system) + `1` shared forensic harness (`tests/common/fixtures.go`) = **47 files under `tests/`**, exercising **22 live Block 4 pre-flight gates**, multi-sibling `[5][4]` AdaptiveLadder failover, civilizational blackout relay across SLIP/AFSK/Morse, concurrent Genesis 3 Airlock hostility storms, compiled standalone CLI binaries, and 10,000-frame zero-drop stress bursts under `go test -race`.
+* **Wire Codec Throughput:** `BenchmarkEncodeInto` `50.89 ns/op` (`0 B/op, 0 allocs/op`), `BenchmarkDecodeFrom` `86.72 ns/op` (`0 B/op, 0 allocs/op`).
+* **4x4 Lab Matrix (`tests/{functional,unit,integrated,system}`):** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 unit, `6` integrated, `5` system) + `1` shared harness = **329 verified `Test*` functions** (`go test -count=1 -race ./tests/...` PASS) + **22/22 live Block 4 pre-flight gates**.
+* **Playtester Proving Ground (`tests/playtester/reports/SESSION_001_BASELINE.adoc`):**
+
+| Capability | Lab Verified (4x4) | Live Playtested (Real OS/Audio/HTTP) | Staged Field Kit / Honest Gap |
+| :--- | :--- | :--- | :--- |
+| **Cross-Process UDP / TCP** | PASS (`-race`) | **PASS:** UDP `p50=51.0 us` (`0.85 MB`), TCP `p50=404.5 us` (`1.28 MB`), `0%` loss | LAN Peer #2 (`192.168.1.99`) pinged live (`47.6..347.4 ms`); Field Kit 01 ready |
+| **Chaos Weather & Cascade** | PASS (`-race`) | **PASS:** `4/4` bit-flips caught; `UDP->RAM->AFSK` hard-cut in `1.41 ms` (`0%` loss) | **Gap #1 (Wave 8):** Silent UDP blackhole needs heartbeat-driven passive cascade |
+| **Rung 1 SLIP Serial** | PASS (`-race`) | **PASS:** Real kernel FIFO `620.2 KB/s` (worst-case 512B), glitch resync `376 us` | Field Kit 03 (`socat` installed + `/dev/ttyUSB0` copper checklist) |
+| **Rung 1 AFSK & Morse** | PASS (`-race`) | **PASS:** Survives `+3.93 dB` SNR, `1%` vol, `ffmpeg` 32k MP3 & phone bandpass | **Gap #2 (Wave 8):** Sliding preamble sync for `>=16`-sample mic offset (Field Kit 02) |
+| **The Well & Airlock** | PASS (`-race`) | **PASS:** `4,887 req/s`, `p50=2.14 ms`, `120/120` attacks blocked (`0` breaches) | Field Kit 01 ready for live phone/Laptop #2 browser verification |
+
+### Documentation Series (`docs/`)
+
+1. [`docs/01_WHAT_IS_FAITHNET.adoc`](docs/01_WHAT_IS_FAITHNET.adoc) — Philosophy, first principles, CPI-SI communication & the 5 Irreducible Cogs.
+2. [`docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc`](docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc) — Layer-by-layer code walkthrough, wire format, `[5][4]` ladder & Rev 5 5-Block standard.
+3. [`docs/03_FAITHNET_VS_MODERN_INTERNET.adoc`](docs/03_FAITHNET_VS_MODERN_INTERNET.adoc) — Direct architectural comparison vs. the commercial internet & why the compiled C/Rust/Go trinity matters.
+4. [`docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc`](docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc) — Consolidated empirical benchmarks & honest gaps exposed by Playtest Session 001.
+5. [`docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc`](docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc) — Ready-to-execute operator runbooks for all 4 staged physical Field Kits.
 
 ---
 

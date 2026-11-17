@@ -1,0 +1,202 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc
+@id            docs.series.02_architecture_code
+@layer         Layer 5: Sovereign Documentation Series (Volume 02)
+@archetype     documentation | technical_architecture
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Sovereign Adaptive Networking Substrate
+@role          Volume 02: Layer-by-Layer Code Walkthrough & 5-Block Standard
+@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+================================================================================
+////
+= Volume 02: Architecture & Codebase Walkthrough
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / DOWNWARD DEPENDENCY LAW & LAYERED MAP
+// =============================================================================
+
+toc::[]
+
+== The Downward Dependency Law
+
+FaithNet enforces a strict acyclic layer hierarchy across all **28 production
+Go files**: imports flow strictly downward (`Layer 4 -> 3 -> 2 -> 1 -> 0`).
+
+* **Layer 0 (`data/`)** imports *only* `fmt`.
+* **Layer 1 (`engine/`, `engine/covenant/`)** imports *zero* `net` and *zero*
+  `os` packages (`encoding/binary`, `bytes`, `errors`, `fmt`, `sync`,
+  `sync/atomic`, `time`, and `data`).
+* **External Third-Party Dependencies:** **`0`** (`go list -m all` contains
+  only `github.com/CreativeWorkzStudio/FaithNet`).
+
+[source,text]
+----
+Layer 4 (CLIs & Verification)  cmd/faithnet-ping, cmd/faithnet-node, tests/
+       │
+       ▼
+Layer 3B (Human/OS Bridge)     interpreter/ (translator, captive_web, legacy_bridge)
+Layer 3A (Physical/Virt Wire)  transport/   (transceiver + rung1..rung4)
+       │
+       ▼
+Layer 2 (Orchestrator Brain)   orchestrator/ (probe, ladder, dispatcher)
+       │
+       ▼
+Layer 1 (Pure State Machines)  engine/ (codec, clock, ping, router, covenant/filter)
+       │
+       ▼
+Layer 0 (Pure Vocabulary)      data/ (types, opcodes, frame, profile, audit)
+----
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / LAYER-BY-LAYER CODE WALKTHROUGH
+// =============================================================================
+
+== Layer 0: Pure Invariant Vocabulary (`data/` — 5 `pure_types` Files)
+
+* `data/types.go`: Defines `NodeID`, `RungLevel` (`Rung1Floor..Rung4Global`
+  with saturating `StepUp()` / `StepDown()`), and `QuadState` ($\mathbb{T}_4$).
+* `data/opcodes.go`: Pins canonical wire verbs (`OpPing=0x01`, `OpPong=0x02`,
+  `OpBeacon=0x03`, `OpCPISync=0x04`, `OpData=0x05`, `OpLegacyWrap=0x06`,
+  `OpCascadeDown=0x07`, `OpCascadeUp=0x08`) and orthogonal `FrameFlags`.
+* `data/frame.go`: Defines the **512-byte Floppy Sector Invariant** (`32B`
+  fixed header + `[480]byte` inline zero-heap payload):
+
+[source,text]
+----
+Offset   Size   Field         Wire Encoding
+[0..1]   2 B    Magic         0xFA, 0x17
+[2]      1 B    Ver | Rung    High nibble = Version (1), Low nibble = Rung (1..4)
+[3]      1 B    Opcode        Canonical verb (0x01..0x08)
+[4]      1 B    Flags         CovenantVerified | ExternalOrigin | LegacyTranslated | FloorCompact
+[5]      1 B    QuadState     0=NULL, 1=-1:REJECT, 2=0:AWAIT, 3=+1:ALIGNED
+[6..7]   2 B    PayloadLen    Big-endian uint16 (0..480)
+[8..15]  8 B    SourceID      Big-endian uint64
+[16..23] 8 B    TargetID      Big-endian uint64
+[24..27] 4 B    SeqID         Big-endian uint32
+[28..31] 4 B    Checksum      Big-endian uint32 FNV-1a over header[0..27] + payload
+[32..N]  <=480B Payload       Inline fixed byte array (total wire <= 512 bytes)
+----
+
+* `data/profile.go`: Defines `HardwareProfile` (`HighestViableRung()`),
+  `NodeManifest` (`AllowGlobalEgress: false` offline-first default),
+  `LinkHealth`, and `CascadeEvent`.
+* `data/audit.go`: Defines FaithNet's structured Go Block 4 contract verdict:
+  `AuditSeverity` (`PASS`, `WARN`, `CRITICAL`, `FATAL`) and `AuditResult`.
+
+== Layer 1: Pure Functional State Machines (`engine/` — 5 Operational Files)
+
+All Layer 1 hot paths uphold **`ALLOC_ZERO_HEAP`** (`0 B/op, 0 allocs/op`
+verified by both `BenchmarkEncodeInto`/`BenchmarkDecodeFrom` and
+`testing.AllocsPerRun`):
+
+* `engine/codec.go`: Stack-pure `EncodeInto(dst, f)` and `DecodeFrom(raw, dst)`
+  with non-mutating out-parameter guarantee on checksum failure.
+* `engine/clock.go`: NTP-independent `MonotonicClock` and atomic `MockClock`.
+* `engine/ping.go`: Fixed 64-slot (`[64]pendingPing`) power-of-two ring +
+  stateless `ReflectPingInto` echo mirror.
+* `engine/router.go`: Cache-contiguous fixed 128-peer routing table
+  (`[128]PeerRoute`) supporting 1-hop direct and multi-hop ("Across the
+  Street") relays.
+* `engine/covenant/filter.go`: Stateless **Genesis 3 Airlock** enforcing T4
+  provenance, rejecting forged `FlagCovenantVerified`, null-byte smuggling,
+  oversize bodies, XSS, SQLi (`UNION SELECT`, `DROP TABLE`), and `<?php`.
+
+== Layer 2: Adaptive Orchestrator (`orchestrator/` — 3 Operational Files)
+
+* `orchestrator/probe.go`: Probes the live OS, CPU count, network interfaces,
+  serial ports, and audio devices into a `data.HardwareProfile` bounded by
+  operator `NodeManifest` policy.
+* `orchestrator/ladder.go`: Bounded zero-heap **`[5][4]` multi-sibling slot
+  chassis** (`MaxTransceiversPerRung = 4`, `MaxTotalTransceivers = 16`) +
+  64-slot circular `CascadeEvent` flight recorder. Upgraded in Wave 6 so each
+  rung holds multiple sibling mediums (e.g., SLIP + AFSK + Morse on Rung 1;
+  IPC + MemoryBus on Rung 2) and automatically fails over across healthy
+  in-rung siblings before cascading down to `r - 1`.
+* `orchestrator/dispatcher.go`: Central node loop binding `AdaptiveLadder`,
+  `PingEngine`, `Router`, and `covenant.Filter`. Spawns bounded reader
+  goroutines across all registered transceivers (`wg`-tracked, zero-leak
+  clean shutdown).
+
+== Layer 3A: Polymorphic Transport Substrate (`transport/` — 10 Files)
+
+* `transport/transceiver.go`: Universal Cog 3 `Transceiver` interface and
+  inline 512B `WireEnvelope`.
+* `transport/rung1_floor/`:
+  * `serial.go`: RFC 1055 double-END SLIP encoder/decoder over any `io.Reader`
+    / `io.Writer` (resyncs cleanly after line noise).
+  * `audio.go`: 1200/2400 Hz Bell-202-inspired AFSK PCM modulator (`9600 Hz`,
+    16 samples/bit = 600 baud) with orthogonal Goertzel DFT demodulation.
+  * `morse.go`: 1844 International Morse CW hex pulse encoder/decoder.
+* `transport/rung2_host/`: `memory.go` (`MemoryBus`) and `ipc.go` (real OS
+  Unixgram domain sockets).
+* `transport/rung3_local/`: `udp.go` (real LAN UDP with on-the-fly peer
+  auto-learning) and `beacon.go` (Room Beacon SSID switch + `OpBeacon` frame
+  builder).
+* `transport/rung4_global/`: `tcp.go` (length-prefixed TCP stream peering) and
+  `egress.go` (opt-in Airlock-gated HTTP client with `io.LimitReader(481)` OOM
+  defense).
+
+== Layer 3B & Layer 4: The Well & Operator CLIs (`interpreter/`, `cmd/`)
+
+* `interpreter/translator.go`: Wraps foreign UTF-8 text strictly into `0:AWAIT`
+  `OpLegacyWrap` frames after Airlock screening.
+* `interpreter/captive_web.go`: Zero-install offline HTML portal (`WellServer`)
+  with a bounded 32-bulletin circular ring, `/api/status`, `/api/message`, and
+  captive-portal redirects (`/generate_204`, `/hotspot-detect.html`).
+* `interpreter/legacy_bridge.go`: Data-driven OS classifier (`Windows`,
+  `macOS`, `Linux`, `Android`, `iOS`, `CLI`).
+* `cmd/faithnet-ping/main.go`: Standalone 5-Cog loopback ping & 9-gate `--audit`
+  CLI.
+* `cmd/faithnet-node/main.go`: Full orchestrated node, `--probe-only`, The Well
+  portal, Room Beacon, and 22-gate `--audit` CLI.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / UNIVERSAL 5-BLOCK & GO BLOCK 4 STANDARD
+// =============================================================================
+
+== Universal 5-Block Lifecycle Protocol (Rev 5) & Go Block 4
+
+Every file in FaithNet follows OmniCode's Rev 5 5-Block structure:
+
+1. **Block 1 (`METADATA BLOCK`):** Movement-resilient `@id`, `@layer`,
+   `@archetype`, `@chassis`, `@invariants`, and Dual-Audience purpose.
+2. **Block 2 (`OPENING BLOCK`):** Tiered imports, constants (`2.1`), logical
+   anchor (`2.2`), public ontology (`2.3`), O(1) predicates (`2.4`), and
+   monitored helpers (`2.5`).
+3. **Block 3 (`BODY BLOCK`):** Composable non-lifecycle logic with Dual-Audience
+   docstrings on every exported symbol.
+4. **Block 4 (`AUDIT PROCEDURES BLOCK`):**
+   * `Sub-Assembly 4.1`: Live-instance `AuditState()` / input contract gates
+     returning `data.AuditResult`.
+   * `Sub-Assembly 4.2`: `Preflight<Cog>()` running all **4 Micro Checks**
+     (Always Pass, Never Fail, Invariants/Limits, Emergence/Reset) plus
+     `@triggers` verified against real test files on disk.
+5. **Block 5 (`CLOSING BLOCK`):** `Is<Cog>Ready()` epilogue readiness probe,
+   60-column `+---+` forensic dump card (`5.1`), and lifecycle constructors /
+   teardown (`5.2`).
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SERIES NAVIGATION
+// =============================================================================
+
+== Series Navigation
+
+* **Previous:** `docs/01_WHAT_IS_FAITHNET.adoc`
+* **Next:** `docs/03_FAITHNET_VS_MODERN_INTERNET.adoc`
+
+// End of docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc
