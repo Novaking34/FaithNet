@@ -128,6 +128,12 @@ type Router struct {
 // ------------------------------------------------------------------------------
 
 // ActiveCount returns the current number of active peer routes.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Reports how many neighbors are currently tracked in this node's route book.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) read-locked integer read (0 heap allocations).
 func (r *Router) ActiveCount() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -135,6 +141,12 @@ func (r *Router) ActiveCount() int {
 }
 
 // Capacity returns the fixed Controlled Memory Chassis ceiling (MaxPeers).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Reports the hard maximum number of neighbors this route table holds (128).
+//
+// ### For Systems Programmers & Engine Architects:
+// Constant O(1) getter returning `MaxPeers`.
 func (r *Router) Capacity() int {
 	return MaxPeers
 }
@@ -251,43 +263,166 @@ func (r *Router) Remove(peerID data.NodeID) bool {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.router
-// Mission:       Verify direct + multi-hop route resolution, self-route
-//                rejection, and bounded slot accounting before dispatch boot.
+// Mission:       Audit live route-table parity and run a 4-section pre-flight
+//                check (direct+relay, invalid reject, 128-cap, Reset).
+// @triggers
+//   - Block 4 Audits : (*Router).AuditState(), PreflightRouter(), AuditRouter()
+//   - Layer 4 Tests  : tests/functional/engine_functional_test.go,
+//                      tests/unit/engine/router_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 4.1: Contract, Input & Cog Verification Cogs
+// Sub-Assembly 4.1: Contract, Input & Live-Instance Verification Cogs
 // ------------------------------------------------------------------------------
 
-// AuditRouter verifies direct and multi-hop insertion, lookup, and removal.
-func AuditRouter() bool {
-	rt := NewRouter(0x01)
-	if rt.UpsertRoute(PeerRoute{PeerID: 0x01, Rung: data.Rung2Host, HopCount: 1}) != ErrRouteInvalidID {
-		return false
+// AuditState inspects a live Router non-destructively to confirm slot count
+// parity, absence of self-routes, and valid rung/hop bounds on every active row.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Audits the live neighbor directory to verify the active peer tally matches
+// actual stored routes and no corrupted entries slipped in.
+//
+// ### For Systems Programmers & Engine Architects:
+// Read-locked O(MaxPeers) live probe returning structured `data.AuditResult`.
+func (r *Router) AuditState() data.AuditResult {
+	const check = "router_live_table_contract"
+
+	if r == nil {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDRouter, check,
+			"Router receiver is nil.")
 	}
-	err := rt.UpsertRoute(PeerRoute{
-		PeerID:    0x03,
-		NextHopID: 0x02, // Across-the-street relay via Node 0x02
-		Rung:      data.Rung3Local,
-		HopCount:  2,
-	})
-	if err != nil || rt.ActiveCount() != 1 {
-		return false
+	if !r.selfID.IsValid() || r.selfID.IsBroadcast() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDRouter, check,
+			"Router selfID is null or broadcast.")
 	}
-	got, ok := rt.Lookup(0x03)
-	if !ok || got.NextHopID != 0x02 || got.HopCount != 2 {
-		return false
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	observed := 0
+	for i := 0; i < MaxPeers; i++ {
+		if !r.routes[i].Active {
+			continue
+		}
+		observed++
+		entry := r.routes[i]
+		if !entry.PeerID.IsValid() || entry.PeerID == r.selfID ||
+			!entry.Rung.IsValid() || entry.HopCount == 0 {
+			return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+				"Active route slot violates identity, rung, or hop-count bounds.")
+		}
 	}
-	return rt.Remove(0x03) && rt.ActiveCount() == 0
+	if observed != r.count || r.count > MaxPeers {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+			"Router active count diverged from populated fixed-array slots.")
+	}
+	return data.AuditPass(ModuleIDRouter, check,
+		"Live Router slot parity, identity, rung, and hop invariants verified.")
 }
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 4.2: Machine Self-Audit & Pre-Flight Validation Tripwires
 // ------------------------------------------------------------------------------
 
-// PreflightRouter executes complete non-destructive pre-flight clearance.
-func PreflightRouter() bool {
-	return MaxPeers > 0 && AuditRouter()
+// PreflightRouter executes a 4-section non-destructive pre-flight self-audit
+// covering (1) direct & multi-hop lookup, (2) self-route/hop fault inversion,
+// (3) 128-peer capacity ceiling, and (4) SnapshotInto & Reset cleanliness.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Bench-tests the local neighborhood address book at startup to verify direct
+// peers, across-the-street relays, and memory-cap protection all work cleanly.
+//
+// ### For Systems Programmers & Engine Architects:
+// Isolated 4-section pre-flight probe returning structured `data.AuditResult`.
+func PreflightRouter() data.AuditResult {
+	const check = "router_preflight_4section"
+
+	if MaxPeers <= 0 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+			"MaxPeers physical capacity bound must be strictly positive.")
+	}
+
+	// Micro Check 1 (Always Pass): Multi-hop insertion, update, lookup, remove.
+	rt := NewRouter(0x01)
+	if err := rt.UpsertRoute(PeerRoute{
+		PeerID:    0x03,
+		NextHopID: 0x02,
+		Rung:      data.Rung3Local,
+		HopCount:  2,
+	}); err != nil || rt.ActiveCount() != 1 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+			"Sec 1 multi-hop UpsertRoute failed.")
+	}
+	got, ok := rt.Lookup(0x03)
+	if !ok || got.NextHopID != 0x02 || got.HopCount != 2 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+			"Sec 1 multi-hop Lookup mismatch.")
+	}
+	if !rt.Remove(0x03) || rt.ActiveCount() != 0 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+			"Sec 1 Remove failed to release route slot.")
+	}
+
+	// Micro Check 2 (Never Fail): Self-route, invalid rung, and zero-hop reject.
+	if rt.UpsertRoute(PeerRoute{PeerID: 0x01, Rung: data.Rung2Host, HopCount: 1}) != ErrRouteInvalidID {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDRouter, check,
+			"Sec 2 self-route was not rejected.")
+	}
+	if rt.UpsertRoute(PeerRoute{PeerID: 0x02, Rung: data.RungNone, HopCount: 1}) != ErrInvalidRung {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDRouter, check,
+			"Sec 2 RungNone route was not rejected.")
+	}
+	if rt.UpsertRoute(PeerRoute{PeerID: 0x02, Rung: data.Rung2Host, HopCount: 0}) != ErrRouteInvalidHop {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDRouter, check,
+			"Sec 2 zero-hop route was not rejected.")
+	}
+
+	// Micro Check 3 (Invariants & Limits): Hard MaxPeers (128) capacity ceiling.
+	for i := 0; i < MaxPeers; i++ {
+		if err := rt.UpsertRoute(PeerRoute{
+			PeerID:   data.NodeID(0x100 + i),
+			Rung:     data.Rung2Host,
+			HopCount: 1,
+		}); err != nil {
+			return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+				"Sec 3 route table failed prior to MaxPeers ceiling.")
+		}
+	}
+	if rt.UpsertRoute(PeerRoute{
+		PeerID: 0x9999, Rung: data.Rung2Host, HopCount: 1,
+	}) != ErrRouteTableFull {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDRouter, check,
+			"Sec 3 route table exceeded MaxPeers ceiling without ErrRouteTableFull.")
+	}
+
+	// Micro Check 4 (Emergence): Live AuditState, SnapshotInto & clean Reset().
+	if live := rt.AuditState(); !live.IsPass() {
+		return live
+	}
+	var snap [4]PeerRoute
+	if rt.SnapshotInto(snap[:]) != 4 {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDRouter, check,
+			"Sec 4 bounded SnapshotInto returned unexpected count.")
+	}
+	rt.Reset()
+	if rt.ActiveCount() != 0 {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDRouter, check,
+			"Sec 4 Router.Reset() left residual routes active.")
+	}
+
+	return data.AuditPass(ModuleIDRouter, check,
+		"Router passed all 4 micro pre-flight gates (nominal/fault/128-cap/reset).")
+}
+
+// AuditRouter returns true iff PreflightRouter() passes cleanly.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Quick pass/fail shortcut asking whether the local router passed safety.
+//
+// ### For Systems Programmers & Engine Architects:
+// Convenience boolean bridge delegating to `PreflightRouter().IsPass()`.
+func AuditRouter() bool {
+	return PreflightRouter().IsPass()
 }
 
 // ==============================================================================
@@ -296,15 +431,32 @@ func PreflightRouter() bool {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.router
-// Mission:       Provide caller-owned route snapshots, 60-column inspection
-//                cards, and Router lifecycle initialization/reset.
+// Mission:       Provide caller-owned route snapshots, epilogue readiness,
+//                60-column inspection cards, and Router lifecycle control.
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 5.1: Executable Procedures, Inspection & Diagnostic Cards
+// Sub-Assembly 5.1: Executable Procedures, Inspection, Readiness & Cards
 // ------------------------------------------------------------------------------
 
+// IsRouterReady reports whether the sovereign Router passed pre-flight audit.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Epilogue confirmation that FaithNet's neighborhood directory is ready.
+//
+// ### For Systems Programmers & Engine Architects:
+// Matches OmniCode's Block 5 epilogue readiness predicate (`is_*_ready`).
+func IsRouterReady() bool {
+	return PreflightRouter().IsPass()
+}
+
 // SnapshotInto copies active routes into caller-owned dst and returns count.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Copies the current peer directory into a caller-provided list safely.
+//
+// ### For Systems Programmers & Engine Architects:
+// Bounded zero-allocation copy under read lock; never exceeds `len(dst)`.
 func (r *Router) SnapshotInto(dst []PeerRoute) int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -320,6 +472,12 @@ func (r *Router) SnapshotInto(dst []PeerRoute) int {
 }
 
 // ExecuteRouterDumpCard renders a 60-column inner-width diagnostic card.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Displays this node's ID and how many of the 128 neighbor slots are active.
+//
+// ### For Systems Programmers & Engine Architects:
+// Non-mutating diagnostic card builder safe for concurrent queries.
 func (r *Router) ExecuteRouterDumpCard() string {
 	return fmt.Sprintf(
 		"+------------------------------------------------------------+\n"+
@@ -343,11 +501,23 @@ func (r *Router) ExecuteRouterDumpCard() string {
 // ------------------------------------------------------------------------------
 
 // NewRouter initializes a bounded sovereign Router belonging to selfID.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Creates an empty 128-peer neighborhood address book owned by this node.
+//
+// ### For Systems Programmers & Engine Architects:
+// Initializes inline `[MaxPeers]PeerRoute` fixed storage with zero map heap.
 func NewRouter(selfID data.NodeID) *Router {
 	return &Router{selfID: selfID}
 }
 
 // Reset clears all active peer routes cleanly without reallocating memory.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Empties the neighborhood directory back to a clean slate.
+//
+// ### For Systems Programmers & Engine Architects:
+// Zeroes the inline `[MaxPeers]PeerRoute` array under write lock (0 allocs).
 func (r *Router) Reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()

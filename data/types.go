@@ -186,26 +186,94 @@ const (
 // ------------------------------------------------------------------------------
 
 // IsValid reports whether the NodeID is non-null.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Checks that a device carries an actual sovereign address instead of an empty
+// zero placeholder.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) comparison against NodeIDNull (0x0).
 func (id NodeID) IsValid() bool {
 	return id != NodeIDNull
 }
 
 // IsBroadcast reports whether the NodeID targets all reachable peers.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Checks whether a message is addressed to everyone listening on the link.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) comparison against NodeIDBroadcast (0xFFFFFFFFFFFFFFFF).
 func (id NodeID) IsBroadcast() bool {
 	return id == NodeIDBroadcast
 }
 
 // String renders NodeID as a canonical 16-digit hexadecimal sovereign address.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Formats a device's numeric ID into a readable fixed-width hex tag.
+//
+// ### For Systems Programmers & Engine Architects:
+// Diagnostic formatting helper; not called on ALLOC_ZERO_HEAP wire paths.
 func (id NodeID) String() string {
 	return fmt.Sprintf("0x%016X", uint64(id))
 }
 
 // IsValid reports whether r lies within the canonical 4-Rung Ladder (1..4).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Confirms a survival rung is one of the 4 defined FaithNet tiers.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) closed-interval bounds check [RungMinValid .. RungMaxValid].
 func (r RungLevel) IsValid() bool {
 	return r >= RungMinValid && r <= RungMaxValid
 }
 
+// StepDown returns the next lower survival rung, clamping at Rung1Floor.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Moves one step down the survival ladder during a Defensive Cascade without
+// ever dropping below the civilizational floor (Rung 1).
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) saturating decrement; invalid rungs above RungMaxValid clamp to
+// RungMaxValid, and RungNone/Rung1Floor clamp to Rung1Floor.
+func (r RungLevel) StepDown() RungLevel {
+	if r <= RungMinValid {
+		return RungMinValid
+	}
+	if r > RungMaxValid {
+		return RungMaxValid
+	}
+	return r - 1
+}
+
+// StepUp returns the next higher survival rung, clamping at Rung4Global.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Moves one step up the survival ladder when faster hardware heals without
+// ever exceeding the top tier (Rung 4).
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) saturating increment; RungNone rises to RungMinValid.
+func (r RungLevel) StepUp() RungLevel {
+	if r < RungMinValid {
+		return RungMinValid
+	}
+	if r >= RungMaxValid {
+		return RungMaxValid
+	}
+	return r + 1
+}
+
 // String returns the human-readable name of the adaptive ladder rung.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Names the survival tier clearly for logs and diagnostic cards.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) switch returning static string literals (0 heap allocations).
 func (r RungLevel) String() string {
 	switch r {
 	case Rung1Floor:
@@ -222,11 +290,23 @@ func (r RungLevel) String() string {
 }
 
 // IsValid reports whether q is one of the four canonical T4 states.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Confirms a truth verdict is a valid OmniCode T4 state (+1, 0, -1, or NULL).
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) unsigned range check (0x00..0x03).
 func (q QuadState) IsValid() bool {
 	return q <= QuadPositive
 }
 
 // String renders the QuadState using OmniCode canonical T4 notation.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Displays truth status clearly as +1:ALIGNED, 0:AWAIT, -1:REJECT, or NULL:HALT.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) switch returning static string literals (0 heap allocations).
 func (q QuadState) String() string {
 	switch q {
 	case QuadPositive:

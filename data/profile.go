@@ -182,6 +182,13 @@ type CascadeEvent struct {
 // ------------------------------------------------------------------------------
 
 // HighestViableRung returns the top adaptive rung supported by the host body.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Reads the machine's capability chart and picks the fastest survival tier
+// the physical hardware can actually sustain.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) descending priority cascade from Rung4Global down to RungNone.
 func (p HardwareProfile) HighestViableRung() RungLevel {
 	if p.HasGlobalTCP {
 		return Rung4Global
@@ -198,7 +205,63 @@ func (p HardwareProfile) HighestViableRung() RungLevel {
 	return RungNone
 }
 
+// IsValid reports whether a NodeManifest obeys sovereign identity and rung
+// ordering invariants (valid ID, valid rungs, Minimum <= PreferredMax, and
+// Rung4Global prohibited unless AllowGlobalEgress is explicitly true).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Verifies a node's startup configuration is safe and never accidentally opens
+// outside internet access without explicit operator consent.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) policy gate evaluated by Layer 2 Dispatcher initialization and
+// Block 4 manifest contract audits.
+func (m NodeManifest) IsValid() bool {
+	if !m.ID.IsValid() || m.ID.IsBroadcast() {
+		return false
+	}
+	if !m.MinimumFloorRung.IsValid() || !m.PreferredMaxRung.IsValid() {
+		return false
+	}
+	if m.MinimumFloorRung > m.PreferredMaxRung {
+		return false
+	}
+	if m.PreferredMaxRung == Rung4Global && !m.AllowGlobalEgress {
+		return false
+	}
+	return true
+}
+
+// LossPercent returns integer packet loss percentage clamped to [0, 100].
+//
+// ### For Architects, Operators & Non-Programmers:
+// Computes what percent of outgoing sonar pings went unanswered so the
+// adaptive ladder knows when a link is deteriorating.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) integer arithmetic; returns 0 when PingsSent == 0 or PongsRecv >=
+// PingsSent, eliminating divide-by-zero and unsigned underflow traps.
+func (h LinkHealth) LossPercent() int {
+	if h.PingsSent == 0 || h.PongsRecv >= h.PingsSent {
+		return 0
+	}
+	lost := h.PingsSent - h.PongsRecv
+	pct := int((lost * 100) / h.PingsSent)
+	if pct > 100 {
+		return 100
+	}
+	return pct
+}
+
 // DefaultNodeManifest returns a sovereign offline-first manifest (Rung 1..3).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Builds a safe default node configuration that runs completely offline in the
+// room or neighborhood and keeps global internet egress sealed off by default.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure value constructor guaranteeing `AllowGlobalEgress == false` and
+// `MinimumFloorRung == Rung1Floor`.
 func DefaultNodeManifest(id NodeID, label string) NodeManifest {
 	return NodeManifest{
 		ID:                id,

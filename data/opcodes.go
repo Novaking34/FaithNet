@@ -174,11 +174,37 @@ const (
 // ------------------------------------------------------------------------------
 
 // IsValid reports whether op is a recognized FaithNet protocol opcode.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Confirms a packet carries a known FaithNet action verb rather than noise.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) closed-interval check [OpcodeMinValid .. OpcodeMaxValid].
 func (op Opcode) IsValid() bool {
 	return op >= OpcodeMinValid && op <= OpcodeMaxValid
 }
 
+// IsControl reports whether op is a low-level link-control verb (PING, PONG,
+// EVT_CASCADE_DOWN, or EVT_CASCADE_UP).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Distinguishes mechanical heartbeat and ladder-shift pulses from user data
+// or cognitive sync messages.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) pure predicate used by the Genesis 3 Airlock and Dispatcher routing.
+func (op Opcode) IsControl() bool {
+	return op == OpPing || op == OpPong ||
+		op == OpCascadeDown || op == OpCascadeUp
+}
+
 // String returns the canonical symbolic name of the opcode.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Renders an envelope's action byte as a clear word (PING, PONG, BEACON, etc.).
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) switch returning static string literals (0 heap allocations).
 func (op Opcode) String() string {
 	switch op {
 	case OpPing:
@@ -203,6 +229,13 @@ func (op Opcode) String() string {
 }
 
 // Has reports whether all bits in mask are set on f.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Checks whether an envelope carries one or more provenance stamps (such as
+// Covenant Verified or External Origin).
+//
+// ### For Systems Programmers & Engine Architects:
+// O(1) bitwise AND equality test (`(f & mask) == mask`).
 func (f FrameFlags) Has(mask FrameFlags) bool {
 	return (f & mask) == mask
 }

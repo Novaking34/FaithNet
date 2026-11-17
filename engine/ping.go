@@ -236,6 +236,9 @@ func ReflectPingInto(req *data.Frame, resp *data.Frame, selfID data.NodeID) erro
 	if req == nil || resp == nil {
 		return ErrPingNilFrame
 	}
+	if !selfID.IsValid() || selfID.IsBroadcast() {
+		return ErrPingInvalidTarget
+	}
 	if req.Opcode != data.OpPing {
 		return ErrPingNotRequest
 	}
@@ -313,41 +316,155 @@ func (p *PingEngine) ProcessPong(pong *data.Frame) (int64, bool) {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.ping
-// Mission:       Verify deterministic Ping -> Pong -> RTT parity and ring
-//                power-of-two capacity invariants before node boot.
+// Mission:       Verify live PingEngine telemetry invariants and execute a
+//                4-section pre-flight self-audit (nominal/fault/ring/reset).
+// @triggers
+//   - Block 4 Audits : (*PingEngine).AuditState(), PreflightPingEngine(),
+//                      AuditPingEngine()
+//   - Layer 4 Tests  : tests/functional/engine_functional_test.go,
+//                      tests/unit/engine/ping_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 4.1: Contract, Input & Cog Verification Cogs
+// Sub-Assembly 4.1: Contract, Input & Live-Instance Verification Cogs
 // ------------------------------------------------------------------------------
 
-// AuditPingEngine executes a non-destructive deterministic Ping->Pong->RTT test.
-func AuditPingEngine() bool {
-	if (MaxInFlightPings & (MaxInFlightPings - 1)) != 0 {
-		return false
-	}
-	mc := NewMockClock(10_000)
-	pe := NewPingEngine(0x0A, mc)
-	var req, resp data.Frame
+// AuditState inspects a live PingEngine non-destructively to confirm sovereign
+// selfID, attached Clock, ring capacity power-of-two, and RTT math bounds.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Checks a running heartbeat engine's live scorecard to verify no impossible
+// counts (such as more replies than pings sent, or min > max latency) occurred.
+//
+// ### For Systems Programmers & Engine Architects:
+// Read-locked non-mutating live probe returning structured `data.AuditResult`
+// aligned with Cornerstone's `live_probe_vs_telemetry_counter_rule`.
+func (p *PingEngine) AuditState() data.AuditResult {
+	const check = "ping_engine_live_state_contract"
 
-	if err := pe.BuildPingInto(&req, 0x0B, data.Rung2Host, []byte("ECHO")); err != nil {
-		return false
+	if p == nil {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"PingEngine receiver is nil.")
 	}
-	mc.Advance(450)
-	if err := ReflectPingInto(&req, &resp, 0x0B); err != nil {
-		return false
+	if !p.selfID.IsValid() || p.selfID.IsBroadcast() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"PingEngine selfID is null or broadcast.")
 	}
-	rtt, ok := pe.ProcessPong(&resp)
-	return ok && rtt == 450 && resp.Opcode == data.OpPong
+	if clkRes := ValidateClockContract(p.clock); !clkRes.IsPass() {
+		return clkRes
+	}
+
+	p.mu.Lock()
+	h := p.health
+	p.mu.Unlock()
+
+	if h.PongsRecv > h.PingsSent {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDPing, check,
+			"Telemetry breach: PongsRecv exceeds PingsSent.")
+	}
+	if h.PongsRecv > 0 && (h.MinRTTNano < 0 || h.MinRTTNano > h.MaxRTTNano ||
+		h.AvgRTTNano < h.MinRTTNano || h.AvgRTTNano > h.MaxRTTNano) {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"Telemetry breach: RTT bounds min <= avg <= max violated.")
+	}
+	return data.AuditPass(ModuleIDPing, check,
+		"Live PingEngine identity, clock, and RTT invariants verified.")
 }
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 4.2: Machine Self-Audit & Pre-Flight Validation Tripwires
 // ------------------------------------------------------------------------------
 
-// PreflightPingEngine performs complete pre-flight clearance for Cog 5.
-func PreflightPingEngine() bool {
-	return PreflightClock() && AuditPingEngine()
+// PreflightPingEngine executes a 4-section non-destructive pre-flight self-audit
+// covering (1) nominal Ping->Pong->RTT, (2) fault inversion & duplicate pong
+// rejection, (3) 64-slot ring wrap-around boundary, and (4) clean Reset().
+//
+// ### For Architects, Operators & Non-Programmers:
+// Runs a complete startup bench test of FaithNet's sonar heartbeat so latency
+// measurements and duplicate filtering are proven before joining any network.
+//
+// ### For Systems Programmers & Engine Architects:
+// Stack-local 4-section pre-flight gate verifying Cog 4 (`PreflightClock`) plus
+// all Cog 5 invariants; returns structured `data.AuditResult`.
+func PreflightPingEngine() data.AuditResult {
+	const check = "ping_preflight_4section"
+
+	if (MaxInFlightPings & (MaxInFlightPings - 1)) != 0 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDPing, check,
+			"MaxInFlightPings must be a power of two for O(1) bitmask wrap.")
+	}
+	if clkRes := PreflightClock(); !clkRes.IsPass() {
+		return clkRes
+	}
+
+	// Micro Check 1 (Always Pass): Deterministic Ping -> Reflect -> Pong RTT.
+	mc := NewMockClock(10_000)
+	pe := NewPingEngine(0x0A, mc)
+	var req, resp data.Frame
+	if err := pe.BuildPingInto(&req, 0x0B, data.Rung2Host, []byte("ECHO")); err != nil {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDPing, check,
+			"Sec 1 BuildPingInto nominal pulse failed.")
+	}
+	mc.Advance(450)
+	if err := ReflectPingInto(&req, &resp, 0x0B); err != nil {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDPing, check,
+			"Sec 1 ReflectPingInto failed on valid OpPing.")
+	}
+	rtt, ok := pe.ProcessPong(&resp)
+	if !ok || rtt != 450 || resp.Opcode != data.OpPong {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDPing, check,
+			"Sec 1 ProcessPong RTT correlation failed.")
+	}
+
+	// Micro Check 2 (Never Fail): Duplicate pong, nil frame, invalid target.
+	if _, dup := pe.ProcessPong(&resp); dup {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"Sec 2 duplicate OpPong was not rejected.")
+	}
+	if err := pe.BuildPingInto(nil, 0x0B, data.Rung2Host, nil); err != ErrPingNilFrame {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"Sec 2 nil dst frame was not rejected.")
+	}
+	if err := pe.BuildPingInto(&req, data.NodeIDNull, data.Rung2Host, nil); err != ErrPingInvalidTarget {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"Sec 2 NodeIDNull target was not rejected.")
+	}
+
+	// Micro Check 3 (Invariants & Limits): 64-slot ring overwrite boundary.
+	var staleReq, lastReq data.Frame
+	_ = pe.BuildPingInto(&staleReq, 0x0B, data.Rung2Host, nil)
+	for i := 0; i < MaxInFlightPings; i++ {
+		_ = pe.BuildPingInto(&lastReq, 0x0B, data.Rung2Host, nil)
+	}
+	_ = ReflectPingInto(&staleReq, &resp, 0x0B)
+	if _, staleMatch := pe.ProcessPong(&resp); staleMatch {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"Sec 3 overwritten ring slot erroneously matched stale OpPong.")
+	}
+
+	// Micro Check 4 (Emergence): Live AuditState & clean Reset() teardown.
+	if live := pe.AuditState(); !live.IsPass() {
+		return live
+	}
+	pe.Reset()
+	if pe.HealthSnapshot().PingsSent != 0 || pe.ActiveInFlight() != 0 {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPing, check,
+			"Sec 4 PingEngine.Reset() left residual telemetry or slots.")
+	}
+
+	return data.AuditPass(ModuleIDPing, check,
+		"PingEngine passed all 4 micro pre-flight gates (nominal/fault/ring/reset).")
+}
+
+// AuditPingEngine returns true iff PreflightPingEngine() passes cleanly.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Quick pass/fail check asking whether the sonar ping engine passed safety.
+//
+// ### For Systems Programmers & Engine Architects:
+// Convenience boolean bridge delegating to `PreflightPingEngine().IsPass()`.
+func AuditPingEngine() bool {
+	return PreflightPingEngine().IsPass()
 }
 
 // ==============================================================================
@@ -356,22 +473,65 @@ func PreflightPingEngine() bool {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.ping
-// Mission:       Provide read-only health inspection, 60-column dump cards,
-//                and lifecycle initialization/reset for PingEngine.
+// Mission:       Provide read-only health inspection, epilogue readiness,
+//                60-column dump cards, and PingEngine lifecycle control.
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 5.1: Executable Procedures, Inspection & Diagnostic Cards
+// Sub-Assembly 5.1: Executable Procedures, Inspection, Readiness & Cards
 // ------------------------------------------------------------------------------
 
+// IsPingEngineReady reports whether Cog 5 passed its full pre-flight audit.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Epilogue confirmation that FaithNet's heartbeat sonar is healthy and ready.
+//
+// ### For Systems Programmers & Engine Architects:
+// Matches OmniCode's Block 5 epilogue readiness predicate (`is_*_ready`).
+func IsPingEngineReady() bool {
+	return PreflightPingEngine().IsPass()
+}
+
 // HealthSnapshot returns a thread-safe value copy of current LinkHealth metrics.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Reads a clean snapshot of the link's ping count and speed statistics.
+//
+// ### For Systems Programmers & Engine Architects:
+// Returns value-copied `data.LinkHealth` under mutex with 0 heap allocations.
 func (p *PingEngine) HealthSnapshot() data.LinkHealth {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.health
 }
 
+// ActiveInFlight returns the number of currently unanswered pings in the ring.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Reports how many sonar pings are currently waiting in flight for an echo.
+//
+// ### For Systems Programmers & Engine Architects:
+// O(MaxInFlightPings) read-only scan under mutex (64 fixed slots, 0 allocs).
+func (p *PingEngine) ActiveInFlight() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	active := 0
+	for i := 0; i < MaxInFlightPings; i++ {
+		if p.ring[i].active {
+			active++
+		}
+	}
+	return active
+}
+
 // ExecutePingDumpCard renders a 60-column inner-width diagnostic inspection card.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Prints a neat framed dashboard card showing this node's ID, active rung,
+// ping/pong counts, and fastest/average/slowest latency.
+//
+// ### For Systems Programmers & Engine Architects:
+// Non-mutating diagnostic card builder safe for concurrent calls.
 func (p *PingEngine) ExecutePingDumpCard() string {
 	h := p.HealthSnapshot()
 	return fmt.Sprintf(
@@ -399,6 +559,13 @@ func (p *PingEngine) ExecutePingDumpCard() string {
 // ------------------------------------------------------------------------------
 
 // NewPingEngine initializes a bounded PingEngine for selfID using clock.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Creates a fresh heartbeat sonar engine for a node; automatically attaches a
+// hardware stopwatch if no custom test clock was supplied.
+//
+// ### For Systems Programmers & Engine Architects:
+// Allocates a single fixed-ring PingEngine with `MinRTTNano` sentinel `-1`.
 func NewPingEngine(selfID data.NodeID, clock Clock) *PingEngine {
 	if clock == nil {
 		clock = NewMonotonicClock()
@@ -413,6 +580,12 @@ func NewPingEngine(selfID data.NodeID, clock Clock) *PingEngine {
 }
 
 // Reset clears the in-flight ring and resets cumulative telemetry cleanly.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Clears all pending pings and zeroes out the latency scorecard cleanly.
+//
+// ### For Systems Programmers & Engine Architects:
+// Zeroes the inline `[MaxInFlightPings]inFlightSlot` array under lock (0 allocs).
 func (p *PingEngine) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()

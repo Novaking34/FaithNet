@@ -162,6 +162,14 @@ type Frame struct {
 
 // SetPayload copies src into the inline Payload array and updates PayloadLen.
 // Returns false without mutating Payload if src exceeds FloorMaxPayload.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Places message bytes safely inside the 512-byte envelope and refuses any
+// oversized payload that would break the floppy-sector limit.
+//
+// ### For Systems Programmers & Engine Architects:
+// Zero-heap inline copy into fixed `[480]byte` backing array; preserves prior
+// state atomically when `len(src) > FloorMaxPayload`.
 func (f *Frame) SetPayload(src []byte) bool {
 	if len(src) > FloorMaxPayload {
 		return false
@@ -172,6 +180,13 @@ func (f *Frame) SetPayload(src []byte) bool {
 }
 
 // PayloadSlice returns a zero-allocation view over the active payload bytes.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Reads only the live content bytes inside the envelope without copying memory.
+//
+// ### For Systems Programmers & Engine Architects:
+// Saturates malformed `PayloadLen > FloorMaxPayload` cleanly so callers can
+// never trigger an out-of-bounds slice panic.
 func (f *Frame) PayloadSlice() []byte {
 	n := int(f.PayloadLen)
 	if n > FloorMaxPayload {
@@ -181,11 +196,42 @@ func (f *Frame) PayloadSlice() []byte {
 }
 
 // WireSize returns the total encoded byte size of the frame (header + payload).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Reports the exact byte length this envelope will occupy on the wire.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) sum (`FrameHeaderSize + int(f.PayloadLen)`).
 func (f *Frame) WireSize() int {
 	return FrameHeaderSize + int(f.PayloadLen)
 }
 
+// IsHeaderBoundsValid reports whether scalar header fields satisfy Layer 0
+// domain bounds (Rung, Opcode, Truth, PayloadLen <= FloorMaxPayload).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Performs an instant sanity check on an envelope's header before transmission
+// or routing.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) stateless predicate with 0 heap allocations.
+func (f *Frame) IsHeaderBoundsValid() bool {
+	if f == nil {
+		return false
+	}
+	return f.Rung.IsValid() &&
+		f.Opcode.IsValid() &&
+		f.Truth.IsValid() &&
+		int(f.PayloadLen) <= FloorMaxPayload
+}
+
 // Reset zeroes the Frame cleanly for stack/ring reuse without heap allocation.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Wipes a reusable envelope completely blank so no prior data leaks forward.
+//
+// ### For Systems Programmers & Engine Architects:
+// Value assignment `*f = Frame{}` compiles to an inline memclr with 0 allocs.
 func (f *Frame) Reset() {
 	*f = Frame{}
 }

@@ -319,44 +319,142 @@ func DecodeFrom(src []byte, out *data.Frame) error {
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.codec
 // Mission:       Verify Layer 0 vocabulary invariants, 512-byte sector layout,
-//                and stack-pure round-trip codec parity before transport boot.
+//                live Frame contracts, and 4-section pre-flight codec parity.
+// @triggers
+//   - Block 4 Audits : AuditDataVocabulary(), ValidateFrameContract(),
+//                      PreflightCodec(), AuditCodec()
+//   - Layer 4 Tests  : tests/functional/data_functional_test.go,
+//                      tests/functional/engine_functional_test.go,
+//                      tests/unit/engine/codec_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 4.1: Contract, Input & Cog Verification Cogs
+// Sub-Assembly 4.1: Contract, Input & Live-Instance Verification Cogs
 // ------------------------------------------------------------------------------
 
-// AuditDataVocabulary verifies Layer 0 pure_types invariants (types, opcodes,
-// frame layout, and offline-first profile defaults) in stack memory.
-func AuditDataVocabulary() bool {
+// AuditDataVocabulary verifies Layer 0 pure_types invariants (NodeID, RungLevel,
+// QuadState, Opcode pinning, AuditResult rules, 512-byte sector layout, and
+// offline-first manifest defaults) in stack memory without heap allocation.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Double-checks FaithNet's core dictionary at startup to guarantee survival
+// rungs, truth verdicts, and 512-byte envelope geometry have never drifted.
+//
+// ### For Systems Programmers & Engine Architects:
+// Stack-pure O(1) contract gate returning structured `data.AuditResult` with
+// `AuditSeverityFatal` on any violated Layer 0 structural invariant.
+func AuditDataVocabulary() data.AuditResult {
+	const check = "layer0_data_vocabulary_contract"
+
 	if data.NodeIDNull.IsValid() || !data.NodeIDBroadcast.IsBroadcast() {
-		return false
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"NodeID null/broadcast boundary predicates violated.")
 	}
 	if data.RungNone.IsValid() || !data.Rung1Floor.IsValid() ||
-		!data.Rung4Global.IsValid() {
-		return false
+		!data.Rung4Global.IsValid() ||
+		data.Rung1Floor.StepDown() != data.Rung1Floor ||
+		data.Rung4Global.StepUp() != data.Rung4Global {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"RungLevel bounds or saturating ladder step predicates violated.")
 	}
-	if !data.QuadNull.IsValid() || !data.QuadPositive.IsValid() {
-		return false
+	if !data.QuadNull.IsValid() || !data.QuadPositive.IsValid() ||
+		data.QuadState(0x04).IsValid() {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"QuadState T4 domain bounds [0x00..0x03] violated.")
 	}
 	if data.OpInvalid.IsValid() || uint8(data.OpPing) != 0x01 ||
-		uint8(data.OpPong) != 0x02 {
-		return false
+		uint8(data.OpPong) != 0x02 || !data.OpPing.IsControl() ||
+		data.OpData.IsControl() {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Opcode wire pinning or control-verb classification violated.")
 	}
-	if data.FrameHeaderSize != 32 || data.FloorMaxFrameSize != 512 ||
+	if data.FrameHeaderSize != 32 || data.FloorMaxPayload != 480 ||
+		data.FloorMaxFrameSize != 512 ||
 		data.OffsetChecksum+4 != data.FrameHeaderSize {
-		return false
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"512-byte Floppy Sector header/payload geometry violated.")
 	}
 	def := data.DefaultNodeManifest(0x01, "audit")
-	return !def.AllowGlobalEgress && def.MinimumFloorRung == data.Rung1Floor
+	if !def.IsValid() || def.AllowGlobalEgress ||
+		def.MinimumFloorRung != data.Rung1Floor {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"DefaultNodeManifest breached offline-first sovereignty invariant.")
+	}
+	if !data.AuditPass(ModuleIDCodec, check, "ok").IsPass() ||
+		data.AuditFail(data.AuditSeverityPass, ModuleIDCodec, check, "err").IsPass() {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"AuditResult pass/fail consistency guard violated.")
+	}
+	return data.AuditPass(ModuleIDCodec, check,
+		"Layer 0 vocabulary, 512B sector geometry, and offline defaults verified.")
 }
 
-// AuditCodec performs a stack-pure round-trip encode/decode and bit-flip seal
-// verification without touching the heap.
-func AuditCodec() bool {
+// ValidateFrameContract audits a caller-supplied Frame non-destructively
+// against FaithNet's wire header and 512-byte Floppy Sector bounds.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Inspects an envelope before sending or processing to confirm its version,
+// rung, opcode, truth badge, and size all fit safely inside FaithNet's rules.
+//
+// ### For Systems Programmers & Engine Architects:
+// Read-only O(1) contract validator (0 allocs/op) returning structured
+// `data.AuditResult` without mutating caller memory.
+func ValidateFrameContract(f *data.Frame) data.AuditResult {
+	const check = "frame_wire_contract"
+
+	if f == nil {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Frame pointer is nil.")
+	}
+	if f.Version != 0 && f.Version != data.ProtocolVersion {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Frame Version exceeds supported ProtocolVersion.")
+	}
+	if !f.Rung.IsValid() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Frame Rung lies outside canonical 4-Rung Ladder [1..4].")
+	}
+	if !f.Opcode.IsValid() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Frame Opcode is invalid or unrecognized.")
+	}
+	if !f.Truth.IsValid() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Frame QuadState lies outside canonical T4 space [0..3].")
+	}
+	if int(f.PayloadLen) > data.FloorMaxPayload {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Frame PayloadLen exceeds 480-byte Floppy Sector ceiling.")
+	}
+	return data.AuditPass(ModuleIDCodec, check,
+		"Frame satisfies header, T4, and 512-byte Floppy Sector invariants.")
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Machine Self-Audit & Pre-Flight Validation Tripwires
+// ------------------------------------------------------------------------------
+
+// PreflightCodec executes a 4-section non-destructive pre-flight self-audit
+// covering (1) nominal round-trip, (2) fault inversion & non-mutation,
+// (3) 512B sector ceiling limits, and (4) emergent multi-rung parity.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Runs a complete startup bench test of the envelope packer and tamper seal so
+// FaithNet never transmits or accepts corrupted frames.
+//
+// ### For Systems Programmers & Engine Architects:
+// Stack-pure pre-flight gate mirroring Cornerstone's 4-Section micro protocol
+// (`ALLOC_ZERO_HEAP`); returns `data.AuditResult` with exact fault telemetry.
+func PreflightCodec() data.AuditResult {
+	const check = "codec_preflight_4section"
+
+	if vocab := AuditDataVocabulary(); !vocab.IsPass() {
+		return vocab
+	}
+
+	// Micro Check 1 (Always Pass): Nominal round-trip encode & decode parity.
 	var in, out data.Frame
 	var buf [data.FloorMaxFrameSize]byte
-
 	in.Version = data.ProtocolVersion
 	in.Rung = data.Rung1Floor
 	in.Opcode = data.OpPing
@@ -367,31 +465,88 @@ func AuditCodec() bool {
 	in.SeqID = 7
 	in.SetPayload([]byte("FAITH"))
 
+	if v := ValidateFrameContract(&in); !v.IsPass() {
+		return v
+	}
 	n, err := EncodeInto(buf[:], &in)
 	if err != nil || n != data.FrameHeaderSize+5 {
-		return false
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Sec 1 nominal EncodeInto failed or produced wrong wire length.")
 	}
 	if err := DecodeFrom(buf[:n], &out); err != nil {
-		return false
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Sec 1 nominal DecodeFrom rejected valid encoded frame.")
 	}
 	if out.SourceID != in.SourceID || out.TargetID != in.TargetID ||
 		out.SeqID != in.SeqID || out.Checksum != in.Checksum ||
 		out.PayloadLen != 5 {
-		return false
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Sec 1 decoded frame fields diverged from encoded source.")
 	}
-	// Verify tamper tripwire catches single-bit corruption.
+
+	// Micro Check 2 (Never Fail): Fault inversion & out-parameter non-mutation.
+	if _, err := EncodeInto(buf[:4], &in); err != ErrBufferTooSmall {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Sec 2 undersized EncodeInto buffer was not rejected.")
+	}
+	if err := DecodeFrom(buf[:n-1], &out); err != ErrTruncatedPayload {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Sec 2 truncated wire buffer was not rejected.")
+	}
+	savedSeq := out.SeqID
 	buf[data.FrameHeaderSize] ^= 0x01
-	return DecodeFrom(buf[:n], &out) == ErrChecksumMismatch
+	if err := DecodeFrom(buf[:n], &out); err != ErrChecksumMismatch {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Sec 2 single-bit payload tamper bypassed FNV-1a seal.")
+	}
+	if out.SeqID != savedSeq {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Sec 2 failing DecodeFrom mutated caller output frame.")
+	}
+	buf[data.FrameHeaderSize] ^= 0x01
+
+	// Micro Check 3 (Invariants & Limits): Exact 512-byte ceiling & 481B reject.
+	var maxF data.Frame
+	maxF.Rung = data.Rung4Global
+	maxF.Opcode = data.OpData
+	maxF.Truth = data.QuadPositive
+	maxF.PayloadLen = uint16(data.FloorMaxPayload)
+	if fullN, err := EncodeInto(buf[:], &maxF); err != nil || fullN != data.FloorMaxFrameSize {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Sec 3 exact 512-byte Floppy Sector frame failed encoding.")
+	}
+	maxF.PayloadLen = uint16(data.FloorMaxPayload + 1)
+	if _, err := EncodeInto(buf[:], &maxF); err != ErrPayloadTooLarge {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDCodec, check,
+			"Sec 3 481-byte oversized payload bypassed Floppy Sector ceiling.")
+	}
+
+	// Micro Check 4 (Emergence): Reset cleanliness & multi-rung re-encode.
+	out.Reset()
+	if out.PayloadLen != 0 || out.SourceID != data.NodeIDNull {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Sec 4 Frame.Reset() left residual state behind.")
+	}
+	in.Rung = data.Rung3Local
+	n2, err := EncodeInto(buf[:], &in)
+	if err != nil || DecodeFrom(buf[:n2], &out) != nil || out.Rung != data.Rung3Local {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDCodec, check,
+			"Sec 4 post-reset multi-rung re-encode parity failed.")
+	}
+
+	return data.AuditPass(ModuleIDCodec, check,
+		"Codec passed all 4 micro pre-flight gates (nominal/fault/512B/reset).")
 }
 
-// ------------------------------------------------------------------------------
-// Sub-Assembly 4.2: Machine Self-Audit & Pre-Flight Validation Tripwires
-// ------------------------------------------------------------------------------
-
-// PreflightCodec executes full non-destructive pre-flight clearance for the
-// Layer 0 data vocabulary and Layer 1 binary wire codec.
-func PreflightCodec() bool {
-	return AuditDataVocabulary() && AuditCodec()
+// AuditCodec returns true iff PreflightCodec() completes with AuditSeverityPass.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Quick pass/fail shortcut asking whether the binary wire codec passed safety.
+//
+// ### For Systems Programmers & Engine Architects:
+// Convenience boolean bridge delegating to `PreflightCodec().IsPass()`.
+func AuditCodec() bool {
+	return PreflightCodec().IsPass()
 }
 
 // ==============================================================================
@@ -400,21 +555,36 @@ func PreflightCodec() bool {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.codec
-// Mission:       Emit 60-column diagnostic inspection cards and declare
-//                stateless lifecycle compliance.
+// Mission:       Emit 60-column diagnostic inspection cards, expose epilogue
+//                readiness handshakes, and declare stateless lifecycle compliance.
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 5.1: Executable Procedures, Inspection & Diagnostic Cards
+// Sub-Assembly 5.1: Executable Procedures, Inspection, Readiness & Cards
 // ------------------------------------------------------------------------------
+
+// IsCodecReady reports whether Cog 2's wire codec passed full pre-flight audit.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Epilogue confirmation that FaithNet's envelope system is healthy and ready.
+//
+// ### For Systems Programmers & Engine Architects:
+// Matches OmniCode's Block 5 epilogue readiness predicate (`is_*_ready`).
+func IsCodecReady() bool {
+	return PreflightCodec().IsPass()
+}
 
 // ExecuteCodecDumpCard renders a 60-column inner-width diagnostic card
 // reporting FaithNet wire frame geometry and pre-flight audit status.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Prints a neat framed status card summarizing envelope size, seal type, and
+// whether startup safety checks passed.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure diagnostic formatter invoking `PreflightCodec()` non-destructively.
 func ExecuteCodecDumpCard() string {
-	status := "FAIL"
-	if PreflightCodec() {
-		status = "PASS"
-	}
+	pf := PreflightCodec()
 	return fmt.Sprintf(
 		"+------------------------------------------------------------+\n"+
 			"| %-58s |\n"+
@@ -432,7 +602,7 @@ func ExecuteCodecDumpCard() string {
 		fmt.Sprintf("%d bytes payload (%d bytes Floppy Sector)",
 			data.FloorMaxPayload, data.FloorMaxFrameSize),
 		"FNV-1a 32-bit inline (ALLOC_ZERO_HEAP)",
-		status,
+		pf.Severity.String(),
 	)
 }
 

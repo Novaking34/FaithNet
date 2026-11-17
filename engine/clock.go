@@ -65,7 +65,8 @@ import (
 
 // --- Tier 2: External Library Dependencies (None — 100% Go Stdlib Invariant) ---
 
-// --- Tier 3: Internal FaithNet Foundation Packages (None) ---
+// --- Tier 3: Internal FaithNet Foundation Packages ---
+import "github.com/CreativeWorkzStudio/FaithNet/data"
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 2.1: Pre-Conditions & Temporal Bounds
@@ -118,6 +119,12 @@ type MockClock struct {
 // ------------------------------------------------------------------------------
 
 // ClampDeltaNano clamps elapsed duration (end - start) to >= 0 nanoseconds.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Prevents negative travel times if a system clock ever jitters backward.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) saturating subtraction clamped at ClockMinTickNano (0).
 func ClampDeltaNano(startNano, endNano int64) int64 {
 	delta := endNano - startNano
 	if delta < ClockMinTickNano {
@@ -196,39 +203,120 @@ func (m *MockClock) Set(valNano int64) {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.clock
-// Mission:       Prove monotonic non-decreasing behavior and clamp invariants
-//                before heartbeat engines rely on relative RTT math.
+// Mission:       Prove monotonic non-decreasing behavior, live clock contracts,
+//                and 4-section pre-flight temporal stability without NTP.
+// @triggers
+//   - Block 4 Audits : ValidateClockContract(), PreflightClock(), AuditClock()
+//   - Layer 4 Tests  : tests/functional/engine_functional_test.go,
+//                      tests/unit/engine/clock_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 4.1: Contract, Input & Cog Verification Cogs
+// Sub-Assembly 4.1: Contract, Input & Live-Instance Verification Cogs
 // ------------------------------------------------------------------------------
 
-// AuditClock verifies non-decreasing monotonic ticks on both mock and real
-// clocks and confirms negative-delta clamping holds cleanly.
-func AuditClock() bool {
-	if ClampDeltaNano(500, 100) != 0 || ClampDeltaNano(100, 500) != 400 {
-		return false
+// ValidateClockContract verifies non-destructively that clock c is non-nil and
+// returns non-decreasing, non-negative monotonic readings across two probes.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Checks a live stopwatch to confirm it is connected and never ticks backwards.
+//
+// ### For Systems Programmers & Engine Architects:
+// Read-only O(1) live-instance audit returning structured `data.AuditResult`.
+func ValidateClockContract(c Clock) data.AuditResult {
+	const check = "clock_live_monotonic_contract"
+
+	if c == nil {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDClock, check,
+			"Clock instance is nil.")
 	}
-	mc := NewMockClock(1000)
-	t1 := mc.NowNano()
-	t2 := mc.Advance(250)
-	if t1 != 1000 || t2 != 1250 {
-		return false
+	t1 := c.NowNano()
+	t2 := c.NowNano()
+	if t1 < ClockMinTickNano || t2 < ClockMinTickNano {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDClock, check,
+			"Clock returned negative monotonic tick reading.")
 	}
-	rc := NewMonotonicClock()
-	r1 := rc.NowNano()
-	r2 := rc.NowNano()
-	return r2 >= r1
+	if t2 < t1 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDClock, check,
+			"Clock regressed monotonically between consecutive samples.")
+	}
+	return data.AuditPass(ModuleIDClock, check,
+		"Live clock is non-nil, non-negative, and monotonic.")
 }
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 4.2: Machine Self-Audit & Pre-Flight Validation Tripwires
 // ------------------------------------------------------------------------------
 
-// PreflightClock executes non-destructive pre-flight clearance for Cog 4.
-func PreflightClock() bool {
-	return AuditClock()
+// PreflightClock executes a 4-section non-destructive pre-flight self-audit
+// covering (1) nominal ticking, (2) negative-skew fault clamping, (3) zero
+// baseline/monotonic invariants, and (4) Set/Reset lifecycle cleanliness.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Bench-tests both the hardware stopwatch and laboratory mock stopwatch before
+// FaithNet relies on them for sonar latency measurements.
+//
+// ### For Systems Programmers & Engine Architects:
+// Stack-pure 4-section pre-flight probe returning structured `data.AuditResult`.
+func PreflightClock() data.AuditResult {
+	const check = "clock_preflight_4section"
+
+	// Micro Check 1 (Always Pass): Nominal mock advance and hardware sampling.
+	mc := NewMockClock(1000)
+	if mc.NowNano() != 1000 || mc.Advance(250) != 1250 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDClock, check,
+			"Sec 1 MockClock nominal tick/advance math failed.")
+	}
+	rc := NewMonotonicClock()
+	if res := ValidateClockContract(rc); !res.IsPass() {
+		return res
+	}
+
+	// Micro Check 2 (Never Fail): Negative skew and nil contract inversion.
+	if ClampDeltaNano(500, 100) != 0 || ClampDeltaNano(100, 100) != 0 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDClock, check,
+			"Sec 2 ClampDeltaNano failed to clamp negative or zero skew.")
+	}
+	if ValidateClockContract(nil).IsPass() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDClock, check,
+			"Sec 2 ValidateClockContract failed to reject nil Clock.")
+	}
+
+	// Micro Check 3 (Invariants & Limits): Exact positive delta & Set bounds.
+	if ClampDeltaNano(100, 500) != 400 {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDClock, check,
+			"Sec 3 ClampDeltaNano positive interval math violated.")
+	}
+	mc.Set(999_999)
+	if mc.NowNano() != 999_999 {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDClock, check,
+			"Sec 3 MockClock.Set() did not update atomic tick accurately.")
+	}
+
+	// Micro Check 4 (Emergence): Clean Reset() restoration to ClockMinTickNano.
+	mc.Reset()
+	if mc.NowNano() != ClockMinTickNano {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDClock, check,
+			"Sec 4 MockClock.Reset() left non-zero residual tick state.")
+	}
+	rc.Reset()
+	if res := ValidateClockContract(rc); !res.IsPass() {
+		return res
+	}
+
+	return data.AuditPass(ModuleIDClock, check,
+		"Clock passed all 4 micro pre-flight gates (nominal/skew/bounds/reset).")
+}
+
+// AuditClock returns true iff PreflightClock() completes with AuditSeverityPass.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Quick pass/fail check confirming FaithNet's offline stopwatches are healthy.
+//
+// ### For Systems Programmers & Engine Architects:
+// Convenience boolean bridge delegating to `PreflightClock().IsPass()`.
+func AuditClock() bool {
+	return PreflightClock().IsPass()
 }
 
 // ==============================================================================
@@ -237,15 +325,32 @@ func PreflightClock() bool {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 1: Pure Functional Engine Substrate
 // Module:        cog.engine.clock
-// Mission:       Render 60-column temporal diagnostic cards and own lifecycle
-//                constructors/reset for MonotonicClock and MockClock.
+// Mission:       Render 60-column temporal diagnostic cards, expose epilogue
+//                readiness, and own MonotonicClock/MockClock lifecycles.
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 5.1: Executable Procedures, Inspection & Diagnostic Cards
+// Sub-Assembly 5.1: Executable Procedures, Inspection, Readiness & Cards
 // ------------------------------------------------------------------------------
 
+// IsClockReady reports whether Cog 4 passed its full pre-flight audit.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Epilogue confirmation that offline timing is trustworthy and ready.
+//
+// ### For Systems Programmers & Engine Architects:
+// Matches OmniCode's Block 5 epilogue readiness predicate (`is_*_ready`).
+func IsClockReady() bool {
+	return PreflightClock().IsPass()
+}
+
 // ExecuteClockDumpCard formats a 60-column diagnostic card for clock c.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Displays which stopwatch mode is active and its current nanosecond reading.
+//
+// ### For Systems Programmers & Engine Architects:
+// Non-mutating diagnostic formatter safe to invoke on nil or live Clock values.
 func ExecuteClockDumpCard(c Clock) string {
 	var now int64
 	mode := "NIL"
@@ -280,16 +385,34 @@ func ExecuteClockDumpCard(c Clock) string {
 // ------------------------------------------------------------------------------
 
 // NewMonotonicClock initializes a monotonic clock anchored at startup.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Starts a fresh offline hardware stopwatch anchored to the current instant.
+//
+// ### For Systems Programmers & Engine Architects:
+// Allocates a single MonotonicClock whose Go `time.Time` carries monotonic ticks.
 func NewMonotonicClock() *MonotonicClock {
 	return &MonotonicClock{anchor: time.Now()}
 }
 
 // Reset re-anchors the monotonic clock epoch cleanly.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Zeroes the hardware stopwatch back to the current moment.
+//
+// ### For Systems Programmers & Engine Architects:
+// Re-samples `time.Now()` to reset relative nanosecond elapsed origin.
 func (c *MonotonicClock) Reset() {
 	c.anchor = time.Now()
 }
 
 // NewMockClock initializes a deterministic atomic mock clock at startNano.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Creates a controllable test stopwatch starting at an exact nanosecond mark.
+//
+// ### For Systems Programmers & Engine Architects:
+// Initializes lock-free `atomic.Int64` tick storage for zero-flake tests.
 func NewMockClock(startNano int64) *MockClock {
 	mc := &MockClock{}
 	mc.ticks.Store(startNano)
@@ -297,6 +420,12 @@ func NewMockClock(startNano int64) *MockClock {
 }
 
 // Reset zeroes the mock clock tick counter cleanly.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Rewinds the test stopwatch back to zero nanoseconds.
+//
+// ### For Systems Programmers & Engine Architects:
+// Atomic store of `ClockMinTickNano` (0).
 func (m *MockClock) Reset() {
 	m.ticks.Store(ClockMinTickNano)
 }
