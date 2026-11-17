@@ -17,10 +17,12 @@ AP_IP="${AP_IP:-10.77.77.1}"
 AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
 TMP_DIR="$(mktemp -d /tmp/faithnet-ap-XXXXXX)"
 DNSMASQ_PID=""
+HOSTAPD_PID=""
 
 cleanup() {
   echo ""
   echo "[CLEANUP] Tearing down FaithNet AP (${AP_IF}) safely (leaving ${STA_IF} untouched)..."
+  [[ -n "${HOSTAPD_PID}" ]] && sudo kill "${HOSTAPD_PID}" 2>/dev/null || true
   [[ -n "${DNSMASQ_PID}" ]] && sudo kill "${DNSMASQ_PID}" 2>/dev/null || true
   sudo iptables -t nat -D POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || true
   sudo iptables -D FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || true
@@ -56,22 +58,43 @@ echo "Router IP    : ${AP_IP}/24 | The Well: http://${AP_IP}:8077/ | http://fait
 echo "WPA2 Pass    : ${PASS}"
 echo ""
 
-# 3. Create virtual AP interface and keep NetworkManager hands off ap0.
+# 3. Create virtual AP interface (keep DOWN so hostapd brings it up via nl80211
+#    on rtw89/RTL8852CE without RTNETLINK EBUSY!).
 sudo iw dev "${AP_IF}" del 2>/dev/null || true
 sudo iw dev "${STA_IF}" interface add "${AP_IF}" type __ap
-sudo ip link set dev "${AP_IF}" address "${AP_MAC}"
 sudo nmcli dev set "${AP_IF}" managed no 2>/dev/null || true
+sudo ip link set dev "${AP_IF}" address "${AP_MAC}"
+
+# 4. Launch hostapd first so nl80211 initializes the AP radio on Channel ${CHAN}.
+cat > "${TMP_DIR}/hostapd.conf" <<EOF
+interface=${AP_IF}
+driver=nl80211
+ssid=${SSID}
+hw_mode=${HW_MODE}
+channel=${CHAN}
+ieee80211n=1
+wmm_enabled=1
+auth_algs=1
+wpa=2
+wpa_passphrase=${PASS}
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+EOF
+sudo hostapd -B -P "${TMP_DIR}/hostapd.pid" "${TMP_DIR}/hostapd.conf"
+sleep 1
+HOSTAPD_PID="$(cat "${TMP_DIR}/hostapd.pid" 2>/dev/null || true)"
+
+# 5. Assign router IP to live ap0 interface.
 sudo ip addr flush dev "${AP_IF}"
 sudo ip addr add "${AP_IP}/24" dev "${AP_IF}"
-sudo ip link set "${AP_IF}" up
 
-# 4. Restart persistent faithnet-home.service so Tier 2 CA signs 10.77.77.1 SAN!
+# 6. Restart persistent faithnet-home.service so Tier 2 CA signs 10.77.77.1 SAN!
 if systemctl --user is-active --quiet faithnet-home.service 2>/dev/null; then
   echo "[SYNC] Restarting faithnet-home.service to include ${AP_IP} in Tier 2 TLS cert SANs..."
   systemctl --user restart faithnet-home.service
 fi
 
-# 5. Start isolated dnsmasq DHCP + local faithnet.local DNS bound ONLY to ap0.
+# 7. Start isolated dnsmasq DHCP + local faithnet.local DNS bound ONLY to ap0.
 cat > "${TMP_DIR}/dnsmasq.conf" <<EOF
 interface=${AP_IF}
 bind-interfaces
@@ -88,7 +111,7 @@ EOF
 sudo dnsmasq -C "${TMP_DIR}/dnsmasq.conf" --pid-file="${TMP_DIR}/dnsmasq.pid"
 DNSMASQ_PID="$(cat "${TMP_DIR}/dnsmasq.pid")"
 
-# 6. Enable NAT router forwarding so connected clients stay online via STA_IF.
+# 8. Enable NAT router forwarding so connected clients stay online via STA_IF.
 sudo sysctl -w net.ipv4.ip_forward=1 >/dev/null
 sudo iptables -t nat -C POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || \
   sudo iptables -t nat -A POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE
@@ -97,21 +120,10 @@ sudo iptables -C FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || \
 sudo iptables -C FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
   sudo iptables -A FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT
 
-# 7. Run hostapd in foreground (Ctrl-C tears everything down cleanly).
-cat > "${TMP_DIR}/hostapd.conf" <<EOF
-interface=${AP_IF}
-driver=nl80211
-ssid=${SSID}
-hw_mode=${HW_MODE}
-channel=${CHAN}
-ieee80211n=1
-wmm_enabled=1
-auth_algs=1
-wpa=2
-wpa_passphrase=${PASS}
-wpa_key_mgmt=WPA-PSK
-rsn_pairwise=CCMP
-EOF
-
-echo "[LIVE] Broadcasting Wi-Fi SSID '${SSID}'! Connect phone or Laptop #2 now (Ctrl-C to stop)."
-sudo hostapd "${TMP_DIR}/hostapd.conf"
+echo "[LIVE] Wi-Fi SSID '${SSID}' is LIVE on ${AP_IF} (${AP_IP}/24, Channel ${CHAN})!"
+echo "[LIVE] Connect phone or Laptop #2 now -> http://faithnet.local:8077/ or https://${AP_IP}:8077/"
+echo "[LIVE] Tier 2 Sovereign Root CA: http://${AP_IP}:8077/faithnet-root-ca.crt"
+echo "[LIVE] Waiting (Ctrl-C to stop cleanly)..."
+while kill -0 "${HOSTAPD_PID}" 2>/dev/null; do
+  sleep 2
+done
