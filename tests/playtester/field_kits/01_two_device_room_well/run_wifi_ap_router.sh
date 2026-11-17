@@ -124,6 +124,6 @@ echo "[LIVE] Wi-Fi SSID '${SSID}' is LIVE on ${AP_IF} (${AP_IP}/24, Channel ${CH
 echo "[LIVE] Connect phone or Laptop #2 now -> http://faithnet.local:8077/ or https://${AP_IP}:8077/"
 echo "[LIVE] Tier 2 Sovereign Root CA: http://${AP_IP}:8077/faithnet-root-ca.crt"
 echo "[LIVE] Waiting (Ctrl-C to stop cleanly)..."
-while kill -0 "${HOSTAPD_PID}" 2>/dev/null; do
+while sudo kill -0 "${HOSTAPD_PID}" 2>/dev/null; do
   sleep 2
 done
