@@ -85,6 +85,13 @@ const (
 	// MaxCascadeHistory is the power-of-two capacity of the cascade ring log.
 	MaxCascadeHistory = 64
 
+	// MaxTransceiversPerRung bounds sibling mediums per survival rung (e.g.,
+	// Rung 1 can hold SLIP Serial + AFSK Audio + Morse CW simultaneously).
+	MaxTransceiversPerRung = 4
+
+	// MaxTotalTransceivers is the fixed upper bound across all 4 rungs (16).
+	MaxTotalTransceivers = 4 * MaxTransceiversPerRung
+
 	// rungSlotCount holds indices 0..4 (index 0 unused; 1..4 = Rung1..Rung4).
 	rungSlotCount = 5
 )
@@ -118,13 +125,14 @@ const (
 // global backbone, shifting gears smoothly whenever hardware heals or breaks.
 //
 // ### For Systems Programmers & Engine Architects:
-// Fixed-size `[5]transport.Transceiver` table + `[64]data.CascadeEvent` ring
+// Fixed-size `[5][4]transport.Transceiver` table + `[64]data.CascadeEvent` ring
 // guarded by `sync.RWMutex`. Zero dynamic slice growth on transitions.
 type AdaptiveLadder struct {
 	mu           sync.RWMutex
 	manifest     data.NodeManifest
 	clock        engine.Clock
-	slots        [rungSlotCount]transport.Transceiver
+	slots        [rungSlotCount][MaxTransceiversPerRung]transport.Transceiver
+	slotCounts   [rungSlotCount]int
 	activeRung   data.RungLevel
 	history      [MaxCascadeHistory]data.CascadeEvent
 	historyHead  uint64
@@ -163,11 +171,17 @@ func (l *AdaptiveLadder) ActiveTransceiver() transport.Transceiver {
 	if !l.activeRung.IsValid() {
 		return nil
 	}
-	return l.slots[l.activeRung]
+	if tx := l.findHealthyOnRungLocked(l.activeRung); tx != nil {
+		return tx
+	}
+	if n := l.slotCounts[l.activeRung]; n > 0 {
+		return l.slots[l.activeRung][n-1]
+	}
+	return nil
 }
 
 // RegisteredTransceivers copies all non-nil registered transceivers into dst
-// and returns the count written (at most 4).
+// and returns the count written (at most MaxTotalTransceivers).
 //
 // ### For Architects, Operators & Non-Programmers:
 // Lists every communication wire currently plugged into this node's ladder.
@@ -179,9 +193,11 @@ func (l *AdaptiveLadder) RegisteredTransceivers(dst []transport.Transceiver) int
 	defer l.mu.RUnlock()
 	written := 0
 	for r := data.RungMinValid; r <= data.RungMaxValid && written < len(dst); r++ {
-		if l.slots[r] != nil {
-			dst[written] = l.slots[r]
-			written++
+		for i := 0; i < l.slotCounts[r] && written < len(dst); i++ {
+			if l.slots[r][i] != nil {
+				dst[written] = l.slots[r][i]
+				written++
+			}
 		}
 	}
 	return written
@@ -239,6 +255,18 @@ func (l *AdaptiveLadder) recordTransitionLocked(
 	}
 }
 
+func (l *AdaptiveLadder) findHealthyOnRungLocked(r data.RungLevel) transport.Transceiver {
+	if !r.IsValid() {
+		return nil
+	}
+	for i := l.slotCounts[r] - 1; i >= 0; i-- {
+		if tx := l.slots[r][i]; tx != nil && tx.Healthy() {
+			return tx
+		}
+	}
+	return nil
+}
+
 func (l *AdaptiveLadder) findHighestHealthyLocked(
 	ceiling, floor data.RungLevel,
 ) data.RungLevel {
@@ -246,7 +274,7 @@ func (l *AdaptiveLadder) findHighestHealthyLocked(
 		return data.RungNone
 	}
 	for r := ceiling; r >= floor; r-- {
-		if tx := l.slots[r]; tx != nil && tx.Healthy() {
+		if l.findHealthyOnRungLocked(r) != nil {
 			return r
 		}
 		if r == data.RungMinValid {
@@ -289,7 +317,22 @@ func (l *AdaptiveLadder) RegisterRung(tx transport.Transceiver) error {
 	defer l.mu.Unlock()
 
 	r := tx.Rung()
-	l.slots[r] = tx
+	replaced := false
+	for i := 0; i < l.slotCounts[r]; i++ {
+		if l.slots[r][i] != nil && l.slots[r][i].Name() == tx.Name() {
+			l.slots[r][i] = tx
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		if l.slotCounts[r] < MaxTransceiversPerRung {
+			l.slots[r][l.slotCounts[r]] = tx
+			l.slotCounts[r]++
+		} else {
+			l.slots[r][MaxTransceiversPerRung-1] = tx
+		}
+	}
 
 	top := l.effectiveMaxRungLocked()
 	floor := l.effectiveMinRungLocked()
@@ -364,8 +407,8 @@ func (l *AdaptiveLadder) CascadeDown(reason string) (data.RungLevel, error) {
 	if prev > floor {
 		searchTop = prev - 1
 	} else {
-		// Already at floor; check if floor itself is still healthy.
-		if floor.IsValid() && l.slots[floor] != nil && l.slots[floor].Healthy() {
+		// Already at floor; check if any sibling transceiver on floor is healthy.
+		if floor.IsValid() && l.findHealthyOnRungLocked(floor) != nil {
 			return floor, nil
 		}
 		l.activeRung = data.RungNone
@@ -411,26 +454,50 @@ func (l *AdaptiveLadder) SendFrame(
 	}
 
 	for attempts := 0; attempts < rungSlotCount; attempts++ {
-		tx := l.ActiveTransceiver()
 		rung := l.ActiveRung()
-		if tx == nil || !rung.IsValid() {
+		if !rung.IsValid() {
 			return data.RungNone, ErrFloorCollapsed
 		}
-		err := tx.Send(target, raw)
-		if err == nil {
-			return rung, nil
+
+		// Try every healthy sibling transceiver attached to the active rung
+		// (highest priority first) before cascading down to a lower rung.
+		var siblings [MaxTransceiversPerRung]transport.Transceiver
+		sibCount := 0
+		l.mu.RLock()
+		for i := l.slotCounts[rung] - 1; i >= 0; i-- {
+			if tx := l.slots[rung][i]; tx != nil && tx.Healthy() {
+				siblings[sibCount] = tx
+				sibCount++
+			}
 		}
-		if err == transport.ErrWireFrameOversize {
-			return data.RungNone, err
+		l.mu.RUnlock()
+
+		var lastErr error
+		var lastName string
+		for i := 0; i < sibCount; i++ {
+			tx := siblings[i]
+			lastName = tx.Name()
+			err := tx.Send(target, raw)
+			if err == nil {
+				return rung, nil
+			}
+			if err == transport.ErrWireFrameOversize {
+				return data.RungNone, err
+			}
+			lastErr = err
 		}
-		// Active rung failed mid-flight: defensive cascade downward.
-		next, cErr := l.CascadeDown(fmt.Sprintf("%s send failed: %v", tx.Name(), err))
+		if sibCount == 0 {
+			return data.RungNone, ErrFloorCollapsed
+		}
+
+		// All healthy siblings on active rung failed mid-flight: cascade downward.
+		next, cErr := l.CascadeDown(fmt.Sprintf("%s send failed: %v", lastName, lastErr))
 		if cErr != nil || !next.IsValid() {
 			return data.RungNone, ErrFloorCollapsed
 		}
 		// Avoid infinite retry if already standing on the lowest floor rung.
 		if next == rung {
-			return data.RungNone, err
+			return data.RungNone, lastErr
 		}
 	}
 	return data.RungNone, ErrFloorCollapsed
@@ -491,7 +558,7 @@ func (l *AdaptiveLadder) AuditState() data.AuditResult {
 		return data.AuditFail(data.AuditSeverityFatal, ModuleIDLadder, check,
 			"Policy breach: activeRung is Rung4Global without AllowGlobalEgress.")
 	}
-	if l.activeRung.IsValid() && l.slots[l.activeRung] == nil {
+	if l.activeRung.IsValid() && l.slotCounts[l.activeRung] == 0 {
 		return data.AuditFail(data.AuditSeverityFatal, ModuleIDLadder, check,
 			"Active rung points to nil transceiver slot.")
 	}
@@ -668,7 +735,7 @@ func (l *AdaptiveLadder) ExecuteLadderDumpCard() string {
 	floor := l.effectiveMinRungLocked()
 	registered := 0
 	for r := data.RungMinValid; r <= data.RungMaxValid; r++ {
-		if l.slots[r] != nil {
+		if l.slotCounts[r] > 0 {
 			registered++
 		}
 	}
@@ -728,20 +795,25 @@ func NewAdaptiveLadder(
 // Closes all non-nil slots and resets `activeRung` to `RungNone` safely.
 func (l *AdaptiveLadder) Close() error {
 	l.mu.Lock()
-	var toClose [rungSlotCount]transport.Transceiver
+	var toClose [MaxTotalTransceivers]transport.Transceiver
+	closeCount := 0
 	for r := data.RungMinValid; r <= data.RungMaxValid; r++ {
-		toClose[r] = l.slots[r]
-		l.slots[r] = nil
+		for i := 0; i < l.slotCounts[r]; i++ {
+			if l.slots[r][i] != nil {
+				toClose[closeCount] = l.slots[r][i]
+				closeCount++
+				l.slots[r][i] = nil
+			}
+		}
+		l.slotCounts[r] = 0
 	}
 	l.activeRung = data.RungNone
 	l.mu.Unlock()
 
 	var firstErr error
-	for r := data.RungMinValid; r <= data.RungMaxValid; r++ {
-		if toClose[r] != nil {
-			if err := toClose[r].Close(); err != nil && firstErr == nil {
-				firstErr = err
-			}
+	for i := 0; i < closeCount; i++ {
+		if err := toClose[i].Close(); err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
 	return firstErr

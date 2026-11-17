@@ -274,7 +274,9 @@ func (m *MemoryTransceiver) Receive(ctx context.Context) (transport.WireEnvelope
 //   - Block 4 Audits : (*MemoryTransceiver).AuditState(),
 //                      PreflightMemoryBus(), AuditMemoryBus()
 //   - Layer 4 Tests  : tests/functional/transport_functional_test.go,
-//                      tests/unit/transport/rung2_host_test.go
+//                      tests/unit/transport/memory_test.go,
+//                      tests/integrated/host_ipc_mesh_test.go,
+//                      tests/system/sovereign_mesh_e2e_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------

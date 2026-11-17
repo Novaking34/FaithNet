@@ -204,12 +204,23 @@ func TestTypesUnit_Sec4_FullBidirectionalLadderSweep(t *testing.T) {
 // Mission:       Run vocabulary preflight gate and verify physical source anchor.
 // ==============================================================================
 
-func TestTypesUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestTypesUnit_Block4_PreflightGates(t *testing.T) {
 	if typesUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
 	common.AssertAuditPass(t, common.SelfAudit(), common.ExecuteHarnessDumpCard())
 	common.AssertAuditPass(t, engine.AuditDataVocabulary(), engine.ExecuteCodecDumpCard())
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestTypesUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "data/types.go")
 }
 
@@ -222,6 +233,10 @@ func TestTypesUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.data.types
 // Mission:       Confirm harness and codec readiness after scalar unit suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestTypesUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !common.IsHarnessReady() || !engine.IsCodecReady() {

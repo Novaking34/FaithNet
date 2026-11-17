@@ -236,8 +236,10 @@ func (g *EgressGateway) FetchEmpiricalFrame(
 // @triggers
 //   - Block 4 Audits : (*EgressGateway).AuditState(), PreflightGlobalEgress(),
 //                      AuditGlobalEgress()
-//   - Layer 4 Tests  : tests/unit/transport/rung4_global_test.go,
-//                      tests/system/sovereign_mesh_e2e_test.go
+//   - Layer 4 Tests  : tests/functional/transport_functional_test.go,
+//                      tests/unit/transport/egress_test.go,
+//                      tests/integrated/global_airlock_bridge_test.go,
+//                      tests/system/airlock_hostility_system_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------

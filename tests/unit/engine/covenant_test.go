@@ -265,7 +265,11 @@ func TestCovenantUnit_Sec4_DumpCardAndAllFourT4StatesObserved(t *testing.T) {
 // Mission:       Run PreflightCovenantFilter and verify physical source anchor.
 // ==============================================================================
 
-func TestCovenantUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestCovenantUnit_Block4_PreflightGates(t *testing.T) {
 	if covenantUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -274,6 +278,13 @@ func TestCovenantUnit_Block4_PreflightAndAnchor(t *testing.T) {
 	if !covenant.AuditCovenantFilter() {
 		t.Fatal("[BLOCK 4] AuditCovenantFilter returned false")
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestCovenantUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "engine/covenant/filter.go")
 }
 
@@ -286,6 +297,10 @@ func TestCovenantUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.engine.covenant
 // Mission:       Confirm Airlock and harness epilogue readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestCovenantUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !covenant.IsAirlockReady() || !common.IsHarnessReady() {

@@ -278,7 +278,11 @@ func TestLadderUnit_Sec4_RegisteredSnapshotAndDumpCard(t *testing.T) {
 // Mission:       Run PreflightLadder and verify physical source anchor.
 // ==============================================================================
 
-func TestLadderUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestLadderUnit_Block4_PreflightGates(t *testing.T) {
 	if ladderUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -286,6 +290,13 @@ func TestLadderUnit_Block4_PreflightAndAnchor(t *testing.T) {
 	if !orchestrator.AuditLadder() {
 		t.Fatal("[BLOCK 4] AuditLadder returned false")
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestLadderUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "orchestrator/ladder.go")
 }
 
@@ -298,6 +309,10 @@ func TestLadderUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.orchestrator.ladder
 // Mission:       Confirm ladder and harness readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestLadderUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !orchestrator.IsLadderReady() || !common.IsHarnessReady() {

@@ -307,7 +307,9 @@ func (u *IPCTransceiver) Receive(ctx context.Context) (transport.WireEnvelope, e
 //   - Block 4 Audits : (*IPCTransceiver).AuditState(), PreflightHostIPC(),
 //                      AuditHostIPC()
 //   - Layer 4 Tests  : tests/functional/transport_functional_test.go,
-//                      tests/unit/transport/rung2_host_test.go
+//                      tests/unit/transport/ipc_test.go,
+//                      tests/integrated/host_ipc_mesh_test.go,
+//                      tests/system/sovereign_mesh_e2e_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------

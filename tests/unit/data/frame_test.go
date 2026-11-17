@@ -193,7 +193,11 @@ func TestFrameUnit_Sec4_ZeroLengthAndFullSectorResetCycle(t *testing.T) {
 // Mission:       Run Frame contract validator, vocabulary audit, and anchor check.
 // ==============================================================================
 
-func TestFrameUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestFrameUnit_Block4_PreflightGates(t *testing.T) {
 	if frameUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -202,6 +206,13 @@ func TestFrameUnit_Block4_PreflightAndAnchor(t *testing.T) {
 	)
 	common.AssertAuditPass(t, engine.ValidateFrameContract(&sample), engine.ExecuteCodecDumpCard())
 	common.AssertAuditFail(t, engine.ValidateFrameContract(nil), data.AuditSeverityCritical)
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestFrameUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "data/frame.go")
 }
 
@@ -214,6 +225,10 @@ func TestFrameUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.data.frame
 // Mission:       Confirm readiness handshake post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestFrameUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !common.IsHarnessReady() || !engine.IsCodecReady() {

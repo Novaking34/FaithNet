@@ -264,7 +264,11 @@ func TestRouterUnit_Sec4_DumpCardAndCleanReset(t *testing.T) {
 // Mission:       Run PreflightRouter and verify physical source anchor.
 // ==============================================================================
 
-func TestRouterUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestRouterUnit_Block4_PreflightGates(t *testing.T) {
 	if routerUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -272,6 +276,13 @@ func TestRouterUnit_Block4_PreflightAndAnchor(t *testing.T) {
 	if !engine.AuditRouter() {
 		t.Fatal("[BLOCK 4] AuditRouter returned false")
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestRouterUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "engine/router.go")
 }
 
@@ -284,6 +295,10 @@ func TestRouterUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.engine.router
 // Mission:       Confirm Router and harness epilogue readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestRouterUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !engine.IsRouterReady() || !common.IsHarnessReady() {

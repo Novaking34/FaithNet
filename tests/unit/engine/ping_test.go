@@ -298,7 +298,11 @@ func TestPingUnit_Sec4_LiveAuditCardAndCleanResetLifecycle(t *testing.T) {
 // Mission:       Run PreflightPingEngine and verify physical source anchor.
 // ==============================================================================
 
-func TestPingUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestPingUnit_Block4_PreflightGates(t *testing.T) {
 	if pingUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -306,6 +310,13 @@ func TestPingUnit_Block4_PreflightAndAnchor(t *testing.T) {
 	if !engine.AuditPingEngine() {
 		t.Fatal("[BLOCK 4] AuditPingEngine returned false")
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestPingUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "engine/ping.go")
 }
 
@@ -318,6 +329,10 @@ func TestPingUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.engine.ping
 // Mission:       Confirm PingEngine and harness epilogue readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestPingUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !engine.IsPingEngineReady() || !common.IsHarnessReady() {

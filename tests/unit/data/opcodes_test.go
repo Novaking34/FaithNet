@@ -203,11 +203,22 @@ func TestOpcodesUnit_Sec4_ExhaustiveByteSpacePartition(t *testing.T) {
 // Mission:       Run vocabulary preflight gate and verify physical anchor.
 // ==============================================================================
 
-func TestOpcodesUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestOpcodesUnit_Block4_PreflightGates(t *testing.T) {
 	if opcodesUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
 	common.AssertAuditPass(t, engine.AuditDataVocabulary(), engine.ExecuteCodecDumpCard())
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestOpcodesUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "data/opcodes.go")
 }
 
@@ -220,6 +231,10 @@ func TestOpcodesUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.data.opcodes
 // Mission:       Confirm readiness handshake post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestOpcodesUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !common.IsHarnessReady() || !engine.IsCodecReady() {

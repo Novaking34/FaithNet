@@ -210,11 +210,22 @@ func TestProfileUnit_Sec4_ExplicitGlobalOptInAndCascadeRecord(t *testing.T) {
 // Mission:       Run vocabulary preflight gate and verify physical anchor.
 // ==============================================================================
 
-func TestProfileUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestProfileUnit_Block4_PreflightGates(t *testing.T) {
 	if profileUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
 	common.AssertAuditPass(t, engine.AuditDataVocabulary(), engine.ExecuteCodecDumpCard())
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestProfileUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "data/profile.go")
 }
 
@@ -227,6 +238,10 @@ func TestProfileUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.data.profile
 // Mission:       Confirm readiness handshake post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestProfileUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !common.IsHarnessReady() || !engine.IsCodecReady() {

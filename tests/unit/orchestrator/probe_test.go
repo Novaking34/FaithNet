@@ -172,7 +172,11 @@ func TestProbeUnit_Sec4_ProbeDumpCardReflectsBodyOrgans(t *testing.T) {
 // Mission:       Run PreflightProbe and verify physical source anchor.
 // ==============================================================================
 
-func TestProbeUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestProbeUnit_Block4_PreflightGates(t *testing.T) {
 	if probeUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -180,6 +184,13 @@ func TestProbeUnit_Block4_PreflightAndAnchor(t *testing.T) {
 	if !orchestrator.AuditProbe() {
 		t.Fatal("[BLOCK 4] AuditProbe returned false")
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestProbeUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "orchestrator/probe.go")
 }
 
@@ -192,6 +203,10 @@ func TestProbeUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.orchestrator.probe
 // Mission:       Confirm probe and harness readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestProbeUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !orchestrator.IsProbeReady() || !common.IsHarnessReady() {

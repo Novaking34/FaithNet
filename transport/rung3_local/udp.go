@@ -335,8 +335,10 @@ func (u *UDPTransceiver) Receive(ctx context.Context) (transport.WireEnvelope, e
 // @triggers
 //   - Block 4 Audits : (*UDPTransceiver).AuditState(), PreflightLocalUDP(),
 //                      AuditLocalUDP()
-//   - Layer 4 Tests  : tests/unit/transport/rung3_local_test.go,
-//                      tests/integrated/room_and_well_test.go
+//   - Layer 4 Tests  : tests/functional/transport_functional_test.go,
+//                      tests/unit/transport/udp_test.go,
+//                      tests/integrated/room_and_well_test.go,
+//                      tests/system/sovereign_mesh_e2e_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------

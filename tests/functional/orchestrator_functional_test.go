@@ -199,13 +199,24 @@ func TestOrchestratorFunctional_Sec4_DumpCardsEmitCompleteTelemetry(t *testing.T
 // Mission:       Run Probe, Ladder, and Dispatcher Block 4 preflights & anchors.
 // ==============================================================================
 
-func TestOrchestratorFunctional_Block4_PreflightAndAnchors(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestOrchestratorFunctional_Block4_PreflightGates(t *testing.T) {
 	if orchestratorFunctionalSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
 	common.AssertAuditPass(t, orchestrator.PreflightProbe(), "")
 	common.AssertAuditPass(t, orchestrator.PreflightLadder(), "")
 	common.AssertAuditPass(t, orchestrator.PreflightDispatcher(), "")
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestOrchestratorFunctional_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t,
 		"orchestrator/probe.go",
 		"orchestrator/ladder.go",
@@ -222,6 +233,10 @@ func TestOrchestratorFunctional_Block4_PreflightAndAnchors(t *testing.T) {
 // Module:        test.functional.orchestrator
 // Mission:       Confirm Layer 2 orchestrator readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestOrchestratorFunctional_Block5_EpilogueReadiness(t *testing.T) {
 	if !orchestrator.IsProbeReady() || !orchestrator.IsLadderReady() ||

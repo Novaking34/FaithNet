@@ -429,8 +429,10 @@ func (a *AudioTransceiver) Receive(ctx context.Context) (transport.WireEnvelope,
 // @triggers
 //   - Block 4 Audits : (*AudioTransceiver).AuditState(),
 //                      PreflightAudioModem(), AuditAudioModem()
-//   - Layer 4 Tests  : tests/unit/transport/floor_transports_test.go,
-//                      tests/system/sovereign_mesh_e2e_test.go
+//   - Layer 4 Tests  : tests/functional/transport_functional_test.go,
+//                      tests/unit/transport/audio_test.go,
+//                      tests/integrated/floor_to_orchestrator_test.go,
+//                      tests/system/floor_survival_system_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------

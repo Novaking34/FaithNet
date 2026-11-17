@@ -252,7 +252,11 @@ func TestDispatcherUnit_Sec4_SendFrameAutoStampsSourceAndUpdatesStats(t *testing
 // Mission:       Run PreflightDispatcher and verify physical source anchor.
 // ==============================================================================
 
-func TestDispatcherUnit_Block4_PreflightAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestDispatcherUnit_Block4_PreflightGates(t *testing.T) {
 	if dispatcherUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -260,6 +264,13 @@ func TestDispatcherUnit_Block4_PreflightAndAnchor(t *testing.T) {
 	if !orchestrator.AuditDispatcher() {
 		t.Fatal("[BLOCK 4] AuditDispatcher returned false")
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestDispatcherUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "orchestrator/dispatcher.go")
 }
 
@@ -272,6 +283,10 @@ func TestDispatcherUnit_Block4_PreflightAndAnchor(t *testing.T) {
 // Module:        test.unit.orchestrator.dispatcher
 // Mission:       Confirm dispatcher and harness readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestDispatcherUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !orchestrator.IsDispatcherReady() || !common.IsHarnessReady() {

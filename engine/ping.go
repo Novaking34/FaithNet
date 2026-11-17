@@ -66,12 +66,13 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/CreativeWorkzStudio/FaithNet/data"
 )
 
 // --- Tier 2: External Library Dependencies (None — 100% Go Stdlib Invariant) ---
 
 // --- Tier 3: Internal FaithNet Foundation Packages ---
-import "github.com/CreativeWorkzStudio/FaithNet/data"
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 2.1: Pre-Conditions, Physical Bounds & Sentinel Errors

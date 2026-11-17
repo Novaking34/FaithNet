@@ -232,16 +232,105 @@ func runSovereignNode(opts NodeCLIOptions) error {
 
 // ==============================================================================
 // BLOCK 4: AUDIT PROCEDURES BLOCK
-// ( Full-Stack Layer 0..3B Pre-Flight Audit Aggregator )
+// ( Node CLI Contract Validation & Full-Stack 22-Gate Pre-Flight Aggregator )
 // ==============================================================================
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 4: Thin Imperative Sovereign Node CLI Entrypoint
 // Module:        cmd.faithnet.node
-// Mission:       Execute every Layer 0..3B Block 4 pre-flight probe on --audit.
+// Mission:       Validate NodeCLIOptions, execute 4-section CLI self-audit, and
+//                run every Layer 0..4 Block 4 pre-flight probe on --audit.
+// @triggers
+//   - Block 4 Audits : ValidateNodeCLIOptions(), PreflightNodeCLI(),
+//                      runFullNodeAudits()
+//   - Layer 4 Tests  : tests/functional/cmd_functional_test.go,
+//                      tests/unit/cmd/node_cli_test.go,
+//                      tests/system/cli_binaries_system_test.go
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Contract, Input & Node CLI Option Verification Cogs
+// ------------------------------------------------------------------------------
+
+// ValidateNodeCLIOptions audits node startup options against sovereign NodeID
+// and IEEE 802.11 Beacon SSID bounds prior to starting listeners.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Checks node startup flags up front so bad IDs or oversized Wi-Fi names are
+// caught cleanly before opening any ports.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) contract gate returning structured `data.AuditResult`.
+func ValidateNodeCLIOptions(opts NodeCLIOptions) data.AuditResult {
+	const check = "cli_node_options_contract"
+
+	id := data.NodeID(opts.NodeID)
+	if !id.IsValid() || id.IsBroadcast() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDNodeCLI, check,
+			"CLI --id must be a valid non-null, non-broadcast 64-bit NodeID.")
+	}
+	if opts.Label == "" || len(opts.Label) > 64 {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDNodeCLI, check,
+			"CLI --label must be 1..64 bytes.")
+	}
+	if len(opts.BeaconSSID) == 0 || len(opts.BeaconSSID) > rung3_local.MaxBeaconSSIDBytes {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDNodeCLI, check,
+			"CLI --beacon-ssid must be 1..32 bytes (IEEE 802.11 bound).")
+	}
+	return data.AuditPass(ModuleIDNodeCLI, check,
+		"NodeCLIOptions sovereign ID and beacon bounds verified.")
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Machine Self-Audit & Full-Stack Pre-Flight Aggregator
+// ------------------------------------------------------------------------------
+
+// PreflightNodeCLI executes a 4-section self-audit covering (1) canonical
+// defaults, (2) null/broadcast ID rejection, (3) 32-byte SSID ceiling when
+// beacon is active, and (4) Layer 2 orchestrator readiness.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Verifies faithnet-node's flag validation rules before launching a node.
+//
+// ### For Systems Programmers & Engine Architects:
+// Non-destructive 4-section CLI pre-flight returning structured `data.AuditResult`.
+func PreflightNodeCLI() data.AuditResult {
+	const check = "cli_node_preflight_4section"
+
+	// Micro Check 1 (Always Pass): Canonical defaults pass cleanly.
+	def := NodeCLIOptions{
+		NodeID:     DefaultNodeID,
+		Label:      DefaultNodeLabel,
+		BeaconSSID: data.DefaultBeaconSSID,
+	}
+	if r := ValidateNodeCLIOptions(def); !r.IsPass() {
+		return r
+	}
+	// Micro Check 2 (Never Fail): Null and broadcast NodeID rejected.
+	if ValidateNodeCLIOptions(NodeCLIOptions{NodeID: 0}).IsPass() ||
+		ValidateNodeCLIOptions(NodeCLIOptions{NodeID: uint64(data.NodeIDBroadcast)}).IsPass() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDNodeCLI, check,
+			"Sec 2 null or broadcast --id bypassed ValidateNodeCLIOptions.")
+	}
+	// Micro Check 3 (Invariants & Limits): 33-byte SSID rejected with --beacon.
+	badBeacon := def
+	badBeacon.EnableBeacon = true
+	badBeacon.BeaconSSID = "123456789012345678901234567890123"
+	if ValidateNodeCLIOptions(badBeacon).IsPass() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDNodeCLI, check,
+			"Sec 3 33-byte --beacon-ssid bypassed IEEE 802.11 ceiling.")
+	}
+	// Micro Check 4 (Emergence): Orchestrator & Well readiness handshakes pass.
+	if !orchestrator.IsDispatcherReady() || !interpreter.IsWellServerReady() {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDNodeCLI, check,
+			"Sec 4 underlying Dispatcher or WellServer readiness failed.")
+	}
+	return data.AuditPass(ModuleIDNodeCLI, check,
+		"faithnet-node CLI passed all 4 micro pre-flight gates.")
+}
 
 func runFullNodeAudits() bool {
 	results := []data.AuditResult{
+		PreflightNodeCLI(),
 		engine.AuditDataVocabulary(),
 		engine.PreflightCodec(),
 		engine.PreflightClock(),
@@ -304,6 +393,11 @@ func main() {
 			os.Exit(1)
 		}
 		os.Exit(0)
+	}
+
+	if res := ValidateNodeCLIOptions(opts); !res.IsPass() {
+		fmt.Fprintf(os.Stderr, "error: %s\n", res.String())
+		os.Exit(2)
 	}
 
 	if err := runSovereignNode(opts); err != nil {

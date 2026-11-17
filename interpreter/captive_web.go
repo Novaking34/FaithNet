@@ -390,8 +390,10 @@ func (w *WellServer) handleHomeHTML(rw http.ResponseWriter, r *http.Request) {
 // @triggers
 //   - Block 4 Audits : (*WellServer).AuditState(), PreflightWellServer(),
 //                      AuditWellServer()
-//   - Layer 4 Tests  : tests/unit/interpreter/interpreter_test.go,
-//                      tests/integrated/room_and_well_test.go
+//   - Layer 4 Tests  : tests/functional/interpreter_functional_test.go,
+//                      tests/unit/interpreter/captive_web_test.go,
+//                      tests/integrated/room_and_well_test.go,
+//                      tests/system/airlock_hostility_system_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------

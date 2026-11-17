@@ -206,7 +206,9 @@ func DetectLegacyClient(userAgent string) LegacyClientProfile {
 // @triggers
 //   - Block 4 Audits : AuditLegacyClientProfile(), PreflightLegacyBridge(),
 //                      AuditLegacyBridge()
-//   - Layer 4 Tests  : tests/unit/interpreter/interpreter_test.go
+//   - Layer 4 Tests  : tests/functional/interpreter_functional_test.go,
+//                      tests/unit/interpreter/legacy_bridge_test.go,
+//                      tests/integrated/room_and_well_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------

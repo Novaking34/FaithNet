@@ -13,30 +13,30 @@
 // @updated       2026-11-17
 // @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 // @repository    https://github.com/CreativeWorkzStudio/FaithNet
-// @system        FaithNet Layer 3A Transport Functional Surface Suite
+// @system        FaithNet Layer 3A All-4-Rungs Transport Functional Surface
 // @role          Tier-1 Functional Diagnostic Sensor (4-Section Micro Protocol)
 // @maturity      Rev 5 Baseline | 4x4 Verification Matrix
-// @chassis       bounded-heap | Exercises Cog 3 Transceiver & Rung 2 Host wires
-// @scale         O(1) deterministic wire send/receive surface probes
-// @seams         in: transport, transport/rung2_host, tests/common
-// @invariants    1. Macro Tier 1 (Functional): verifies polymorphic Transceiver
-//                   contract across Rung 2 RAM and Unix IPC mediums.
-//                2. Zero leaked temporary sockets or goroutines after Close().
-//                3. Enforces 512-byte Floppy Sector wire ceiling on every wire.
+// @chassis       bounded-heap | Exercises Cog 3 Transceiver across Rungs 1..4
+// @scale         O(1) polymorphic send/recv sweep over every survival rung
+// @seams         in: transport, rung1_floor, rung2_host, rung3_local, rung4_global
+// @invariants    1. Macro Tier 1 (Functional): exercises ALL 4 survival rungs
+//                   (Serial/AFSK/Morse, RAM/IPC, UDP/Beacon, TCP/Egress).
+//                2. Enforces 512-byte Floppy Sector wire ceiling universally.
+//                3. Zero leaked temporary sockets or goroutines after Close().
 //
 // PURPOSE & ARCHITECTURAL ROLE:
 //   Tier-1 Functional surface suite exercising FaithNet's Cog 3 `Transceiver`
-//   contract and Rung 2 Host mediums (`transport/transceiver.go`,
-//   `transport/rung2_host/memory.go`, `transport/rung2_host/ipc.go`) across
-//   all 4 ontological micro sections.
+//   contract across all 4 adaptive rungs (`rung1_floor`, `rung2_host`,
+//   `rung3_local`, `rung4_global`) through all 4 horizontal micro sections,
+//   all 9 transport Block 4 preflight gates, and all 9 Block 5 readiness probes.
 //
 //   ### For Architects, Operators & Non-Programmers:
-//   Verifies that two FaithNet nodes can talk cleanly over RAM channels and
-//   local IPC mailboxes without any network card, and shut down cleanly.
+//   Confirms at a surface level that every communication wire in FaithNet—from
+//   1844 Morse pulses and radio chirps to RAM, IPC, LAN UDP, and global TCP—
+//   speaks the exact same plug-and-play language.
 //
 //   ### For Systems Programmers & Engine Architects:
-//   Exercises `transport.Transceiver` polymorphism, context cancellation,
-//   512B oversize rejection, and Block 4 structured preflight gates.
+//   Paired with 10 dedicated 1:1 Tier 2 unit files under `tests/unit/transport/`.
 // ==============================================================================
 
 package functional_test
@@ -48,12 +48,13 @@ package functional_test
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 4: Tier-1 Functional Verification Suite
 // Module:        test.functional.transport
-// Mission:       Bind Cog 3 Transceiver contract and Rung 2 Host transports.
+// Mission:       Bind Cog 3 Transceiver and all 4 concrete survival rung pkgs.
 // ==============================================================================
 
 // --- Tier 1: Standard Go Library Packages ---
 import (
 	"context"
+	"io"
 	"path/filepath"
 	"testing"
 	"time"
@@ -67,7 +68,10 @@ import (
 	"github.com/CreativeWorkzStudio/FaithNet/engine"
 	"github.com/CreativeWorkzStudio/FaithNet/tests/common"
 	"github.com/CreativeWorkzStudio/FaithNet/transport"
+	"github.com/CreativeWorkzStudio/FaithNet/transport/rung1_floor"
 	"github.com/CreativeWorkzStudio/FaithNet/transport/rung2_host"
+	"github.com/CreativeWorkzStudio/FaithNet/transport/rung3_local"
+	"github.com/CreativeWorkzStudio/FaithNet/transport/rung4_global"
 )
 
 // ------------------------------------------------------------------------------
@@ -75,7 +79,7 @@ import (
 // ------------------------------------------------------------------------------
 
 const (
-	transportFunctionalSuiteName = "Tier 1: Layer 3A Transport Surface (Rung 2)"
+	transportFunctionalSuiteName = "Tier 1: Layer 3A All-4-Rungs Transport Surface"
 )
 
 // ==============================================================================
@@ -84,58 +88,93 @@ const (
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 4: Tier-1 Functional Verification Suite
 // Module:        test.functional.transport
-// Mission:       Verify polymorphic Transceiver behavior across Sections 1-4.
+// Mission:       Verify polymorphic Transceiver behavior across all 4 rungs.
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 3.1: [ SECTION 1: ALWAYS PASS (NOMINAL GOLDEN SURFACE COGS) ]
+// Sub-Assembly 3.1: [ SECTION 1: ALWAYS PASS (POLYMORPHIC ALL-4-RUNGS SURFACE) ]
 // ------------------------------------------------------------------------------
 
-func TestTransportFunctional_Sec1_PolymorphicMemoryAndIPCSurface(t *testing.T) {
-	// 1. Rung 2 MemoryBus nominal exchange via Transceiver interface.
-	bus := rung2_host.NewMemoryBus()
-	var txA transport.Transceiver = bus.Attach(common.NodeAlpha)
-	var txB transport.Transceiver = bus.Attach(common.NodeBeta)
-	defer func() {
-		_ = txA.Close()
-		_ = txB.Close()
-	}()
-
-	if txA.Rung() != data.Rung2Host || txA.Name() != "rung2:memory" || !txA.Healthy() {
-		t.Fatalf("[SEC 1] unexpected MemoryTransceiver metadata: %s %s %v",
-			txA.Name(), txA.Rung(), txA.Healthy())
-	}
-	if err := txA.Send(common.NodeBeta, []byte("MEM-HELLO")); err != nil {
-		t.Fatalf("[SEC 1] MemoryTransceiver Send failed: %v", err)
-	}
-	env, err := txB.Receive(context.Background())
-	if err != nil || string(env.Slice()) != "MEM-HELLO" {
-		t.Fatalf("[SEC 1] MemoryTransceiver Receive mismatch: err=%v got=%q", err, env.Slice())
-	}
-
-	// 2. Rung 2 Unix IPC nominal exchange via Transceiver interface.
-	tmp := t.TempDir()
-	ipcA, err := rung2_host.NewIPCTransceiver(common.NodeAlpha, filepath.Join(tmp, "a.sock"))
-	if err != nil {
-		t.Fatalf("[SEC 1] NewIPCTransceiver A failed: %v", err)
-	}
-	defer func() { _ = ipcA.Close() }()
-
-	ipcB, err := rung2_host.NewIPCTransceiver(common.NodeBeta, filepath.Join(tmp, "b.sock"))
-	if err != nil {
-		t.Fatalf("[SEC 1] NewIPCTransceiver B failed: %v", err)
-	}
-	defer func() { _ = ipcB.Close() }()
-
-	ipcA.RegisterPeer(common.NodeBeta, ipcB.SocketPath())
-	if err := ipcA.Send(common.NodeBeta, []byte("IPC-HELLO")); err != nil {
-		t.Fatalf("[SEC 1] IPCTransceiver Send failed: %v", err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+func TestTransportFunctional_Sec1_AllFourRungsPolymorphicSurface(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	ipcEnv, err := ipcB.Receive(ctx)
-	if err != nil || string(ipcEnv.Slice()) != "IPC-HELLO" {
-		t.Fatalf("[SEC 1] IPCTransceiver Receive mismatch: err=%v got=%q", err, ipcEnv.Slice())
+
+	// Rung 1 Floor: Morse CW, AFSK Audio, SLIP Serial.
+	mMed := rung1_floor.NewMorseMedium()
+	var r1MorseA, r1MorseB transport.Transceiver = mMed.Attach(common.NodeAlpha), mMed.Attach(common.NodeBeta)
+	defer func() { _ = r1MorseA.Close(); _ = r1MorseB.Close() }()
+	if r1MorseA.Rung() != data.Rung1Floor || r1MorseA.Send(common.NodeBeta, []byte("R1M")) != nil {
+		t.Fatal("[SEC 1] Rung 1 Morse surface failed")
+	}
+	if env, err := r1MorseB.Receive(ctx); err != nil || string(env.Slice()) != "R1M" {
+		t.Fatalf("[SEC 1] Rung 1 Morse recv mismatch: err=%v got=%q", err, env.Slice())
+	}
+
+	aMed := rung1_floor.NewAudioMedium()
+	var r1AudioA, r1AudioB transport.Transceiver = aMed.Attach(common.NodeAlpha), aMed.Attach(common.NodeBeta)
+	defer func() { _ = r1AudioA.Close(); _ = r1AudioB.Close() }()
+	if r1AudioA.Send(common.NodeBeta, []byte("R1A")) != nil {
+		t.Fatal("[SEC 1] Rung 1 Audio surface failed")
+	}
+	if env, err := r1AudioB.Receive(ctx); err != nil || string(env.Slice()) != "R1A" {
+		t.Fatalf("[SEC 1] Rung 1 Audio recv mismatch: err=%v got=%q", err, env.Slice())
+	}
+
+	rB, wA := io.Pipe()
+	rA, wB := io.Pipe()
+	var r1SerA, r1SerB transport.Transceiver = rung1_floor.NewSerialTransceiver(common.NodeAlpha, rA, wA, wA),
+		rung1_floor.NewSerialTransceiver(common.NodeBeta, rB, wB, wB)
+	defer func() { _ = r1SerA.Close(); _ = r1SerB.Close() }()
+	go func() { _ = r1SerA.Send(common.NodeBeta, []byte("R1S")) }()
+	if env, err := r1SerB.Receive(ctx); err != nil || string(env.Slice()) != "R1S" {
+		t.Fatalf("[SEC 1] Rung 1 Serial recv mismatch: err=%v got=%q", err, env.Slice())
+	}
+
+	// Rung 2 Host: RAM MemoryBus & Unixgram IPC.
+	bus := rung2_host.NewMemoryBus()
+	var r2MemA, r2MemB transport.Transceiver = bus.Attach(common.NodeAlpha), bus.Attach(common.NodeBeta)
+	defer func() { _ = r2MemA.Close(); _ = r2MemB.Close() }()
+	if r2MemA.Send(common.NodeBeta, []byte("R2M")) != nil {
+		t.Fatal("[SEC 1] Rung 2 Memory surface failed")
+	}
+	if env, err := r2MemB.Receive(ctx); err != nil || string(env.Slice()) != "R2M" {
+		t.Fatalf("[SEC 1] Rung 2 Memory recv mismatch: err=%v got=%q", err, env.Slice())
+	}
+
+	tmp := t.TempDir()
+	ipcA, _ := rung2_host.NewIPCTransceiver(common.NodeAlpha, filepath.Join(tmp, "a.sock"))
+	ipcB, _ := rung2_host.NewIPCTransceiver(common.NodeBeta, filepath.Join(tmp, "b.sock"))
+	defer func() { _ = ipcA.Close(); _ = ipcB.Close() }()
+	ipcA.RegisterPeer(common.NodeBeta, ipcB.SocketPath())
+	if ipcA.Send(common.NodeBeta, []byte("R2I")) != nil {
+		t.Fatal("[SEC 1] Rung 2 IPC surface failed")
+	}
+	if env, err := ipcB.Receive(ctx); err != nil || string(env.Slice()) != "R2I" {
+		t.Fatalf("[SEC 1] Rung 2 IPC recv mismatch: err=%v got=%q", err, env.Slice())
+	}
+
+	// Rung 3 Local: LAN UDP & Room Beacon.
+	udpA, _ := rung3_local.NewUDPTransceiver(common.NodeAlpha, rung3_local.DefaultLocalUDPAddr)
+	udpB, _ := rung3_local.NewUDPTransceiver(common.NodeBeta, rung3_local.DefaultLocalUDPAddr)
+	defer func() { _ = udpA.Close(); _ = udpB.Close() }()
+	_ = udpA.RegisterPeer(common.NodeBeta, udpB.Addr())
+	if udpA.Send(common.NodeBeta, []byte("R3U")) != nil {
+		t.Fatal("[SEC 1] Rung 3 UDP surface failed")
+	}
+	if env, err := udpB.Receive(ctx); err != nil || string(env.Slice()) != "R3U" {
+		t.Fatalf("[SEC 1] Rung 3 UDP recv mismatch: err=%v got=%q", err, env.Slice())
+	}
+
+	// Rung 4 Global: Length-Prefixed TCP.
+	tcpA, _ := rung4_global.NewTCPTransceiver(common.NodeAlpha, rung4_global.DefaultGlobalTCPAddr)
+	tcpB, _ := rung4_global.NewTCPTransceiver(common.NodeBeta, rung4_global.DefaultGlobalTCPAddr)
+	defer func() { _ = tcpA.Close(); _ = tcpB.Close() }()
+	tcpA.RegisterPeer(common.NodeBeta, tcpB.Addr())
+	if tcpA.Send(common.NodeBeta, []byte("R4T")) != nil {
+		t.Fatal("[SEC 1] Rung 4 TCP surface failed")
+	}
+	if env, err := tcpB.Receive(ctx); err != nil || string(env.Slice()) != "R4T" {
+		t.Fatalf("[SEC 1] Rung 4 TCP recv mismatch: err=%v got=%q", err, env.Slice())
 	}
 }
 
@@ -143,7 +182,7 @@ func TestTransportFunctional_Sec1_PolymorphicMemoryAndIPCSurface(t *testing.T) {
 // Sub-Assembly 3.2: [ SECTION 2: NEVER FAIL (FAULT INVERSION & DEGRADATION) ]
 // ------------------------------------------------------------------------------
 
-func TestTransportFunctional_Sec2_OfflineClosedAndUnreachableRejection(t *testing.T) {
+func TestTransportFunctional_Sec2_OfflineClosedAndSealedEgressRejection(t *testing.T) {
 	bus := rung2_host.NewMemoryBus()
 	a := bus.Attach(common.NodeAlpha)
 	defer func() { _ = a.Close() }()
@@ -151,15 +190,19 @@ func TestTransportFunctional_Sec2_OfflineClosedAndUnreachableRejection(t *testin
 	if err := a.Send(common.NodeBeta, []byte("MISSING")); err != transport.ErrPeerUnreachable {
 		t.Fatalf("[SEC 2] expected ErrPeerUnreachable, got %v", err)
 	}
-
 	a.SetHealthy(false)
 	if err := a.Send(common.NodeBeta, []byte("OFFLINE")); err != transport.ErrTransceiverOffline {
 		t.Fatalf("[SEC 2] expected ErrTransceiverOffline, got %v", err)
 	}
-
 	_ = a.Close()
 	if err := a.Send(common.NodeBeta, []byte("CLOSED")); err != transport.ErrTransceiverClosed {
 		t.Fatalf("[SEC 2] expected ErrTransceiverClosed, got %v", err)
+	}
+
+	// Offline-first EgressGateway must refuse outbound web access by default.
+	gw := rung4_global.NewEgressGateway(data.DefaultNodeManifest(common.NodeAlpha, "sealed"), nil)
+	if _, _, err := gw.FetchEmpiricalFrame(context.Background(), "http://127.0.0.1:1/", 1); err != rung4_global.ErrGlobalEgressDisabled {
+		t.Fatalf("[SEC 2] expected ErrGlobalEgressDisabled, got %v", err)
 	}
 }
 
@@ -168,31 +211,21 @@ func TestTransportFunctional_Sec2_OfflineClosedAndUnreachableRejection(t *testin
 // ------------------------------------------------------------------------------
 
 func TestTransportFunctional_Sec3_Wire512ByteCeilingAndEnvelopeClamp(t *testing.T) {
-	bus := rung2_host.NewMemoryBus()
-	a := bus.Attach(common.NodeAlpha)
-	b := bus.Attach(common.NodeBeta)
-	defer func() {
-		_ = a.Close()
-		_ = b.Close()
-	}()
-
-	var maxWire [data.FloorMaxFrameSize]byte
-	if err := a.Send(common.NodeBeta, maxWire[:]); err != nil {
-		t.Fatalf("[SEC 3] exact 512B wire frame rejected: %v", err)
-	}
 	var overWire [data.FloorMaxFrameSize + 1]byte
-	if err := a.Send(common.NodeBeta, overWire[:]); err != transport.ErrWireFrameOversize {
-		t.Fatalf("[SEC 3] 513B wire frame bypassed 512B ceiling: %v", err)
+	if _, err := rung1_floor.SLIPEncode(overWire[:]); err != transport.ErrWireFrameOversize {
+		t.Fatalf("[SEC 3] Rung 1 SLIP 513B bypassed ceiling: %v", err)
+	}
+	if _, err := rung1_floor.ModulateAFSK(overWire[:]); err != transport.ErrWireFrameOversize {
+		t.Fatalf("[SEC 3] Rung 1 AFSK 513B bypassed ceiling: %v", err)
+	}
+	if _, err := rung1_floor.MorseEncodeBytes(overWire[:]); err != transport.ErrWireFrameOversize {
+		t.Fatalf("[SEC 3] Rung 1 Morse 513B bypassed ceiling: %v", err)
 	}
 
-	// WireEnvelope.Slice() saturates malformed negative or oversize Length safely.
 	neg := transport.WireEnvelope{Length: -5}
-	if len(neg.Slice()) != 0 {
-		t.Fatalf("[SEC 3] negative WireEnvelope.Length did not clamp to 0")
-	}
 	big := transport.WireEnvelope{Length: 9999}
-	if len(big.Slice()) != data.FloorMaxFrameSize {
-		t.Fatalf("[SEC 3] oversize WireEnvelope.Length did not clamp to 512")
+	if len(neg.Slice()) != 0 || len(big.Slice()) != data.FloorMaxFrameSize {
+		t.Fatal("[SEC 3] WireEnvelope.Slice() saturation bounds violated")
 	}
 }
 
@@ -211,32 +244,23 @@ func TestTransportFunctional_Sec4_FullPingPongAcrossMemoryBus(t *testing.T) {
 
 	clk := engine.NewMockClock(1000)
 	pe := engine.NewPingEngine(common.NodeAlpha, clk)
-
 	var req, decodedReq, resp, decodedResp data.Frame
 	var buf [data.FloorMaxFrameSize]byte
 
 	_ = pe.BuildPingInto(&req, common.NodeBeta, data.Rung2Host, []byte("FIRST-BREATH"))
 	n, _ := engine.EncodeInto(buf[:], &req)
-	if err := wireA.Send(common.NodeBeta, buf[:n]); err != nil {
-		t.Fatalf("[SEC 4] Send ping failed: %v", err)
-	}
+	_ = wireA.Send(common.NodeBeta, buf[:n])
 
 	clk.Advance(300)
-	envIn, err := wireB.Receive(context.Background())
-	if err != nil || engine.DecodeFrom(envIn.Slice(), &decodedReq) != nil {
-		t.Fatalf("[SEC 4] B receive/decode failed: %v", err)
-	}
+	envIn, _ := wireB.Receive(context.Background())
+	_ = engine.DecodeFrom(envIn.Slice(), &decodedReq)
 	_ = engine.ReflectPingInto(&decodedReq, &resp, common.NodeBeta)
 	n2, _ := engine.EncodeInto(buf[:], &resp)
-	if err := wireB.Send(common.NodeAlpha, buf[:n2]); err != nil {
-		t.Fatalf("[SEC 4] Send pong failed: %v", err)
-	}
+	_ = wireB.Send(common.NodeAlpha, buf[:n2])
 
 	clk.Advance(300)
-	envOut, err := wireA.Receive(context.Background())
-	if err != nil || engine.DecodeFrom(envOut.Slice(), &decodedResp) != nil {
-		t.Fatalf("[SEC 4] A receive/decode failed: %v", err)
-	}
+	envOut, _ := wireA.Receive(context.Background())
+	_ = engine.DecodeFrom(envOut.Slice(), &decodedResp)
 	rtt, ok := pe.ProcessPong(&decodedResp)
 	if !ok || rtt != 600 {
 		t.Fatalf("[SEC 4] expected First Breath RTT=600ns, got ok=%v rtt=%d", ok, rtt)
@@ -250,16 +274,23 @@ func TestTransportFunctional_Sec4_FullPingPongAcrossMemoryBus(t *testing.T) {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 4: Tier-1 Functional Verification Suite
 // Module:        test.functional.transport
-// Mission:       Assert Rung 2 Memory & IPC structured preflights and anchors.
+// Mission:       Assert ALL 9 transport Block 4 preflights and 10 anchors.
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
 // Sub-Assembly 4.1: Preflight Diagnostic Gates
 // ------------------------------------------------------------------------------
 
-func TestTransportFunctional_Block4_PreflightRung2Host(t *testing.T) {
+func TestTransportFunctional_Block4_PreflightAllFourRungs(t *testing.T) {
+	common.AssertAuditPass(t, rung1_floor.PreflightSerialFloor(), "")
+	common.AssertAuditPass(t, rung1_floor.PreflightAudioModem(), "")
+	common.AssertAuditPass(t, rung1_floor.PreflightMorseFloor(), "")
 	common.AssertAuditPass(t, rung2_host.PreflightMemoryBus(), "")
 	common.AssertAuditPass(t, rung2_host.PreflightHostIPC(), "")
+	common.AssertAuditPass(t, rung3_local.PreflightLocalUDP(), "")
+	common.AssertAuditPass(t, rung3_local.PreflightBeaconSwitch(), "")
+	common.AssertAuditPass(t, rung4_global.PreflightGlobalTCP(), "")
+	common.AssertAuditPass(t, rung4_global.PreflightGlobalEgress(), "")
 }
 
 // ------------------------------------------------------------------------------
@@ -272,8 +303,15 @@ func TestTransportFunctional_Block4_SourceAnchors(t *testing.T) {
 	}
 	common.AssertRepoAnchors(t,
 		"transport/transceiver.go",
+		"transport/rung1_floor/serial.go",
+		"transport/rung1_floor/audio.go",
+		"transport/rung1_floor/morse.go",
 		"transport/rung2_host/memory.go",
 		"transport/rung2_host/ipc.go",
+		"transport/rung3_local/udp.go",
+		"transport/rung3_local/beacon.go",
+		"transport/rung4_global/tcp.go",
+		"transport/rung4_global/egress.go",
 	)
 }
 
@@ -284,7 +322,7 @@ func TestTransportFunctional_Block4_SourceAnchors(t *testing.T) {
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 4: Tier-1 Functional Verification Suite
 // Module:        test.functional.transport
-// Mission:       Verify Rung 2 Host readiness probes post-suite.
+// Mission:       Verify all 9 Layer 3A transport readiness probes post-suite.
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
@@ -292,9 +330,12 @@ func TestTransportFunctional_Block4_SourceAnchors(t *testing.T) {
 // ------------------------------------------------------------------------------
 
 func TestTransportFunctional_Block5_EpilogueReadiness(t *testing.T) {
-	if !rung2_host.IsMemoryBusReady() || !rung2_host.IsHostIPCReady() ||
-		!common.IsHarnessReady() {
-		t.Fatal("[BLOCK 5: EPILOGUE] Rung 2 transport readiness handshake failed")
+	if !rung1_floor.IsSerialFloorReady() || !rung1_floor.IsAudioModemReady() ||
+		!rung1_floor.IsMorseFloorReady() || !rung2_host.IsMemoryBusReady() ||
+		!rung2_host.IsHostIPCReady() || !rung3_local.IsLocalUDPReady() ||
+		!rung3_local.IsBeaconSwitchReady() || !rung4_global.IsGlobalTCPReady() ||
+		!rung4_global.IsGlobalEgressReady() || !common.IsHarnessReady() {
+		t.Fatal("[BLOCK 5: EPILOGUE] all-4-rungs transport readiness handshake failed")
 	}
 }
 

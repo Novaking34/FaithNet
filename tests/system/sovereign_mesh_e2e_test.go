@@ -377,8 +377,8 @@ func TestSystemE2E_Sec4_CompiledCLIBinariesExecuteAndAuditCleanly(t *testing.T) 
 	if err != nil {
 		t.Fatalf("[SEC 4] faithnet-node --audit failed: %v\n%s", err, nodeAuditOut)
 	}
-	if strings.Count(string(nodeAuditOut), "[PASS]") < 21 {
-		t.Fatalf("[SEC 4] expected >= 21 [PASS] gates from faithnet-node --audit, got:\n%s", nodeAuditOut)
+	if strings.Count(string(nodeAuditOut), "[PASS]") < 22 {
+		t.Fatalf("[SEC 4] expected >= 22 [PASS] gates from faithnet-node --audit, got:\n%s", nodeAuditOut)
 	}
 
 	// 3. faithnet-node --probe-only --beacon --well
@@ -398,7 +398,11 @@ func TestSystemE2E_Sec4_CompiledCLIBinariesExecuteAndAuditCleanly(t *testing.T) 
 // Mission:       Run all 21 structured Block 4 pre-flight gates across FaithNet.
 // ==============================================================================
 
-func TestSystemE2E_Block4_All21PreflightGatesAndAnchors(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestSystemE2E_Block4_PreflightGates(t *testing.T) {
 	if systemSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -429,6 +433,13 @@ func TestSystemE2E_Block4_All21PreflightGatesAndAnchors(t *testing.T) {
 	for _, g := range gates {
 		common.AssertAuditPass(t, g, "")
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestSystemE2E_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t,
 		"go.mod",
 		"README.md",
@@ -447,6 +458,10 @@ func TestSystemE2E_Block4_All21PreflightGatesAndAnchors(t *testing.T) {
 // Module:        test.system.sovereign_mesh_e2e
 // Mission:       Confirm every single FaithNet cog reports epilogue readiness.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestSystemE2E_Block5_AllEpilogueReadinessHandshakes(t *testing.T) {
 	ready := []struct {

@@ -464,7 +464,7 @@ func (d *Dispatcher) Start(parent context.Context) error {
 	d.runCancel = cancel
 	d.running = true
 
-	var txs [rungSlotCount]transport.Transceiver
+	var txs [MaxTotalTransceivers]transport.Transceiver
 	count := d.ladder.RegisteredTransceivers(txs[:])
 	for i := 0; i < count; i++ {
 		tx := txs[i]

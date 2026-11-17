@@ -193,7 +193,11 @@ func TestInterpreterFunctional_Sec4_CaptiveProbesAndBeaconComposite(t *testing.T
 // Mission:       Run Rung 3 & Layer 3B preflight gates and verify anchors.
 // ==============================================================================
 
-func TestInterpreterFunctional_Block4_PreflightAndAnchors(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestInterpreterFunctional_Block4_PreflightGates(t *testing.T) {
 	if interpreterFunctionalSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -202,6 +206,13 @@ func TestInterpreterFunctional_Block4_PreflightAndAnchors(t *testing.T) {
 	common.AssertAuditPass(t, interpreter.PreflightTranslator(), "")
 	common.AssertAuditPass(t, interpreter.PreflightWellServer(), "")
 	common.AssertAuditPass(t, interpreter.PreflightLegacyBridge(), "")
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestInterpreterFunctional_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t,
 		"transport/rung3_local/udp.go",
 		"transport/rung3_local/beacon.go",
@@ -220,6 +231,10 @@ func TestInterpreterFunctional_Block4_PreflightAndAnchors(t *testing.T) {
 // Module:        test.functional.interpreter
 // Mission:       Confirm Rung 3 & Layer 3B epilogue readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestInterpreterFunctional_Block5_EpilogueReadiness(t *testing.T) {
 	if !rung3_local.IsLocalUDPReady() || !rung3_local.IsBeaconSwitchReady() ||

@@ -16,7 +16,7 @@ BLOCK 1: METADATA BLOCK
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
 @system        FaithNet Sovereign Adaptive Networking Substrate
 @role          Root Orientation, Architectural Specification & Verification Index
-@maturity      Rev 5 Baseline | Wave 5 Complete (All 4 Rungs & 4x4 Matrix)
+@maturity      Rev 5 Baseline | Wave 6 Complete (4x4 Symmetry & 1:1 Pairing)
 @chassis       zero-external-deps | Pure Go 1.26.8 Standard Library Substrate
 @scale         O(1) orientation across 5 layers, 4 adaptive rungs & 4 test tiers
 @seams         in: docs/ROADMAP.adoc | exports: operator & engineer entrypoint
@@ -59,7 +59,7 @@ PURPOSE & ARCHITECTURAL ROLE:
 | **Memory Discipline** | `ALLOC_ZERO_HEAP` (0.00 allocs/op) on Layer 0/1 wire & heartbeat hot paths |
 | **Adaptive Resilience** | 4-Rung Bidirectional Ladder (`Rung 1 Floor` $\leftrightarrow$ `Rung 4 Global`) |
 | **Verification Matrix** | **4x4 Macro-Micro Suite** (`functional/`, `unit/`, `integrated/`, `system/` $\times$ 4 Micro Sections) |
-| **Current Milestone** | **Wave 5 Complete** (All 4 Rungs, Orchestrator, The Well, 2 CLIs, 4-Tier Matrix) |
+| **Current Milestone** | **Wave 6 Complete** (All 4 Rungs, Multi-Sibling Ladder, 28:28 1:1 Unit Matrix, 46 Test Files) |
 | **Canonical Roadmap** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc) |
 
 ---
@@ -150,15 +150,15 @@ FaithNet/
 │   ├── captive_web.go          #   Zero-install offline HTML portal & 32-bulletin ring
 │   └── legacy_bridge.go        #   Data-driven OS classifier (Win/Mac/Linux/iOS/Android/CLI)
 ├── cmd/                        # Layer 4: Thin Imperative CLI Entrypoints
-│   ├── faithnet-ping/          #   Standalone offline 5-Cog ping & --audit CLI
-│   └── faithnet-node/          #   Full orchestrated node, --audit (21 gates) & The Well CLI
+│   ├── faithnet-ping/          #   Standalone offline 5-Cog ping & --audit (9 gates) CLI
+│   └── faithnet-node/          #   Full orchestrated node, --audit (22 gates) & The Well CLI
 ├── docs/ROADMAP.adoc           # Canonical 5-Block AsciiDoc Architecture & Wave Plan
-└── tests/                      # Layer 4: 4x4 Macro-Micro Verification Matrix
+└── tests/                      # Layer 4: 4x4 Macro-Micro Verification Matrix (47 files)
     ├── common/fixtures.go      #   Shared identities, forensic AuditResult asserts & anchors
-    ├── functional/             #   Tier 1: 6 per-subsystem public API surface suites + benches
-    ├── unit/                   #   Tier 2: 1:1 per-cog unit suites (data/engine/orch/tx/well)
-    ├── integrated/             #   Tier 3: 4-Rung Cascade & Room+Well integration suites
-    └── system/                 #   Tier 4: All 6 mediums, 10k stress burst & compiled CLIs
+    ├── functional/             #   Tier 1: 7 per-subsystem public API suites + benchmarks
+    ├── unit/                   #   Tier 2: 28 strict 1:1 per-cog unit suites (all 28 prod files)
+    ├── integrated/             #   Tier 3: 6 cross-subsystem multi-combination suites
+    └── system/                 #   Tier 4: 5 full-stack E2E, blackout, hostility, CLI & stress suites
 ```
 
 ### Universal 5-Block Lifecycle Protocol (Rev 5) & Go Block 4 Standard
@@ -198,7 +198,7 @@ go test -v -count=1 -race ./tests/...
 # 5. Verify ALLOC_ZERO_HEAP hot paths (0 B/op, 0 allocs/op)
 go test -bench=. -benchmem ./tests/functional/...
 
-# 6. Run ALL 21 live Block 4 Pre-Flight Audit gates across every subsystem
+# 6. Run ALL 22 live Block 4 Pre-Flight Audit gates across every subsystem & CLI
 go run ./cmd/faithnet-node --audit
 
 # 7. Run live offline 5-Cog loopback ping (Rung 2 RAM or local Unix IPC)
@@ -209,11 +209,11 @@ go run ./cmd/faithnet-ping --mode=ipc --count=4
 go run ./cmd/faithnet-node --probe-only --beacon --well
 ```
 
-### Verified Baseline Telemetry (Wave 5 Complete)
+### Verified Baseline Telemetry (Wave 6 Complete)
 
 * **External Dependencies:** `0` (`go list -m all` reports only `github.com/CreativeWorkzStudio/FaithNet`).
 * **Wire Codec Throughput:** `BenchmarkEncodeInto` $\approx 29\text{ ns/op}$ (`0 B/op, 0 allocs/op`), `BenchmarkDecodeFrom` $\approx 25\text{ ns/op}$ (`0 B/op, 0 allocs/op`).
-* **Full 4x4 Matrix:** 27 dedicated 5-Block test files (`6` functional, `18` unit, `2` integrated, `1` system) + 21 structured Block 4 preflight gates + 10,000-frame zero-drop stress burst + live pings across all 6 real mediums (Morse CW, AFSK Audio, SLIP Serial, Unix IPC, LAN UDP, Global TCP).
+* **Full 4x4 Verification Matrix:** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 per-cog unit, `6` multi-combination integrated, `5` full-stack system) + `1` shared forensic harness (`tests/common/fixtures.go`) = **47 files under `tests/`**, exercising **22 live Block 4 pre-flight gates**, multi-sibling `[5][4]` AdaptiveLadder failover, civilizational blackout relay across SLIP/AFSK/Morse, concurrent Genesis 3 Airlock hostility storms, compiled standalone CLI binaries, and 10,000-frame zero-drop stress bursts under `go test -race`.
 
 ---
 

@@ -336,7 +336,11 @@ func TestCodecUnit_Sec4_ValidateFrameContractEveryViolation(t *testing.T) {
 // Mission:       Run PreflightCodec, verify 60-col dump card & repo anchor.
 // ==============================================================================
 
-func TestCodecUnit_Block4_PreflightCardAndAnchor(t *testing.T) {
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.1: Block 4 Pre-Flight Contract Gates
+// ------------------------------------------------------------------------------
+
+func TestCodecUnit_Block4_PreflightGates(t *testing.T) {
 	if codecUnitSuiteName == "" {
 		t.Fatal("[BLOCK 4] suite identifier must not be empty")
 	}
@@ -345,6 +349,13 @@ func TestCodecUnit_Block4_PreflightCardAndAnchor(t *testing.T) {
 	if !engine.AuditCodec() || !strings.Contains(card, "PASS") {
 		t.Fatalf("[BLOCK 4] AuditCodec or dump card failed:\n%s", card)
 	}
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Physical Source Anchor Verification
+// ------------------------------------------------------------------------------
+
+func TestCodecUnit_Block4_SourceAnchors(t *testing.T) {
 	common.AssertRepoAnchors(t, "engine/codec.go")
 }
 
@@ -357,6 +368,10 @@ func TestCodecUnit_Block4_PreflightCardAndAnchor(t *testing.T) {
 // Module:        test.unit.engine.codec
 // Mission:       Confirm codec and harness epilogue readiness post-suite.
 // ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 5.1: Epilogue Readiness Verification
+// ------------------------------------------------------------------------------
 
 func TestCodecUnit_Block5_EpilogueReadiness(t *testing.T) {
 	if !engine.IsCodecReady() || !common.IsHarnessReady() {

@@ -314,23 +314,100 @@ func executePingSession(opts PingCLIOptions) error {
 
 // ==============================================================================
 // BLOCK 4: AUDIT PROCEDURES BLOCK
-// ( Preflight Gate Aggregator for `--audit` CLI Mode )
+// ( CLI Option Contract Validation & Aggregated Pre-Flight Gate Runner )
 // ==============================================================================
 // Engine:        FaithNet Adaptive Networking Substrate
 // Stratum:       Layer 4: Thin Imperative CLI Entrypoint
 // Module:        cmd.faithnet.ping
-// Mission:       Run every Layer 0..3 Block 4 pre-flight probe and report
-//                structured forensic verdicts to the operator.
+// Mission:       Validate PingCLIOptions contracts, run a 4-section CLI
+//                pre-flight audit, and aggregate Layer 0..3 Block 4 probes.
+// @triggers
+//   - Block 4 Audits : ValidatePingCLIOptions(), PreflightPingCLI(),
+//                      runPreflightAudits()
+//   - Layer 4 Tests  : tests/functional/cmd_functional_test.go,
+//                      tests/unit/cmd/ping_cli_test.go,
+//                      tests/system/cli_binaries_system_test.go
 // ==============================================================================
 
 // ------------------------------------------------------------------------------
-// Sub-Assembly 4.1: Aggregated Pre-Flight Audit Sequence
+// Sub-Assembly 4.1: Contract, Input & CLI Option Verification Cogs
 // ------------------------------------------------------------------------------
+
+// ValidatePingCLIOptions audits CLI flags against FaithNet mode, count, and
+// 472-byte floor echo payload bounds prior to launching transports.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Checks command-line options up front so invalid modes or oversized payloads
+// fail cleanly with a clear explanation instead of crashing mid-run.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure O(1) contract gate returning structured `data.AuditResult`.
+func ValidatePingCLIOptions(opts PingCLIOptions) data.AuditResult {
+	const check = "cli_ping_options_contract"
+
+	if !IsValidMode(opts.Mode) {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPingCLI, check,
+			"CLI --mode must be either 'memory' or 'ipc'.")
+	}
+	if opts.Count < 1 || opts.Count > MaxPingCount {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPingCLI, check,
+			"CLI --count lies outside [1..MaxPingCount].")
+	}
+	if len(opts.Payload) > engine.MaxPingEchoBytes {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPingCLI, check,
+			"CLI --payload exceeds 472-byte Floppy Sector echo ceiling.")
+	}
+	return data.AuditPass(ModuleIDPingCLI, check,
+		"PingCLIOptions mode, count, and floor payload bounds verified.")
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 4.2: Machine Self-Audit & Aggregated Pre-Flight Sequence
+// ------------------------------------------------------------------------------
+
+// PreflightPingCLI runs a 4-section self-audit verifying (1) default options,
+// (2) invalid mode/count rejection, (3) 472-byte echo ceiling, and (4) clean
+// Layer 0..3 pre-flight readiness.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Confirms the faithnet-ping CLI validates flags accurately before running.
+//
+// ### For Systems Programmers & Engine Architects:
+// Non-destructive 4-section CLI pre-flight returning structured `data.AuditResult`.
+func PreflightPingCLI() data.AuditResult {
+	const check = "cli_ping_preflight_4section"
+
+	// Micro Check 1 (Always Pass): Canonical default options pass cleanly.
+	def := PingCLIOptions{Mode: "memory", Count: DefaultPingCount, Payload: DefaultPingPayload}
+	if r := ValidatePingCLIOptions(def); !r.IsPass() {
+		return r
+	}
+	// Micro Check 2 (Never Fail): Invalid mode & zero count rejected.
+	if ValidatePingCLIOptions(PingCLIOptions{Mode: "bogus", Count: 1}).IsPass() ||
+		ValidatePingCLIOptions(PingCLIOptions{Mode: "memory", Count: 0}).IsPass() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPingCLI, check,
+			"Sec 2 invalid mode or zero count bypassed ValidatePingCLIOptions.")
+	}
+	// Micro Check 3 (Invariants & Limits): 473B payload rejected at 472B ceiling.
+	over := make([]byte, engine.MaxPingEchoBytes+1)
+	if ValidatePingCLIOptions(PingCLIOptions{Mode: "ipc", Count: 1, Payload: string(over)}).IsPass() {
+		return data.AuditFail(data.AuditSeverityCritical, ModuleIDPingCLI, check,
+			"Sec 3 473B payload bypassed 472B echo ceiling.")
+	}
+	// Micro Check 4 (Emergence): Underlying Layer 0/1/2 pre-flight readiness.
+	if !engine.IsCodecReady() || !engine.IsPingEngineReady() || !rung2_host.IsMemoryBusReady() {
+		return data.AuditFail(data.AuditSeverityFatal, ModuleIDPingCLI, check,
+			"Sec 4 underlying Layer 1/3A readiness probe failed.")
+	}
+	return data.AuditPass(ModuleIDPingCLI, check,
+		"faithnet-ping CLI passed all 4 micro pre-flight gates.")
+}
 
 // runPreflightAudits runs every implemented Block 4 pre-flight gate and returns
 // false if any subsystem trips a warning, critical, or fatal audit verdict.
 func runPreflightAudits() bool {
 	results := []data.AuditResult{
+		PreflightPingCLI(),
 		engine.AuditDataVocabulary(),
 		engine.PreflightCodec(),
 		engine.PreflightClock(),
