@@ -72,8 +72,10 @@ import (
 	"github.com/CreativeWorkzStudio/FaithNet/engine/covenant"
 	"github.com/CreativeWorkzStudio/FaithNet/interpreter"
 	"github.com/CreativeWorkzStudio/FaithNet/orchestrator"
+	"github.com/CreativeWorkzStudio/FaithNet/transport/rung1_floor"
 	"github.com/CreativeWorkzStudio/FaithNet/transport/rung2_host"
 	"github.com/CreativeWorkzStudio/FaithNet/transport/rung3_local"
+	"github.com/CreativeWorkzStudio/FaithNet/transport/rung4_global"
 )
 
 // ------------------------------------------------------------------------------
@@ -253,6 +255,11 @@ func runFullNodeAudits() bool {
 		orchestrator.PreflightDispatcher(),
 		rung3_local.PreflightLocalUDP(),
 		rung3_local.PreflightBeaconSwitch(),
+		rung1_floor.PreflightSerialFloor(),
+		rung1_floor.PreflightAudioModem(),
+		rung1_floor.PreflightMorseFloor(),
+		rung4_global.PreflightGlobalTCP(),
+		rung4_global.PreflightGlobalEgress(),
 		interpreter.PreflightTranslator(),
 		interpreter.PreflightWellServer(),
 		interpreter.PreflightLegacyBridge(),

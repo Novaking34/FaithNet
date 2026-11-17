@@ -776,16 +776,31 @@ func (d *Dispatcher) Stop() {
 	}
 }
 
-// Close stops all receive loops and closes every transceiver on the ladder.
+// Close cancels all receive loops, closes every transceiver on the ladder (so
+// any blocking serial/stream reader unblocks immediately), and waits for exit.
 //
 // ### For Architects, Operators & Non-Programmers:
 // Performs complete graceful shutdown of the node and all attached wires.
 //
 // ### For Systems Programmers & Engine Architects:
-// Calls `Stop()` prior to `ladder.Close()` so listener goroutines exit cleanly.
+// Cancels `runCancel`, closes ladder transceivers, then drains `d.wg.Wait()`
+// so both context-polling sockets and blocking `io.Reader` wires exit cleanly.
 func (d *Dispatcher) Close() error {
-	d.Stop()
-	return d.ladder.Close()
+	d.lifeMu.Lock()
+	cancel := d.runCancel
+	wasRunning := d.running
+	d.running = false
+	d.runCancel = nil
+	d.lifeMu.Unlock()
+
+	if wasRunning && cancel != nil {
+		cancel()
+	}
+	err := d.ladder.Close()
+	if wasRunning {
+		d.wg.Wait()
+	}
+	return err
 }
 
 // End of orchestrator/dispatcher.go

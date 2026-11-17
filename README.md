@@ -16,7 +16,7 @@ BLOCK 1: METADATA BLOCK
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
 @system        FaithNet Sovereign Adaptive Networking Substrate
 @role          Root Orientation, Architectural Specification & Verification Index
-@maturity      Rev 5 Baseline | Wave 2 First Breath + 4x4 Audit Elevation
+@maturity      Rev 5 Baseline | Wave 5 Complete (All 4 Rungs & 4x4 Matrix)
 @chassis       zero-external-deps | Pure Go 1.26.8 Standard Library Substrate
 @scale         O(1) orientation across 5 layers, 4 adaptive rungs & 4 test tiers
 @seams         in: docs/ROADMAP.adoc | exports: operator & engineer entrypoint
@@ -59,7 +59,7 @@ PURPOSE & ARCHITECTURAL ROLE:
 | **Memory Discipline** | `ALLOC_ZERO_HEAP` (0.00 allocs/op) on Layer 0/1 wire & heartbeat hot paths |
 | **Adaptive Resilience** | 4-Rung Bidirectional Ladder (`Rung 1 Floor` $\leftrightarrow$ `Rung 4 Global`) |
 | **Verification Matrix** | **4x4 Macro-Micro Suite** (`functional/`, `unit/`, `integrated/`, `system/` $\times$ 4 Micro Sections) |
-| **Current Milestone** | **Wave 2 Complete** (Layer 0 Seed, Layer 1 Engine & Airlock, Rung 2 Host, `faithnet-ping` CLI) |
+| **Current Milestone** | **Wave 5 Complete** (All 4 Rungs, Orchestrator, The Well, 2 CLIs, 4-Tier Matrix) |
 | **Canonical Roadmap** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc) |
 
 ---
@@ -105,10 +105,10 @@ Mirroring Track 0 of **MillenniumOS** (Legacy BIOS $\leftrightarrow$ Stage 2 $\l
 
 | Rung | Medium | Purpose | Wave Status |
 | :--- | :--- | :--- | :--- |
-| **Rung 1 — Civilizational Floor** | `transport/rung1_floor/` (`serial`, `audio` AFSK, `morse` CW) | Copper wire, dial-up tones, analog radio/walkie-talkie floor | Planned (Wave 5) |
+| **Rung 1 — Civilizational Floor** | `transport/rung1_floor/` (`serial` SLIP, `audio` 1200/2400 Hz AFSK + Goertzel, `morse` ITU CW) | Copper wire, dial-up tones, analog walkie-talkie/radio, 1844 telegraph floor | **Implemented & Verified (Wave 5)** |
 | **Rung 2 — Host Substrate** | `transport/rung2_host/` (`memory`, `ipc` unixgram) | Zero-NIC in-RAM channels & local cross-process IPC | **Implemented & Verified (Wave 2)** |
-| **Rung 3 — The Room & The Well** | `transport/rung3_local/` (`udp`, `beacon`) + `interpreter/` | Peer-to-peer LAN UDP, Wi-Fi AP switch, zero-install HTML portal | Planned (Wave 4) |
-| **Rung 4 — Global Compatibility** | `transport/rung4_global/` (`tcp`, `egress`) + `engine/covenant/` | Optional outbound compatibility gated by Genesis 3 Airlock | Airlock Verified (Wave 1); TCP/Egress (Wave 5) |
+| **Rung 3 — The Room & The Well** | `transport/rung3_local/` (`udp`, `beacon`) + `interpreter/` | Peer-to-peer LAN UDP, Wi-Fi AP switch, zero-install HTML portal | **Implemented & Verified (Wave 4)** |
+| **Rung 4 — Global Compatibility** | `transport/rung4_global/` (`tcp`, `egress`) + `engine/covenant/` | Optional TCP federation & Airlock-gated outbound egress | **Implemented & Verified (Wave 5)** |
 
 ---
 
@@ -135,24 +135,30 @@ FaithNet/
 │   ├── ping.go                 #   64-slot PingEngine + stateless ReflectPingInto
 │   ├── router.go               #   Fixed 128-peer Router (direct + multi-hop relays)
 │   └── covenant/filter.go      #   Genesis 3 Airlock (T4 screening: +1 / 0:AWAIT / -1 / NULL)
-├── orchestrator/               # Layer 2: Dynamic BodyProbe, AdaptiveLadder, Dispatcher (Wave 3)
+├── orchestrator/               # Layer 2: Dynamic BodyProbe, AdaptiveLadder, Dispatcher
+│   ├── probe.go                #   Live OS/NIC/serial/audio hardware probe & policy ceiling
+│   ├── ladder.go               #   4-Rung Rising-Up & EVT_CASCADE_DOWN (64-slot ring)
+│   └── dispatcher.go           #   Central node loop: Codec -> Airlock -> Router -> Ping
 ├── transport/                  # Layer 3A: Cog 3 Transceiver & 4-Rung Physical/Virtual Wires
 │   ├── transceiver.go          #   Universal Transceiver interface & WireEnvelope
-│   ├── rung2_host/             #   MemoryBus + Unixgram IPCTransceiver (Wave 2 — Complete)
-│   ├── rung3_local/            #   LAN UDP & Wi-Fi AP Beacon Switch (Wave 4)
-│   ├── rung1_floor/            #   SLIP Serial, AFSK Audio, Morse CW (Wave 5)
-│   └── rung4_global/           #   TCP Stream & Airlock-Gated Outbound Egress (Wave 5)
-├── interpreter/                # Layer 3B: "The Well" Universal OS/Web Portal Bridge (Wave 4)
+│   ├── rung1_floor/            #   SLIP Serial, 1200/2400Hz AFSK Goertzel Modem, ITU Morse CW
+│   ├── rung2_host/             #   MemoryBus + Unixgram IPCTransceiver
+│   ├── rung3_local/            #   Auto-learning LAN UDP & Wi-Fi AP Beacon Switch
+│   └── rung4_global/           #   Length-prefixed TCP Stream & Airlock EgressGateway
+├── interpreter/                # Layer 3B: "The Well" Universal OS/Web Portal Bridge
+│   ├── translator.go           #   Airlock-gated OpLegacyWrap translator (0:AWAIT only)
+│   ├── captive_web.go          #   Zero-install offline HTML portal & 32-bulletin ring
+│   └── legacy_bridge.go        #   Data-driven OS classifier (Win/Mac/Linux/iOS/Android/CLI)
 ├── cmd/                        # Layer 4: Thin Imperative CLI Entrypoints
-│   ├── faithnet-ping/          #   Standalone offline 5-Cog ping & --audit CLI (Wave 2 — Live)
-│   └── faithnet-node/          #   Full orchestrated node + captive portal daemon (Wave 4)
+│   ├── faithnet-ping/          #   Standalone offline 5-Cog ping & --audit CLI
+│   └── faithnet-node/          #   Full orchestrated node, --audit (21 gates) & The Well CLI
 ├── docs/ROADMAP.adoc           # Canonical 5-Block AsciiDoc Architecture & Wave Plan
 └── tests/                      # Layer 4: 4x4 Macro-Micro Verification Matrix
     ├── common/fixtures.go      #   Shared identities, forensic AuditResult asserts & anchors
-    ├── functional/             #   Tier 1: Per-subsystem public API surface + benchmarks
-    ├── unit/{data,engine,transport}/ # Tier 2: 1:1 per-cog fine-grained unit isolation
-    ├── integrated/             #   Tier 3: Multi-cog cascade & Room/Well suites (Wave 3-4)
-    └── system/                 #   Tier 4: Full-stack stress & E2E binary suite (Wave 5)
+    ├── functional/             #   Tier 1: 6 per-subsystem public API surface suites + benches
+    ├── unit/                   #   Tier 2: 1:1 per-cog unit suites (data/engine/orch/tx/well)
+    ├── integrated/             #   Tier 3: 4-Rung Cascade & Room+Well integration suites
+    └── system/                 #   Tier 4: All 6 mediums, 10k stress burst & compiled CLIs
 ```
 
 ### Universal 5-Block Lifecycle Protocol (Rev 5) & Go Block 4 Standard
@@ -183,28 +189,31 @@ go list -m all
 # 2. Confirm Downward Dependency Law (zero net/os imports in Layer 0/1)
 go list -f '{{.ImportPath}} -> {{.Imports}}' ./data ./engine ./engine/covenant
 
-# 3. Run static analysis across all implemented packages
-go vet ./data ./engine ./engine/covenant ./transport ./transport/rung2_host ./cmd/faithnet-ping
+# 3. Run static analysis across the entire repository
+go vet ./...
 
-# 4. Execute Tier 1 Functional & Tier 2 Unit suites with race detector
-go test -v -race ./tests/functional/... ./tests/unit/...
+# 4. Execute ALL 4 verification tiers (Functional, Unit, Integrated, System) with -race
+go test -v -count=1 -race ./tests/...
 
 # 5. Verify ALLOC_ZERO_HEAP hot paths (0 B/op, 0 allocs/op)
 go test -bench=. -benchmem ./tests/functional/...
 
-# 6. Run live Block 4 Pre-Flight Audit across all implemented subsystems
-go run ./cmd/faithnet-ping --audit
+# 6. Run ALL 21 live Block 4 Pre-Flight Audit gates across every subsystem
+go run ./cmd/faithnet-node --audit
 
 # 7. Run live offline 5-Cog loopback ping (Rung 2 RAM or local Unix IPC)
 go run ./cmd/faithnet-ping --mode=memory --count=4
 go run ./cmd/faithnet-ping --mode=ipc --count=4
+
+# 8. Inspect live host body, adaptive ladder, Room Beacon & The Well cards
+go run ./cmd/faithnet-node --probe-only --beacon --well
 ```
 
-### Verified Baseline Telemetry (Wave 2)
+### Verified Baseline Telemetry (Wave 5 Complete)
 
 * **External Dependencies:** `0` (`go list -m all` reports only `github.com/CreativeWorkzStudio/FaithNet`).
 * **Wire Codec Throughput:** `BenchmarkEncodeInto` $\approx 29\text{ ns/op}$ (`0 B/op, 0 allocs/op`), `BenchmarkDecodeFrom` $\approx 25\text{ ns/op}$ (`0 B/op, 0 allocs/op`).
-* **Tier 1 + Tier 2 Matrix:** 15 dedicated test files (`4` functional + `11` per-cog unit suites), all passing under `go test -race`.
+* **Full 4x4 Matrix:** 27 dedicated 5-Block test files (`6` functional, `18` unit, `2` integrated, `1` system) + 21 structured Block 4 preflight gates + 10,000-frame zero-drop stress burst + live pings across all 6 real mediums (Morse CW, AFSK Audio, SLIP Serial, Unix IPC, LAN UDP, Global TCP).
 
 ---
 
