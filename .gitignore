@@ -1,0 +1,201 @@
+# ==============================================================================
+# BLOCK 1: METADATA BLOCK
+# ( Identity, Provenance, VCS Exclusion Contracts & System Anchors )
+# ==============================================================================
+# @project       FaithNet
+# @file          .gitignore
+# @id            vcs.hygiene.gitignore
+# @layer         Layer 0: Version Control & Workspace Hygiene Infrastructure
+# @archetype     manifest | stateless
+# @version       0.1.0-dev
+# @interface_rev Rev 5
+# @date          2026-11-17
+# @updated       2026-11-17
+# @author        CreativeWorkzStudio LLC / ProfessorSeanEX
+# @repository    https://github.com/CreativeWorkzStudio/FaithNet
+# @system        Git Version Control Invariant Exclusion Engine
+# @role          Workspace Boundary Guard & Clean Tree Governance Manifest
+# @maturity      Rev 5 Baseline | Wave 0 Genesis
+# @chassis       stateless | Pure VCS boundary specification
+# @scale         O(1) path filter across Go, AsciiDoc & multi-OS toolchains
+# @seams         in: git working tree | exports: clean VCS staging boundary
+# @invariants    1. Zero binary tracking: No compiled Go executables or objects.
+#                2. Zero socket leakage: Transient IPC/Unix sockets stay local.
+#                3. Zero telemetry leakage: Diagnostic runtime logs stay out.
+#                4. Zero user-environment leakage: IDE & OS caches stay out.
+#                5. Strict 80-column line width discipline across all lines.
+#
+# PURPOSE & ARCHITECTURAL ROLE:
+#   Repository version control exclusion manifest and root hygiene guard for
+#   FaithNet. Guarantees that compiled Go binaries, transient IPC sockets,
+#   IDE workspace states, diagnostic dumps, coverage profiles, and OS cache
+#   detritus never pollute Git history or corrupt cross-platform builds.
+#
+#   ### For Architects, Operators & Non-Programmers:
+#   Keeps the FaithNet repository clean, portable, and free of temporary files
+#   generated when running nodes, tests, or documentation compilers on Windows,
+#   Linux, or macOS.
+#
+#   ### For Systems Programmers & Engine Architects:
+#   Enforces clean VCS boundaries across Go build caches, test binaries,
+#   pprof artifacts, Unix domain sockets, and AsciiDoc scratch intermediates.
+#
+# PEDAGOGICAL MISSION & THE BATON-PASSING LIFECYCLE:
+#   This file models the Universal 5-Block Lifecycle Protocol:
+#   - Block 1 (Metadata): Anchors identity, provenance, and hygiene contracts.
+#   - Block 2 (Opening/Objects): Declares compiled binary and object artifacts.
+#   - Block 3 (Body/Procedure): Filters build, socket, and doc intermediates.
+#   - Block 4 (Audit/Telemetry): Filters logs, profiles, and test scratchpads.
+#   - Block 5 (Closing/Teardown): Seals against OS and editor state detritus.
+# ==============================================================================
+
+# ==============================================================================
+# BLOCK 2: OPENING / COMPILED BINARIES BLOCK
+# ( The Functional Objects: Declaring Machine Artifacts Prior to Execution )
+# Stratum: Version Control | Machine: vcs.hygiene.binaries
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 2.1: COMPILED GO EXECUTABLES & INTERMEDIATE OBJECTS ]
+# Mission: Insulate the repository from platform-dependent compiled binaries.
+# ------------------------------------------------------------------------------
+
+# Compiled Go executables, test binaries, and platform bundles
+*.exe
+*.exe~
+*.dll
+*.so
+*.so.*
+*.dylib
+*.test
+*.out
+*.o
+*.obj
+*.a
+*.lib
+
+# FaithNet CLI executables built at repository root
+faithnet-ping
+faithnet-node
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 2.2: BUILD & DISTRIBUTION STAGING DIRECTORIES ]
+# Mission: Prevent local build staging trees from entering version control.
+# ------------------------------------------------------------------------------
+
+/bin/
+/build/
+build-*/
+out/
+dist/
+
+# ==============================================================================
+# BLOCK 3: BODY / RUNTIME TRANSPORTS & DOC PIPELINE BLOCK
+# ( The Procedural Logic: Runtime Socket, Radio & Doc Intermediates )
+# Stratum: Version Control | Machine: vcs.hygiene.runtime
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 3.1: TRANSIENT IPC SOCKETS & AUDIO/SERIAL DUMPS ]
+# Mission: Keep ephemeral Rung 1/2 runtime transport artifacts local to host.
+# ------------------------------------------------------------------------------
+
+# Local Unix domain sockets and named pipes (transport/rung2_host/ipc.go)
+*.sock
+*.pipe
+
+# Temporary raw PCM audio captures from Rung 1 AFSK tests
+*.pcm
+*.wav
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 3.2: DOCUMENTATION TOOLCHAIN TEMPORARY ARTIFACTS ]
+# Mission: Prevent transient Asciidoctor and PDF compile intermediates.
+# ------------------------------------------------------------------------------
+
+*.tmp
+*.temp
+.asciidoctor/
+
+# ==============================================================================
+# BLOCK 4: AUDIT PROCEDURES, LOGS & TELEMETRY BLOCK
+# ( The Audit Track: Forensic Telemetry, Profiles & Scratch Verification )
+# Stratum: Version Control | Machine: vcs.hygiene.telemetry
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 4.1: DIAGNOSTIC LOGS & PROFILING DUMPS ]
+# Mission: Filter diagnostic logs, Go pprof captures, and coverage files.
+# ------------------------------------------------------------------------------
+
+*.log
+*.log.*
+*.audit
+*.telemetry
+coverage.txt
+coverage.out
+cpu.prof
+mem.prof
+
+# Dedicated telemetry and log archives
+logs/
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 4.2: SCRATCHPADS & TEST HARNESS WORKING DIRECTORIES ]
+# Mission: Isolate non-canonical experimental scripts and test outputs.
+# ------------------------------------------------------------------------------
+
+scratch/
+test_output/
+debug_dumps/
+
+# ==============================================================================
+# BLOCK 5: CLOSING / WORKSPACES & OS TEARDOWN BLOCK
+# ( The Closing Handshake: Sealing Against IDE, Editor & OS State Detritus )
+# Stratum: Version Control | Machine: vcs.hygiene.workspaces
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 5.1: IDE WORKSPACES & LANGUAGE SERVER CACHES ]
+# Mission: Protect repository hygiene from developer-specific editor state.
+# ------------------------------------------------------------------------------
+
+.vscode/*
+!.vscode/*.json
+.idea/
+.cache/
+
+# Vim / Emacs swap buffers, lockfiles, and backup files
+*.swp
+*.swo
+*~
+.#*
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 5.2: OPERATING SYSTEM FILESYSTEM DETRITUS ]
+# Mission: Guard against platform-specific desktop indexes and thumbnail stores.
+# ------------------------------------------------------------------------------
+
+# macOS metadata and desktop index files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows desktop databases and thumbnail caches
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Linux filesystem metadata
+.directory
+
+# ------------------------------------------------------------------------------
+# [ SUB-ASSEMBLY 5.3: PATCH & MERGE REJECT ARTIFACTS ]
+# Mission: Prevent local patch rejects and backup artifacts from entering tree.
+# ------------------------------------------------------------------------------
+
+*.patch
+*.orig
+*.rej
+
+# End of .gitignore

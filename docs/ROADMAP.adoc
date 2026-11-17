@@ -1,0 +1,323 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/ROADMAP.adoc
+@id            docs.roadmap.faithnet
+@layer         Layer 5: Canonical Architecture & Roadmap Documentation Strata
+@archetype     manifest | operational
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Sovereign Adaptive Networking Substrate
+@role          Canonical Architectural Specification & Wave Plan of Attack
+@maturity      Rev 5 Baseline | Wave 0 Genesis
+@chassis       stateless | Pure AsciiDoc architectural blueprint
+@scale         O(1) reference across 6 layers, 4 adaptive rungs & 4 test tiers
+@seams         in: CPI-SI vision | exports: Wave 0..5 implementation blueprint
+@invariants    1. Universal 5-Block Lifecycle Protocol enforced across files.
+               2. Downward Dependency Law: Layer 0/1 never import net or OS.
+               3. 512-byte Floppy Sector Invariant (32B header + 480B Floor MTU).
+               4. 4-Tier Macro Verification Suite (functional/unit/integrated/system).
+               5. Strict <= 80-column line width discipline in prose & banners.
+
+PURPOSE & ARCHITECTURAL ROLE:
+  Canonical engineering roadmap and ontological specification for FaithNet.
+  Codifies the architectural vision established during genesis exploration:
+  demystifying the commercial internet monolith, establishing the 4-Rung
+  Adaptive Networking Ladder, defining the 5 Irreducible Cogs of a sovereign
+  Ping, designing The Well (interpreter) and Genesis 3 Airlock (covenant),
+  and sequencing faithful Wave-by-Wave construction.
+
+  ### For Architects, Operators & Non-Programmers:
+  Explains in plain language how FaithNet turns ordinary offline laptops,
+  desktops, radios, and copper wires into a resilient, self-healing sovereign
+  mesh that keeps a neighborhood connected even when the commercial grid fails.
+
+  ### For Systems Programmers & Engine Architects:
+  Specifies the exact 32-byte wire frame layout, FNV-1a integrity sealing,
+  zero-heap Layer 0/1 contracts, hardware probe & cascade seams, and the
+  4-Tier deterministic verification battery.
+================================================================================
+////
+
+= FaithNet: Sovereign Adaptive Networking Substrate & Roadmap
+CreativeWorkzStudio LLC
+v0.1.0-dev
+:doctype: article
+:toc: left
+:toc-title: Contents
+:toclevels: 3
+:sectnums:
+:stem: latexmath
+:icons: font
+:source-highlighter: highlight.js
+:subtitle: First-Principles, Data-Driven, Offline-First Networking for OmniCode & MillenniumOS
+:classification: Canonical Architectural Roadmap (Rank 1 Invariant)
+:status: Active Genesis — Wave 0 Scaffolding
+:framework: Covenant Partnered Intelligence - Structured Intelligence (CPI-SI)
+
+[.lead]
+_First-Principles, Data-Driven, Offline-First Networking for OmniCode & MillenniumOS_ +
+_From a Scrap of Copper Wire to a Federated Sovereign Mesh._
+
+By the end of this roadmap you will understand why FaithNet repudiates the
+fragile centralization of the modern commercial web, how the **4-Rung Adaptive
+Networking Ladder** mirrors Track 0 of MillenniumOS (Rising Up when hardware
+is rich, Cascading Down via `EVT_CASCADE_DOWN` when the host body is degraded),
+how the **5 Irreducible Cogs** make a sovereign `PING` portable across RAM,
+Wi-Fi, radio, audio tones, and Morse code, and how **The Well** (`interpreter/`)
+and **The Genesis 3 Airlock** (`engine/covenant/`) allow MillenniumOS to speak
+to Windows, Linux, macOS, and mobile devices without surrendering its core
+integrity.
+
+'''
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK
+// ( Foundational First Principles, Constraints vs. Limitations & The 4 Acts )
+// Stratum: Architecture | Machine: docs.roadmap.faithnet
+// =============================================================================
+
+== First Principles: Breaking the Blindness of Ubiquity
+
+When a technology becomes ubiquitous, humanity stops asking how it works.
+People mistake a commercial telecom business model (monthly ISP bills, remote
+cloud datacenters, centralized DNS, fragile single-breaker choke points) for
+the physical essence of networking.
+
+At its irreducible core, **a network is not a cable owned by a corporation.**
+A network is four timeless primitives:
+
+. *Sovereign Identity:* Answering _"Who speaks, and who listens?"_ without
+  depending on an ISP-leased IPv4 address.
+. *Binary Framing:* Packaging origin, destination, intent, sequence, and
+  integrity into a compact, deterministic byte layout.
+. *Medium-Agnostic Transmission:* Moving state transitions across whatever
+  physical vibration the universe permits (RAM, Ethernet, Wi-Fi, analog radio,
+  sound waves, or two copper wires).
+. *Echo & Equilibrium:* Verifying presence and temporal latency across the link.
+
+=== The Master Distinction: Constraint vs. Limitation
+
+[cols="1,2,2",options="header"]
+|===
+| Dimension | Natural Constraint (`< LAW >`) | Self-Imposed Limitation
+| *Origin*
+| Physics, mathematics, hardware boundaries, available resources.
+| Convention, fear, corporate dependency, false assumptions.
+| *Effect*
+| Gives shape, elegance, determinism, and civilizational durability.
+| Produces paralysis, bloat, and helplessness.
+| *FaithNet Law*
+| Fixed 32-byte header (fits 512-byte Floppy Invariant), zero-heap Layer 0/1.
+| Rejecting the myth that networking requires billion-dollar infrastructure.
+|===
+
+=== The Four Acts of the FaithNet Vision
+
+. *Act I — The Room (Intimate Presence):*
+  Two devices running MillenniumOS / CPI-SI in the same physical room with zero
+  commercial Wi-Fi recognize each other directly and exchange lived state like
+  two minds conversing in a library.
+. *Act II — Across the Street (The Community Mesh):*
+  Bridging 50–300 meters without an ISP via peer-to-peer radio, multi-hop
+  relays, or store-and-forward carriers so a neighborhood stays alive even when
+  the commercial grid goes dark.
+. *Act III — The In-Device Router (The On/Off Switch):*
+  Any standard PC already possesses a CPU, routing stack, and Wi-Fi radio.
+  Flipping the beacon switch turns an offline PC into a sovereign access point,
+  registrar, and local library for every phone and laptop in range.
+. *Act IV — The Covenant Airlock (Genesis 3 Filtration):*
+  Connecting to the legacy commercial internet legally as an optional egress
+  bridge without dependency. Untrusted external streams pass through an
+  epistemic firewall anchored in OmniCode's stem:[\mathbb{T}_4] truth space so
+  the core CPI-SI weights are never poisoned by the chaotic, unfiltered
+  _"knowledge of good and evil."_
+
+'''
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK
+// ( The 4-Rung Ladder, The 5 Irreducible Cogs & Data-Oriented Architecture )
+// Stratum: Architecture | Machine: docs.roadmap.faithnet
+// =============================================================================
+
+== The 4-Rung Adaptive Networking Ladder
+
+Mirroring Track 0 of MillenniumOS (16-bit Legacy BIOS stem:[\leftrightarrow]
+Stage 2 PM stem:[\leftrightarrow] Multiboot ELF stem:[\leftrightarrow] 64-bit
+UEFI), FaithNet never assumes a single hardware body. It probes its host
+dynamically, **Rises Up** to the highest healthy rung, and executes a
+**Defensive Cascade (`EVT_CASCADE_DOWN`)** whenever a medium degrades or fails.
+
+[source,text]
+----
++=============================================================================+
+| RUNG 4: FEDERATED GLOBAL BACKBONE (transport/rung4_global/)                 |
+|   TCP stream encapsulation & legal outbound HTTP/HTTPS egress gated by the  |
+|   Genesis 3 Covenant Airlock (engine/covenant/).                            |
++=============================================================================+
+                                  ^   |
+                Escalation (Up)   |   |  Defensive Cascade (EVT_CASCADE_DOWN)
+                                  |   v
++=============================================================================+
+| RUNG 3: LOCAL AIRSPACE & THE WELL (transport/rung3_local/ + interpreter/)   |
+|   Peer-to-peer LAN UDP, Wi-Fi AP Beacon "On/Off Switch", and zero-install   |
+|   HTML Captive Portal ("The Well") for Windows/Mac/Linux/iOS/Android.       |
++=============================================================================+
+                                  ^   |
+                                  |   v
++=============================================================================+
+| RUNG 2: HOST MACHINE SUBSTRATE (transport/rung2_host/)                      |
+|   In-memory Go channels & local Unix IPC sockets. Zero network cards        |
+|   required; deterministic loopback for local simulation & testing.          |
++=============================================================================+
+                                  ^   |
+                                  |   v
++=============================================================================+
+| RUNG 1: THE CIVILIZATIONAL FLOOR (transport/rung1_floor/)                   |
+|   SLIP-framed RS-232 Serial / copper wire, AFSK Audio Modulation (dial-up / |
+|   analog walkie-talkie / CB radio), and International Morse Code (CW).      |
++=============================================================================+
+----
+
+Unless the physical silicon is destroyed, **the heartbeat continues.**
+
+== The 5 Irreducible Cogs of a FaithNet Ping
+
+Every higher protocol in FaithNet is composed from five uncoupled,
+self-contained, verifiable cogs:
+
+. *Cog 1 — Sovereign Identity (`data.NodeID`):*
+  An 8-byte substrate-independent `uint64` identifier. Works identically over
+  Morse pulses, serial ports, RAM channels, and global fiber.
+. *Cog 2 — Fixed Binary Signal Frame (`data.Frame`):*
+  A strict, 64-bit-aligned **32-byte fixed header** plus bounded payload
+  (Floor MTU = 480 bytes, yielding exactly **512 bytes** — honoring the
+  MillenniumOS 1.44 MB Floppy Disk Sector Invariant).
+
+[source,text]
+----
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|         Magic (0xFA17)        | Ver(4)|Rung(4)|    Opcode     |  Bytes 00..03
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     Flags     |   QuadState   |          PayloadLen           |  Bytes 04..07
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        SourceID (Low/High)                    |  Bytes 08..15
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        TargetID (Low/High)                    |  Bytes 16..23
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Sequence ID                           |  Bytes 24..27
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       FNV-1a Checksum                         |  Bytes 28..31
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|               Payload Bytes (0 .. 480 Floor MTU)              |  Bytes 32..N
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+----
+
+. *Cog 3 — Wire Abstraction (`transport.Transceiver`):*
+  A polymorphic zero-dependency interface (`Send`, `Receive`, `Rung`,
+  `Healthy`, `Close`). The Functional Core never knows or imports the wire.
+. *Cog 4 — Monotonic Temporal Clock (`engine.Clock`):*
+  Measures relative nanosecond duration (stem:[\Delta t = T_{\text{end}} -
+  T_{\text{start}}]) with zero reliance on external NTP servers.
+. *Cog 5 — Zero-Allocation Reactor (`engine.PingEngine`):*
+  Reflects `PING` stem:[\rightarrow] `PONG` directly inside pre-allocated
+  buffers (`ALLOC_ZERO_HEAP` in the hot path), tracking RTT, jitter, and loss
+  in fixed-capacity ring tables.
+
+== Layered Data-Oriented Architecture (Downward Dependency Flow)
+
+* *Layer 0 (`data/`):* Pure invariant structs, opcodes, constants, and profiles.
+  Zero external imports, zero OS/network imports.
+* *Layer 1 (`engine/`):* Pure functional state machines (`codec`, `clock`,
+  `ping`, `router`, `covenant/filter`). Zero network/OS dependencies; zero heap
+  allocations in frame encode/decode and ping reflection hot paths.
+* *Layer 2 (`orchestrator/`):* The adaptive brain (`probe`, `ladder`,
+  `dispatcher`) mirroring Cornerstone's `sim.engine.dispatcher` and hardware
+  probe architecture.
+* *Layer 3A (`transport/`):* Pluggable physical transceivers grouped by Rung 1
+  through Rung 4.
+* *Layer 3B (`interpreter/`):* _"The Well"_ — universal protocol translators
+  and zero-install captive HTML portal allowing ordinary Windows, macOS, Linux,
+  iOS, and Android devices to interact with FaithNet without special clients.
+* *Layer 4 (`cmd/` & `tests/`):* Thin imperative CLI shells (`faithnet-ping`,
+  `faithnet-node`) and the 4-Tier Macro Verification Suite
+  (`tests/functional/`, `tests/unit/`, `tests/integrated/`, `tests/system/`).
+
+'''
+
+// =============================================================================
+// BLOCK 4: AUDIT & VERIFICATION ROADMAP
+// ( The 6-Phase Wave Plan of Attack & 4-Tier Zero-Delta Proofs )
+// Stratum: Verification | Machine: docs.roadmap.faithnet
+// =============================================================================
+
+== Wave Plan of Attack
+
+Each wave is built, verified with `go vet` and `go test -race`, and sealed
+with a 5-Block Wave Git Commit before advancing to the next rung.
+
+[cols="1,2,3,3",options="header"]
+|===
+| Wave | Phase & Target | Deliverables | Verification Proof (Zero-Delta Audit)
+| *Wave 0*
+| Genesis & Skeleton
+| `git init`, 5-Block `go.mod`, 5-Block `.gitignore`, full folder/file skeleton, `docs/ROADMAP.adoc`, `README.md`.
+| `go list -m all` confirms pure stdlib module; clean repository tree matching Rev 5 standards.
+
+| *Wave 1*
+| Phase 1: The Seed (`data/` + `engine/`)
+| 32-byte Frame layout, QuadState stem:[\mathbb{T}_4], zero-alloc Codec, Clock, 5-Cog PingEngine, bounded Router, Genesis 3 CovenantFilter.
+| `tests/functional/` & `tests/unit/` pass; `testing.AllocsPerRun == 0` verified on hot path; zero `net`/`os` imports in Layer 0/1.
+
+| *Wave 2*
+| Phase 2: First Breath (`rung2_host/` + `faithnet-ping`)
+| Universal `Transceiver` interface, in-memory Go channel bus, local Unix IPC transceiver, standalone `cmd/faithnet-ping` CLI.
+| Live Node A stem:[\leftrightarrow] Node B ping executes completely offline in RAM & IPC with verified RTT and FNV-1a checksums.
+
+| *Wave 3*
+| Phase 3: The Orchestrator (`orchestrator/`)
+| Dynamic `BodyProbe`, bidirectional `AdaptiveLadder` (`EVT_CASCADE_DOWN` / Escalation), central `Dispatcher` event loop.
+| `tests/integrated/orchestrator_ladder_test.go` severs Rung 4 stem:[\rightarrow] 3 stem:[\rightarrow] 2 stem:[\rightarrow] 1 mid-flight; zero crashes; graceful recovery verified.
+
+| *Wave 4*
+| Phase 4: The Room & The Well (`rung3_local/` + `interpreter/` + `faithnet-node`)
+| Peer-to-peer LAN UDP, Wi-Fi AP Beacon controller, zero-install HTML Captive Portal, Legacy Bridge, `cmd/faithnet-node`.
+| `tests/integrated/room_and_well_test.go` verifies live UDP loopback ping + `httptest` captive HTML portal and legacy frame wrapping.
+
+| *Wave 5*
+| Phase 5 & 6: Civilizational Floor & Airlock (`rung1_floor/` + `rung4_global/`)
+| SLIP Serial stream, real AFSK Audio modulator/demodulator (1200/2200 Hz PCM), real Morse CW codec, TCP stream, Airlock-gated HTTP egress.
+| `tests/unit/floor_transports_test.go` & `tests/system/sovereign_mesh_e2e_test.go` transmit real FaithNet `PING` frames through Morse pulses, PCM audio waves, Serial, TCP, and audit Airlock rejections.
+|===
+
+'''
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK
+// ( Covenant Invariants & Closing Affirmations )
+// Stratum: Governance | Machine: docs.roadmap.faithnet
+// =============================================================================
+
+== Closing Covenant Affirmations
+
+. *Downward Dependency Law:* Layer 0 (`data/`) and Layer 1 (`engine/`) shall
+  never import OS networking packages (`net`, `net/http`) or higher layers.
+. *Floppy Disk Sector Invariant:* Minimal control frames shall always remain
+  compact (32-byte header; 512-byte floor frame ceiling) so FaithNet survives
+  on ancient hardware, slow radio, and acoustic links.
+. *Compatibility Without Dependency:* Deleting `transport/rung4_global/` or
+  unplugging the commercial internet shall never impair local operation.
+. *Faithful Execution:* Every verification claim in every Wave Commit shall be
+  backed by actual, repeatable compiler and test outputs.
+
+// End of docs/ROADMAP.adoc
