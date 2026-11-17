@@ -16,7 +16,7 @@ BLOCK 1: METADATA BLOCK
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
 @system        FaithNet Sovereign Adaptive Networking Substrate
 @role          Root Orientation, Architectural Specification & Verification Index
-@maturity      Rev 5 Baseline | Wave 7 Complete (Playtester & Docs Series)
+@maturity      Rev 5 Baseline | Wave 8 Complete (Session 002 All Gaps Closed)
 @chassis       zero-external-deps | Pure Go 1.26.8 Standard Library Substrate
 @scale         O(1) orientation across 5 layers, 4 adaptive rungs & 4 test tiers
 @seams         in: docs/ROADMAP.adoc | exports: operator & engineer entrypoint
@@ -59,7 +59,7 @@ PURPOSE & ARCHITECTURAL ROLE:
 | **Memory Discipline** | `ALLOC_ZERO_HEAP` (0.00 allocs/op) on Layer 0/1 wire & heartbeat hot paths |
 | **Adaptive Resilience** | 4-Rung Bidirectional Ladder (`Rung 1 Floor` $\leftrightarrow$ `Rung 4 Global`) |
 | **Verification Matrix** | **4x4 Lab Matrix** (46 test files, 329 tests) + **`tests/playtester/`** (5 live harnesses, 4 field kits) |
-| **Current Milestone** | **Wave 7 Complete** (Playtester Proving Ground, Session 001 Telemetry & 5-Volume `.adoc` Series) |
+| **Current Milestone** | **Wave 8 Complete** (All 3 Session 001 Gaps Closed & Verified in Session 002; Field-Test Ready) |
 | **Documentation Series** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc) & [`docs/01..05`](docs/01_WHAT_IS_FAITHNET.adoc) |
 
 ---
@@ -216,20 +216,20 @@ go run ./cmd/faithnet-ping --mode=ipc --count=4
 go run ./cmd/faithnet-node --probe-only --beacon --well
 ```
 
-### Verified Baseline Telemetry & Reality Matrix (Wave 7 Complete)
+### Verified Baseline Telemetry & Reality Matrix (Wave 8 / Session 002)
 
 * **External Dependencies:** `0` (`go list -m all` reports only `github.com/CreativeWorkzStudio/FaithNet`).
 * **Wire Codec Throughput:** `BenchmarkEncodeInto` `50.89 ns/op` (`0 B/op, 0 allocs/op`), `BenchmarkDecodeFrom` `86.72 ns/op` (`0 B/op, 0 allocs/op`).
-* **4x4 Lab Matrix (`tests/{functional,unit,integrated,system}`):** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 unit, `6` integrated, `5` system) + `1` shared harness = **329 verified `Test*` functions** (`go test -count=1 -race ./tests/...` PASS) + **22/22 live Block 4 pre-flight gates**.
-* **Playtester Proving Ground (`tests/playtester/reports/SESSION_001_BASELINE.adoc`):**
+* **4x4 Lab Matrix (`tests/{functional,unit,integrated,system}`):** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 unit, `6` integrated, `5` system) + `1` shared harness = **330 verified `Test*` functions** (`go test -count=1 -race ./tests/...` PASS) + **22/22 live Block 4 pre-flight gates**.
+* **Playtester Proving Ground ([`SESSION_002_WAVE8_HARDENED.adoc`](tests/playtester/reports/SESSION_002_WAVE8_HARDENED.adoc)):**
 
-| Capability | Lab Verified (4x4) | Live Playtested (Real OS/Audio/HTTP) | Staged Field Kit / Honest Gap |
+| Capability | Lab Verified (4x4) | Live Playtested (Session 002 — Real OS/Audio/HTTP) | Physical Field Status |
 | :--- | :--- | :--- | :--- |
-| **Cross-Process UDP / TCP** | PASS (`-race`) | **PASS:** UDP `p50=51.0 us` (`0.85 MB`), TCP `p50=404.5 us` (`1.28 MB`), `0%` loss | LAN Peer #2 (`192.168.1.99`) pinged live (`47.6..347.4 ms`); Field Kit 01 ready |
-| **Chaos Weather & Cascade** | PASS (`-race`) | **PASS:** `4/4` bit-flips caught; `UDP->RAM->AFSK` hard-cut in `1.41 ms` (`0%` loss) | **Gap #1 (Wave 8):** Silent UDP blackhole needs heartbeat-driven passive cascade |
-| **Rung 1 SLIP Serial** | PASS (`-race`) | **PASS:** Real kernel FIFO `620.2 KB/s` (worst-case 512B), glitch resync `376 us` | Field Kit 03 (`socat` installed + `/dev/ttyUSB0` copper checklist) |
-| **Rung 1 AFSK & Morse** | PASS (`-race`) | **PASS:** Survives `+3.93 dB` SNR, `1%` vol, `ffmpeg` 32k MP3 & phone bandpass | **Gap #2 (Wave 8):** Sliding preamble sync for `>=16`-sample mic offset (Field Kit 02) |
-| **The Well & Airlock** | PASS (`-race`) | **PASS:** `4,887 req/s`, `p50=2.14 ms`, `120/120` attacks blocked (`0` breaches) | Field Kit 01 ready for live phone/Laptop #2 browser verification |
+| **Cross-Process UDP / TCP** | PASS (`-race`) | **PASS:** UDP `p50=39.1 us` (`0.85 MB`), TCP `p50=338.4 us` (`1.28 MB`), `0%` loss | LAN broadcast `OpBeacon` + `--interactive` REPL ready for Laptop #2 (`192.168.1.99`) |
+| **Chaos Weather & Cascade** | PASS (`-race`) | **PASS:** `8/8` bit-flips caught; `UDP->RAM` hard-cut `21 us`; **Silent Blackhole auto-cascade rescued `2/2` on `RUNG_2_HOST`!** | Field Kit 04 (`ip netns` + `tc netem`) staged |
+| **Rung 1 SLIP Serial** | PASS (`-race`) | **PASS:** Real kernel FIFO `1,126.6 KB/s` (`9.23 Mbps`), glitch resync `126.9 us` | Field Kit 03 (`socat` installed + `/dev/ttyUSB0` copper checklist) |
+| **Rung 1 AFSK & Morse** | PASS (`-race`) | **PASS:** Survives `+3.93 dB` SNR, `1%` vol, `ffmpeg` 32k MP3 & phone bandpass; **mic leading silence `0..4,000` samples `6/6` PASS!** | Field Kit 02 (`aplay`/`arecord`) ready for live room-air test |
+| **The Well & Airlock** | PASS (`-race`) | **PASS:** `3,375–4,887 req/s`, `p50=2.1–2.9 ms`, `120/120` attacks blocked (`0` breaches) | Field Kit 01 ready for live phone / Laptop #2 browser test |
 
 ### Documentation Series (`docs/`)
 

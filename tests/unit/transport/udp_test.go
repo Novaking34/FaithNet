@@ -186,6 +186,15 @@ func TestUDPUnit_Sec4_DumpCardRendersListenAddress(t *testing.T) {
 	if !strings.Contains(card, "RUNG 3 LOCAL UDP") || !strings.Contains(card, u.Addr()) {
 		t.Fatalf("[SEC 4] unexpected UDP dump card:\n%s", card)
 	}
+	if bcast := rung3_local.DiscoverLANBroadcastIP(); bcast == "" {
+		t.Fatal("[SEC 4] DiscoverLANBroadcastIP returned empty string")
+	}
+	if err := u.SetBroadcastAddr("127.0.0.1:0"); err != nil {
+		t.Fatalf("[SEC 4] SetBroadcastAddr valid addr failed: %v", err)
+	}
+	if err := u.SetBroadcastAddr(""); err != nil {
+		t.Fatalf("[SEC 4] SetBroadcastAddr clear failed: %v", err)
+	}
 }
 
 // ==============================================================================

@@ -82,6 +82,16 @@ import (
 // Sub-Assembly 2.1: Pre-Conditions & Dispatcher Sentinel Errors
 // ------------------------------------------------------------------------------
 
+const (
+	// DefaultSilentTimeoutCascadeThreshold is the number of consecutive silent
+	// ping timeouts on a rung before Dispatcher triggers passive EVT_CASCADE_DOWN.
+	DefaultSilentTimeoutCascadeThreshold uint32 = 3
+
+	// DefaultSilentDegradeCooldown is the monotonic cooldown window applied to
+	// a rung that failed via silent blackhole before Rising Up retries it.
+	DefaultSilentDegradeCooldown = 5 * time.Second
+)
+
 var (
 	// ErrDispatcherInvalidManifest indicates startup with an invalid NodeManifest.
 	ErrDispatcherInvalidManifest = errors.New("faithnet/dispatcher: invalid node manifest")
@@ -162,6 +172,7 @@ type Dispatcher struct {
 	pongsMatched   atomic.Uint64
 	dataDelivered  atomic.Uint64
 	framesSent     atomic.Uint64
+	silentTimeouts atomic.Uint32
 }
 
 // ------------------------------------------------------------------------------
@@ -296,6 +307,9 @@ func (d *Dispatcher) HandleInboundEnvelope(env transport.WireEnvelope) InboundOu
 		}
 	}
 
+	// Live inbound proof heals any passive silent-blackhole cooldown on in.Rung.
+	d.ladder.ClearRungDegraded(in.Rung)
+
 	// Learn or refresh peer route in bounded Router (best-effort).
 	if in.SourceID.IsValid() && in.SourceID != d.manifest.ID {
 		_ = d.router.UpsertRoute(engine.PeerRoute{
@@ -319,7 +333,7 @@ func (d *Dispatcher) HandleInboundEnvelope(env transport.WireEnvelope) InboundOu
 		var wire [data.FloorMaxFrameSize]byte
 		if err := engine.ReflectPingInto(&in, &resp, d.manifest.ID); err == nil {
 			if n, encErr := engine.EncodeInto(wire[:], &resp); encErr == nil {
-				if _, sendErr := d.ladder.SendFrame(resp.TargetID, wire[:n]); sendErr == nil {
+				if _, sendErr := d.ladder.SendOnRung(in.Rung, resp.TargetID, wire[:n]); sendErr == nil {
 					d.pingsReflected.Add(1)
 					d.framesSent.Add(1)
 					outcome.Reflected = true
@@ -432,9 +446,20 @@ func (d *Dispatcher) PingPeer(
 	for {
 		select {
 		case <-ctx.Done():
+			misses := d.silentTimeouts.Add(1)
+			if misses >= DefaultSilentTimeoutCascadeThreshold {
+				d.silentTimeouts.Store(0)
+				d.ladder.MarkRungDegraded(
+					usedRung,
+					DefaultSilentDegradeCooldown,
+					fmt.Sprintf("passive silent blackhole on %s (%d consecutive ping timeouts)", usedRung, misses),
+				)
+			}
 			return 0, usedRung, ctx.Err()
 		case seq := <-d.pongNotify:
 			if seq == req.SeqID {
+				d.silentTimeouts.Store(0)
+				d.ladder.ClearRungDegraded(usedRung)
 				return d.ping.HealthSnapshot().LastRTTNano, usedRung, nil
 			}
 		}

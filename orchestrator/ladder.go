@@ -65,6 +65,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/CreativeWorkzStudio/FaithNet/data"
 	"github.com/CreativeWorkzStudio/FaithNet/engine"
@@ -125,17 +126,18 @@ const (
 // Fixed-size `[5][4]transport.Transceiver` table + `[64]data.CascadeEvent` ring
 // guarded by `sync.RWMutex`. Zero dynamic slice growth on transitions.
 type AdaptiveLadder struct {
-	mu           sync.RWMutex
-	manifest     data.NodeManifest
-	clock        engine.Clock
-	slots        [rungSlotCount][MaxTransceiversPerRung]transport.Transceiver
-	slotCounts   [rungSlotCount]int
-	activeRung   data.RungLevel
-	history      [MaxCascadeHistory]data.CascadeEvent
-	historyHead  uint64
-	historyCount uint64
-	cascadeDowns uint64
-	cascadeUps   uint64
+	mu            sync.RWMutex
+	manifest      data.NodeManifest
+	clock         engine.Clock
+	slots         [rungSlotCount][MaxTransceiversPerRung]transport.Transceiver
+	slotCounts    [rungSlotCount]int
+	degradedUntil [rungSlotCount]int64
+	activeRung    data.RungLevel
+	history       [MaxCascadeHistory]data.CascadeEvent
+	historyHead   uint64
+	historyCount  uint64
+	cascadeDowns  uint64
+	cascadeUps    uint64
 }
 
 // ------------------------------------------------------------------------------
@@ -264,6 +266,14 @@ func (l *AdaptiveLadder) findHealthyOnRungLocked(r data.RungLevel) transport.Tra
 	return nil
 }
 
+func (l *AdaptiveLadder) isRungDegradedLocked(r data.RungLevel) bool {
+	if !r.IsValid() {
+		return false
+	}
+	until := l.degradedUntil[r]
+	return until > 0 && l.clock.NowNano() < until
+}
+
 func (l *AdaptiveLadder) findHighestHealthyLocked(
 	ceiling, floor data.RungLevel,
 ) data.RungLevel {
@@ -271,7 +281,7 @@ func (l *AdaptiveLadder) findHighestHealthyLocked(
 		return data.RungNone
 	}
 	for r := ceiling; r >= floor; r-- {
-		if l.findHealthyOnRungLocked(r) != nil {
+		if !l.isRungDegradedLocked(r) && l.findHealthyOnRungLocked(r) != nil {
 			return r
 		}
 		if r == data.RungMinValid {
@@ -420,6 +430,109 @@ func (l *AdaptiveLadder) CascadeDown(reason string) (data.RungLevel, error) {
 		return data.RungNone, ErrFloorCollapsed
 	}
 	return next, nil
+}
+
+// MarkRungDegraded places rung r into a monotonic cooldown quarantine after
+// passive silent-blackhole detection and immediately triggers EVT_CASCADE_DOWN
+// onto the highest remaining healthy non-degraded survival rung.
+//
+// ### For Architects, Operators & Non-Programmers:
+// When a wireless or UDP link goes silently dead without reporting an OS error,
+// this puts that link in a brief timeout box so FaithNet drops down to a backup
+// wire or radio right away—and automatically retries climbing back up later.
+//
+// ### For Systems Programmers & Engine Architects:
+// Zero-heap monotonic cooldown using `l.clock.NowNano()`; safe for deterministic
+// `engine.MockClock` verification and `-race` concurrency.
+func (l *AdaptiveLadder) MarkRungDegraded(
+	r data.RungLevel,
+	cooldown time.Duration,
+	reason string,
+) data.RungLevel {
+	if !r.IsValid() {
+		return l.ActiveRung()
+	}
+	if cooldown <= 0 {
+		cooldown = 5 * time.Second
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.degradedUntil[r] = l.clock.NowNano() + cooldown.Nanoseconds()
+	top := l.effectiveMaxRungLocked()
+	floor := l.effectiveMinRungLocked()
+	next := l.findHighestHealthyLocked(top, floor)
+	prev := l.activeRung
+	if !next.IsValid() {
+		// Never quarantine the node's sole surviving link into a self-inflicted
+		// blackout; keep it active to allow storm recovery while logging event.
+		l.degradedUntil[r] = 0
+		l.recordTransitionLocked(prev, prev, data.OpCascadeDown, reason+" (sole surviving link retained)")
+		return prev
+	}
+	if next != prev {
+		l.activeRung = next
+		l.recordTransitionLocked(prev, next, data.OpCascadeDown, reason)
+	}
+	return next
+}
+
+// ClearRungDegraded lifts any passive silent-blackhole cooldown on rung r when
+// live inbound or echo traffic proves the rung is healthy again.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Clears a link's quarantine immediately as soon as real traffic arrives on it.
+//
+// ### For Systems Programmers & Engine Architects:
+// Write-locked O(1) clear on `l.degradedUntil[r]`; safe for concurrent calls.
+func (l *AdaptiveLadder) ClearRungDegraded(r data.RungLevel) {
+	if !r.IsValid() {
+		return
+	}
+	l.mu.Lock()
+	l.degradedUntil[r] = 0
+	l.mu.Unlock()
+}
+
+// SendOnRung attempts to transmit raw wire bytes specifically on preferredRung
+// (trying all healthy siblings on that rung) so OpPong echoes return on the
+// exact survival rung that carried the OpPing—preventing asymmetric blackhole
+// traps—and falls back seamlessly to SendFrame if preferredRung is unavailable.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Answers a neighbor on the exact same radio or wire they just called in on,
+// instead of shouting back into a broken higher-rung link they already left.
+//
+// ### For Systems Programmers & Engine Architects:
+// Zero-heap fixed-array sibling scan on `preferredRung` with `SendFrame` fallback.
+func (l *AdaptiveLadder) SendOnRung(
+	preferredRung data.RungLevel,
+	target data.NodeID,
+	raw []byte,
+) (data.RungLevel, error) {
+	if len(raw) > data.FloorMaxFrameSize {
+		return data.RungNone, transport.ErrWireFrameOversize
+	}
+	if preferredRung.IsValid() {
+		var siblings [MaxTransceiversPerRung]transport.Transceiver
+		sibCount := 0
+		l.mu.RLock()
+		for i := l.slotCounts[preferredRung] - 1; i >= 0; i-- {
+			if tx := l.slots[preferredRung][i]; tx != nil && tx.Healthy() {
+				siblings[sibCount] = tx
+				sibCount++
+			}
+		}
+		l.mu.RUnlock()
+
+		for i := 0; i < sibCount; i++ {
+			if err := siblings[i].Send(target, raw); err == nil {
+				return preferredRung, nil
+			}
+		}
+	}
+	return l.SendFrame(target, raw)
 }
 
 // ------------------------------------------------------------------------------

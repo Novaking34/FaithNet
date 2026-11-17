@@ -107,14 +107,15 @@ const (
 // Thread-safe wrapper around `*net.UDPConn` with mutex-guarded `NodeID -> UDPAddr`
 // directory and atomic lock-free telemetry counters.
 type UDPTransceiver struct {
-	selfID  data.NodeID
-	conn    *net.UDPConn
-	mu      sync.RWMutex
-	peers   map[data.NodeID]*net.UDPAddr
-	healthy atomic.Bool
-	closed  atomic.Bool
-	sentCnt atomic.Uint64
-	recvCnt atomic.Uint64
+	selfID        data.NodeID
+	conn          *net.UDPConn
+	mu            sync.RWMutex
+	peers         map[data.NodeID]*net.UDPAddr
+	broadcastAddr *net.UDPAddr
+	healthy       atomic.Bool
+	closed        atomic.Bool
+	sentCnt       atomic.Uint64
+	recvCnt       atomic.Uint64
 }
 
 // ------------------------------------------------------------------------------
@@ -197,6 +198,78 @@ func (u *UDPTransceiver) RegisterPeer(peerID data.NodeID, addrStr string) error 
 	return nil
 }
 
+// SetBroadcastAddr configures an optional LAN UDP broadcast endpoint (e.g.
+// "192.168.1.255:7777" or "255.255.255.255:7777") used by zero-config OpBeacon
+// discovery when Send targets data.NodeIDBroadcast. Passing "" disables it.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Lets a FaithNet node call out to the whole room's Wi-Fi subnet so nearby
+// laptops discover each other automatically without manually typing IP addresses.
+//
+// ### For Systems Programmers & Engine Architects:
+// Resolves via `net.ResolveUDPAddr("udp4", addrStr)` under write lock.
+func (u *UDPTransceiver) SetBroadcastAddr(addrStr string) error {
+	if addrStr == "" {
+		u.mu.Lock()
+		u.broadcastAddr = nil
+		u.mu.Unlock()
+		return nil
+	}
+	resolved, err := net.ResolveUDPAddr("udp4", addrStr)
+	if err != nil {
+		return err
+	}
+	u.mu.Lock()
+	u.broadcastAddr = resolved
+	u.mu.Unlock()
+	return nil
+}
+
+// DiscoverLANBroadcastIP inspects active non-loopback IPv4 interfaces and
+// computes the first subnet broadcast IP (e.g. "192.168.1.255"), falling back
+// cleanly to "255.255.255.255" when no active LAN interface is present.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Automatically finds the right room-wide shout address for the computer's Wi-Fi.
+//
+// ### For Systems Programmers & Engine Architects:
+// Pure stdlib `net.Interfaces()` bitwise OR (`ip | ^mask`) over IPv4 CIDR.
+func DiscoverLANBroadcastIP() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "255.255.255.255"
+	}
+	for _, iface := range ifaces {
+		if (iface.Flags&net.FlagUp) == 0 ||
+			(iface.Flags&net.FlagLoopback) != 0 ||
+			(iface.Flags&net.FlagBroadcast) == 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, a := range addrs {
+			ipNet, ok := a.(*net.IPNet)
+			if !ok || ipNet.IP == nil {
+				continue
+			}
+			v4 := ipNet.IP.To4()
+			if v4 == nil || len(ipNet.Mask) != 4 {
+				continue
+			}
+			bcast := net.IPv4(
+				v4[0]|^ipNet.Mask[0],
+				v4[1]|^ipNet.Mask[1],
+				v4[2]|^ipNet.Mask[2],
+				v4[3]|^ipNet.Mask[3],
+			)
+			return bcast.String()
+		}
+	}
+	return "255.255.255.255"
+}
+
 // ==============================================================================
 // BLOCK 3: BODY BLOCK
 // ( Composable Business Logic: Unicast/Broadcast UDP Send & Context Receive )
@@ -234,14 +307,20 @@ func (u *UDPTransceiver) Send(target data.NodeID, raw []byte) error {
 
 	if target.IsBroadcast() {
 		u.mu.RLock()
-		targets := make([]*net.UDPAddr, 0, len(u.peers))
+		targets := make([]*net.UDPAddr, 0, len(u.peers)+1)
 		for _, addr := range u.peers {
 			targets = append(targets, addr)
 		}
+		bcast := u.broadcastAddr
 		u.mu.RUnlock()
 
 		for _, addr := range targets {
 			if _, err := u.conn.WriteToUDP(raw, addr); err == nil {
+				u.sentCnt.Add(1)
+			}
+		}
+		if bcast != nil {
+			if _, err := u.conn.WriteToUDP(raw, bcast); err == nil {
 				u.sentCnt.Add(1)
 			}
 		}
@@ -309,7 +388,11 @@ func (u *UDPTransceiver) Receive(ctx context.Context) (transport.WireEnvelope, e
 			env.Bytes[1] == data.FrameMagicLo &&
 			remoteAddr != nil {
 			srcID := data.NodeID(binary.BigEndian.Uint64(env.Bytes[data.OffsetSourceID:]))
-			if srcID.IsValid() && srcID != u.selfID {
+			if srcID == u.selfID {
+				// Ignore self-echoed LAN subnet broadcast packets cleanly.
+				continue
+			}
+			if srcID.IsValid() {
 				env.SenderID = srcID
 				u.mu.Lock()
 				u.peers[srcID] = remoteAddr

@@ -121,9 +121,11 @@ field execution:
 
 == Empirical Session Reports (`reports/`)
 
-* `reports/SESSION_001_BASELINE.adoc` — Wave 7A initial empirical baseline across
-  all 5 executable harnesses, real LAN peer discovery, exact SNR/offset breaking
-  points, and prioritized Wave 8 hardening backlog.
+* `reports/SESSION_001_BASELINE.adoc` — Wave 7A initial empirical baseline
+  across all 5 executable harnesses, exposing 3 real-world gaps.
+* `reports/SESSION_002_WAVE8_HARDENED.adoc` — Wave 8 Before/After empirical
+  proof closing all 3 Session 001 gaps (`SILENT_BLACKHOLE_AUTO_CASCADE` `2/2`,
+  `0..4,000`-sample acoustic mic lock `6/6`, LAN UDP broadcast + REPL).
 
 // =============================================================================
 // BLOCK 5: CLOSING BLOCK / PLAYTEST DISCIPLINE

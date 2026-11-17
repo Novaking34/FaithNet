@@ -55,12 +55,18 @@ package main
 
 // --- Tier 1: Standard Go Library Packages ---
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
+	"sync/atomic"
 	"syscall"
+	"time"
 )
 
 // --- Tier 2: External Library Dependencies (None — 100% Go Stdlib Invariant) ---
@@ -88,6 +94,12 @@ const (
 
 	// DefaultNodeLabel is the default human-readable sovereign node label.
 	DefaultNodeLabel = "FaithNet-Anchor"
+
+	// DefaultLANPingTimeoutMs honors empirical Wi-Fi power-save spikes (>300ms).
+	DefaultLANPingTimeoutMs = 2000
+
+	// DefaultBeaconInterval is the periodic LAN discovery OpBeacon cadence.
+	DefaultBeaconInterval = 3 * time.Second
 )
 
 // ------------------------------------------------------------------------------
@@ -108,10 +120,13 @@ type NodeCLIOptions struct {
 	NodeID            uint64
 	Label             string
 	UDPAddr           string
+	BroadcastAddr     string
 	WellAddr          string
 	BeaconSSID        string
+	PingTimeoutMs     int
 	EnableWell        bool
 	EnableBeacon      bool
+	Interactive       bool
 	AllowGlobalEgress bool
 	AuditOnly         bool
 	ProbeOnly         bool
@@ -163,6 +178,20 @@ func runSovereignNode(opts NodeCLIOptions) error {
 		udpTx, err = rung3_local.NewUDPTransceiver(manifest.ID, opts.UDPAddr)
 		if err != nil {
 			return fmt.Errorf("failed binding Rung 3 UDP at %s: %w", opts.UDPAddr, err)
+		}
+		// Wire zero-config LAN subnet broadcast discovery when listening on LAN.
+		bcastTarget := opts.BroadcastAddr
+		if bcastTarget == "" && opts.EnableBeacon {
+			host, port, splitErr := net.SplitHostPort(udpTx.Addr())
+			if splitErr == nil && host != "127.0.0.1" && host != "::1" && port != "" {
+				bcastTarget = net.JoinHostPort(rung3_local.DiscoverLANBroadcastIP(), port)
+			}
+		}
+		if bcastTarget != "" {
+			if err := udpTx.SetBroadcastAddr(bcastTarget); err != nil {
+				_ = udpTx.Close()
+				return fmt.Errorf("invalid --broadcast-addr %s: %w", bcastTarget, err)
+			}
 		}
 		if err := disp.Ladder().RegisterRung(udpTx); err != nil {
 			_ = udpTx.Close()
@@ -219,15 +248,211 @@ func runSovereignNode(opts NodeCLIOptions) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Forward live incoming peer messages to terminal and The Well (if enabled).
+	disp.SetDeliverHandler(func(f *data.Frame, v covenant.Verdict) {
+		switch f.Opcode {
+		case data.OpData, data.OpLegacyWrap:
+			msg := string(f.PayloadSlice())
+			fmt.Printf("\n[RX %s | %s | %s] %s\n",
+				f.Rung.String(), f.SourceID.String(), v.State.String(), msg)
+			if well != nil {
+				well.RecordBulletin(interpreter.BulletinEntry{
+					Seq:      f.SeqID,
+					ClientOS: f.SourceID.String(),
+					Truth:    v.State.String(),
+					Rung:     f.Rung.String(),
+					Message:  msg,
+				})
+			}
+		case data.OpBeacon:
+			fmt.Printf("[BEACON RX] peer=%s rung=%s info=%q\n",
+				f.SourceID.String(), f.Rung.String(), string(f.PayloadSlice()))
+		}
+	})
+
 	if err := disp.Start(ctx); err != nil {
 		return err
 	}
+
+	var beaconSeq atomic.Uint32
+	if beacon != nil {
+		go func() {
+			sendOnce := func() {
+				bf := beacon.BuildBeaconFrame(manifest.ID, data.Rung3Local, beaconSeq.Add(1))
+				_, _ = disp.SendFrame(&bf)
+			}
+			sendOnce()
+			t := time.NewTicker(DefaultBeaconInterval)
+			defer t.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+					sendOnce()
+				}
+			}
+		}()
+	}
+
 	fmt.Printf("FaithNet node %q (%s) online on %s. Press Ctrl-C to stop.\n",
 		manifest.Label, manifest.ID.String(), disp.Ladder().ActiveRung().String())
 
-	<-ctx.Done()
+	if opts.Interactive {
+		runInteractiveREPL(ctx, stop, disp, beacon, well, manifest, opts.PingTimeoutMs)
+	} else {
+		<-ctx.Done()
+	}
+
 	fmt.Println("FaithNet node shutting down cleanly...")
 	return nil
+}
+
+// ------------------------------------------------------------------------------
+// Sub-Assembly 3.2: Interactive Live Playtest Operator REPL
+// ------------------------------------------------------------------------------
+
+func runInteractiveREPL(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	disp *orchestrator.Dispatcher,
+	beacon *rung3_local.BeaconSwitch,
+	well *interpreter.WellServer,
+	manifest data.NodeManifest,
+	pingTimeoutMs int,
+) {
+	if pingTimeoutMs <= 0 {
+		pingTimeoutMs = DefaultLANPingTimeoutMs
+	}
+	fmt.Println("Interactive mode active. Commands: help | status | peers | ping <hex|all> | say <msg> | beacon | quit")
+	sc := bufio.NewScanner(os.Stdin)
+	var seq uint32 = 1
+
+	for {
+		fmt.Print("faithnet> ")
+		if !sc.Scan() {
+			cancel()
+			return
+		}
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, " ", 2)
+		cmd := strings.ToLower(parts[0])
+		arg := ""
+		if len(parts) > 1 {
+			arg = strings.TrimSpace(parts[1])
+		}
+
+		switch cmd {
+		case "help":
+			fmt.Println("  status           - print live Ladder, Dispatcher & Well cards")
+			fmt.Println("  peers            - list auto-discovered sovereign peers")
+			fmt.Println("  ping <hex|all>   - send live sovereign ping (timeout", pingTimeoutMs, "ms)")
+			fmt.Println("  say <message>    - broadcast sovereign +1:ALIGNED bulletin")
+			fmt.Println("  beacon           - broadcast immediate LAN discovery OpBeacon")
+			fmt.Println("  quit             - shut down cleanly")
+		case "status":
+			fmt.Println(disp.Ladder().ExecuteLadderDumpCard())
+			fmt.Println(disp.ExecuteDispatcherDumpCard())
+			if well != nil {
+				fmt.Println(well.ExecuteWellDumpCard())
+			}
+		case "peers":
+			var routes [engine.MaxPeers]engine.PeerRoute
+			n := disp.Router().SnapshotInto(routes[:])
+			if n == 0 {
+				fmt.Println("  (no peers discovered yet — run 'beacon' or wait 3s)")
+			}
+			for i := 0; i < n; i++ {
+				r := routes[i]
+				fmt.Printf("  [%d] peer=%s nextHop=%s rung=%s hops=%d lastRTT=%dus\n",
+					i+1, r.PeerID.String(), r.NextHopID.String(), r.Rung.String(),
+					r.HopCount, r.LastRTTNano/1000)
+			}
+		case "ping":
+			var targets []data.NodeID
+			if arg == "" || strings.EqualFold(arg, "all") {
+				var routes [engine.MaxPeers]engine.PeerRoute
+				n := disp.Router().SnapshotInto(routes[:])
+				for i := 0; i < n; i++ {
+					targets = append(targets, routes[i].PeerID)
+				}
+			} else {
+				cleanHex := strings.TrimPrefix(strings.ToLower(arg), "0x")
+				val, err := strconv.ParseUint(cleanHex, 16, 64)
+				if err != nil {
+					fmt.Printf("  invalid hex NodeID: %q\n", arg)
+					continue
+				}
+				targets = append(targets, data.NodeID(val))
+			}
+			if len(targets) == 0 {
+				fmt.Println("  no peers to ping yet")
+				continue
+			}
+			for _, id := range targets {
+				pCtx, pCancel := context.WithTimeout(ctx, time.Duration(pingTimeoutMs)*time.Millisecond)
+				rtt, rung, err := disp.PingPeer(pCtx, id, []byte("LIVE-REPL-PING"))
+				pCancel()
+				if err != nil {
+					fmt.Printf("  PING %s -> TIMEOUT/ERR (%s): %v\n", id.String(), rung.String(), err)
+				} else {
+					fmt.Printf("  PONG %s <- rung=%s rtt=%.2fms (+1:ALIGNED)\n",
+						id.String(), rung.String(), float64(rtt)/1e6)
+				}
+			}
+		case "say":
+			if arg == "" {
+				fmt.Println("  usage: say <message>")
+				continue
+			}
+			var f data.Frame
+			f.Version = data.ProtocolVersion
+			f.Rung = disp.Ladder().ActiveRung()
+			f.Opcode = data.OpData
+			f.Flags = data.FlagFloorCompact | data.FlagCovenantVerified
+			f.Truth = data.QuadPositive
+			f.SourceID = manifest.ID
+			f.TargetID = data.NodeIDBroadcast
+			f.SeqID = seq
+			seq++
+			f.SetPayload([]byte(arg))
+			rung, err := disp.SendFrame(&f)
+			if err != nil {
+				fmt.Printf("  send failed: %v\n", err)
+			} else {
+				fmt.Printf("  broadcast sent on %s (%dB)\n", rung.String(), len(arg))
+				if well != nil {
+					well.RecordBulletin(interpreter.BulletinEntry{
+						Seq:      f.SeqID,
+						ClientOS: manifest.Label,
+						Truth:    data.QuadPositive.String(),
+						Rung:     rung.String(),
+						Message:  arg,
+					})
+				}
+			}
+		case "beacon":
+			if beacon == nil {
+				fmt.Println("  beacon disabled (start with --beacon)")
+				continue
+			}
+			bf := beacon.BuildBeaconFrame(manifest.ID, data.Rung3Local, seq)
+			seq++
+			if rung, err := disp.SendFrame(&bf); err != nil {
+				fmt.Printf("  beacon failed: %v\n", err)
+			} else {
+				fmt.Printf("  beacon broadcast sent on %s\n", rung.String())
+			}
+		case "quit", "exit":
+			cancel()
+			return
+		default:
+			fmt.Printf("  unknown command %q (type 'help')\n", cmd)
+		}
+	}
 }
 
 // ==============================================================================
@@ -379,10 +604,13 @@ func main() {
 	flag.Uint64Var(&opts.NodeID, "id", DefaultNodeID, "Sovereign 64-bit NodeID")
 	flag.StringVar(&opts.Label, "label", DefaultNodeLabel, "Human-readable node label")
 	flag.StringVar(&opts.UDPAddr, "udp", rung3_local.DefaultLocalUDPAddr, "Rung 3 Local UDP listen address")
+	flag.StringVar(&opts.BroadcastAddr, "broadcast-addr", "", "Optional LAN UDP broadcast address (auto-detected when --beacon is on)")
 	flag.StringVar(&opts.WellAddr, "well-addr", data.DefaultWellListenAddr, "The Well HTML portal listen address")
 	flag.StringVar(&opts.BeaconSSID, "beacon-ssid", data.DefaultBeaconSSID, "Room Beacon SSID (1..32 bytes)")
+	flag.IntVar(&opts.PingTimeoutMs, "ping-timeout", DefaultLANPingTimeoutMs, "Live LAN ping timeout in milliseconds")
 	flag.BoolVar(&opts.EnableWell, "well", false, "Enable The Well zero-install HTML captive portal")
-	flag.BoolVar(&opts.EnableBeacon, "beacon", false, "Activate Room Beacon switch (safe simulated mode)")
+	flag.BoolVar(&opts.EnableBeacon, "beacon", false, "Activate Room Beacon switch and periodic LAN OpBeacon discovery")
+	flag.BoolVar(&opts.Interactive, "interactive", false, "Enable interactive playtest operator console (REPL)")
 	flag.BoolVar(&opts.AllowGlobalEgress, "allow-global", false, "Explicitly opt in to Rung 4 Global egress")
 	flag.BoolVar(&opts.AuditOnly, "audit", false, "Run all Layer 0..3B Block 4 pre-flight audits and exit")
 	flag.BoolVar(&opts.ProbeOnly, "probe-only", false, "Print host body, ladder & node cards and exit")

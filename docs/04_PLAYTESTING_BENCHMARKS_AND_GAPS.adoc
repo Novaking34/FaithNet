@@ -104,31 +104,32 @@ replace each other:
 // BLOCK 4: AUDIT PROCEDURES BLOCK / WHAT PLAYTESTING CAUGHT THAT TESTS MISSED
 // =============================================================================
 
-== Honest Gaps Exposed by Playtesting (Driving Wave 8)
+== Gaps Exposed in Session 001 & Closed in Wave 8 (Session 002 Verified)
 
 None of the 329 passing lab tests flagged these three physical-world behaviors;
 every one of them was surfaced directly by **Playtest Session 001**
-(`tests/playtester/reports/SESSION_001_BASELINE.adoc`):
+(`tests/playtester/reports/SESSION_001_BASELINE.adoc`) and **closed and
+empirically re-verified in Wave 8 / Playtest Session 002**
+(`tests/playtester/reports/SESSION_002_WAVE8_HARDENED.adoc`):
 
-1. **Silent Blackhole Blind Spot (`chaos_weather_proxy` Regime 4):**
-   When `100%` of UDP packets were silently dropped (no OS socket error), all 5
-   pings timed out while `AdaptiveLadder` stayed on `RUNG_3_LOCAL`.
-   *Next Wave Action:* Implement heartbeat-driven passive degradation in
-   `Dispatcher` (`N` missed Pongs -> degrade rung -> `EVT_CASCADE_DOWN`).
-2. **Asynchronous Microphone Start-Offset (`audio_torture_bench` Section 3):**
-   `DemodulateAFSK` decoded cleanly with `0` or `5` samples of leading silence
-   (`<= 0.52 ms`), but failed at `>= 16` samples (`1.67 ms`) because preamble
-   detection assumes bit-aligned sample index `0`.
-   *Next Wave Action:* Add a sliding sample-by-sample energy gate + preamble
-   correlator (`0xAA 0x55`) before running live Laptop #1 -> Laptop #2 room-air
-   acoustic playtests.
-3. **Real-LAN Wireless Jitter & Zero-Config Discovery:**
-   Live ICMP to Laptop #2 (`192.168.1.99`) showed `47.6 ms` to `347.4 ms`
-   power-save spikes (and another LAN peer dropped ICMP entirely behind a host
-   firewall).
-   *Next Wave Action:* Default real-LAN ping timeouts to `>= 1500 ms`, emit live
-   UDP broadcast `OpBeacon` frames (`255.255.255.255:7777`), and add an
-   interactive playtest REPL to `cmd/faithnet-node`.
+1. **Silent Blackhole Blind Spot -> CLOSED (Wave 8):**
+   Implemented `AdaptiveLadder.MarkRungDegraded` (zero-heap monotonic cooldown
+   that never quarantines a node's sole surviving link), passive consecutive
+   timeout tracking in `Dispatcher.PingPeer`, and reply-on-arrival-rung
+   `AdaptiveLadder.SendOnRung(in.Rung, ...)` so peers never echo Pongs back
+   into an asymmetric blackhole. *Session 002 proof:* `REGIME 6` rescued `2/2`
+   pings automatically on `RUNG_2_HOST` after 3 silent UDP drops.
+2. **Asynchronous Microphone Start-Offset -> CLOSED (Wave 8):**
+   Upgraded `rung1_floor.DemodulateAFSK` with an energy-gated 4-sample sliding
+   preamble correlator + +/-3-sample peak-contrast fine lock. *Session 002
+   proof:* `0`, `5`, `16`, `40`, `200`, and `4,000` samples (`416.67 ms`) of
+   leading silence now decode **`6/6` 100% bit-exact** while keeping `+3.93 dB`
+   SNR and 32 kbps MP3 resilience.
+3. **Real-LAN Wireless Jitter & Zero-Config Discovery -> CLOSED (Wave 8):**
+   Added `DiscoverLANBroadcastIP()`, `UDPTransceiver.SetBroadcastAddr()`,
+   self-broadcast echo filtering, `2000 ms` default LAN ping timeout, periodic
+   3s LAN `OpBeacon` emission, and `--interactive` live operator REPL in
+   `cmd/faithnet-node`.
 
 // =============================================================================
 // BLOCK 5: CLOSING BLOCK / SERIES NAVIGATION
@@ -139,5 +140,6 @@ every one of them was surfaced directly by **Playtest Session 001**
 * **Previous:** `docs/03_FAITHNET_VS_MODERN_INTERNET.adoc`
 * **Next:** `docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc`
 * **Raw Session Telemetry:** `tests/playtester/reports/SESSION_001_BASELINE.adoc`
+  & `tests/playtester/reports/SESSION_002_WAVE8_HARDENED.adoc`
 
 // End of docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc

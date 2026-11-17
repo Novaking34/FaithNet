@@ -185,6 +185,23 @@ func TestAudioUnit_Sec3_512ByteCeilingAndAdditiveAnalogStaticImmunity(t *testing
 	if _, err := rung1_floor.ModulateAFSK(over); err != transport.ErrWireFrameOversize {
 		t.Fatalf("[SEC 3] 513B bypassed AFSK ceiling: %v", err)
 	}
+
+	// Sliding-window preamble sync must lock cleanly across arbitrary leading
+	// microphone silence offsets (16, 40, 200, and 4000 samples).
+	msg := []byte("ASYNC-MIC-LOCK-OK")
+	pcmMsg, err := rung1_floor.ModulateAFSK(msg)
+	if err != nil {
+		t.Fatalf("[SEC 3] ModulateAFSK msg failed: %v", err)
+	}
+	for _, pad := range []int{16, 40, 200, 4000} {
+		padded := make([]int16, pad+len(pcmMsg)+pad)
+		copy(padded[pad:], pcmMsg)
+		got, dErr := rung1_floor.DemodulateAFSK(padded)
+		if dErr != nil || !bytes.Equal(got, msg) {
+			t.Fatalf("[SEC 3] sliding AFSK sync failed at leadSilence=%d: err=%v got=%q",
+				pad, dErr, got)
+		}
+	}
 }
 
 // ------------------------------------------------------------------------------

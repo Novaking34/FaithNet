@@ -101,6 +101,10 @@ const (
 	afskPreambleHi byte = 0xAA
 	afskPreambleLo byte = 0x55
 
+	// afskMinToneEnergy rejects flat dead-air buffers during sliding sync while
+	// staying >300x below even a 1% attenuated acoustic signal (~3.6e6 power).
+	afskMinToneEnergy = 1e4
+
 	// DefaultAudioQueueDepth bounds buffered PCM bursts per AudioTransceiver.
 	DefaultAudioQueueDepth = 16
 )
@@ -275,55 +279,117 @@ func ModulateAFSK(raw []byte) ([]int16, error) {
 	return pcm, nil
 }
 
-// DemodulateAFSK recovers raw FaithNet wire bytes from 16-bit PCM audio samples
-// by comparing Goertzel signal energy at 1200 Hz (Mark) vs 2400 Hz (Space).
-//
-// ### For Architects, Operators & Non-Programmers:
-// Listens to an incoming stream of radio/modem chirps and translates the tones
-// cleanly back into the exact original binary FaithNet envelope.
-//
-// ### For Systems Programmers & Engine Architects:
-// Validates 4-byte `0xAA55` preamble and declared length (`<= 512`) prior to
-// emitting recovered bytes; tolerant of significant additive channel noise.
-func DemodulateAFSK(pcm []int16) ([]byte, error) {
-	bitsAvailable := len(pcm) / AFSKSamplesPerBit
-	bytesAvailable := bitsAvailable / 8
-	if bytesAvailable < 4 {
-		return nil, ErrAFSKTruncated
-	}
-
-	decodeByte := func(byteIdx int) byte {
-		var val byte
-		baseBit := byteIdx * 8
-		for bit := 0; bit < 8; bit++ {
-			offset := (baseBit + bit) * AFSKSamplesPerBit
-			window := pcm[offset : offset+AFSKSamplesPerBit]
-			markE := goertzelPower(window, AFSKFreqMarkHz, float64(AFSKSampleRate))
-			spaceE := goertzelPower(window, AFSKFreqSpaceHz, float64(AFSKSampleRate))
+func decodeByteAtOffset(pcm []int16, start, byteIdx int) (byte, float64, float64) {
+	var val byte
+	var totalEnergy, totalContrast float64
+	baseBit := byteIdx * 8
+	for bit := 0; bit < 8; bit++ {
+		offset := start + (baseBit+bit)*AFSKSamplesPerBit
+		window := pcm[offset : offset+AFSKSamplesPerBit]
+		markE := goertzelPower(window, AFSKFreqMarkHz, float64(AFSKSampleRate))
+		spaceE := goertzelPower(window, AFSKFreqSpaceHz, float64(AFSKSampleRate))
+		totalEnergy += markE + spaceE
+		if markE >= spaceE {
+			val = (val << 1) | 1
+			totalContrast += markE - spaceE
+		} else {
 			val <<= 1
-			if markE >= spaceE {
-				val |= 1
-			}
+			totalContrast += spaceE - markE
 		}
-		return val
+	}
+	return val, totalEnergy, totalContrast
+}
+
+func demodulateAtOffset(pcm []int16, start int) ([]byte, float64, error) {
+	const headerSamples = 4 * 8 * AFSKSamplesPerBit
+	if start < 0 || len(pcm)-start < headerSamples {
+		return nil, 0, ErrAFSKTruncated
 	}
 
-	if decodeByte(0) != afskPreambleHi || decodeByte(1) != afskPreambleLo {
-		return nil, ErrAFSKBadPreamble
+	b0, e0, c0 := decodeByteAtOffset(pcm, start, 0)
+	if e0 < afskMinToneEnergy || b0 != afskPreambleHi {
+		return nil, 0, ErrAFSKBadPreamble
 	}
-	declaredLen := int(binary.BigEndian.Uint16([]byte{decodeByte(2), decodeByte(3)}))
+	b1, e1, c1 := decodeByteAtOffset(pcm, start, 1)
+	if e1 < afskMinToneEnergy || b1 != afskPreambleLo {
+		return nil, 0, ErrAFSKBadPreamble
+	}
+
+	b2, _, _ := decodeByteAtOffset(pcm, start, 2)
+	b3, _, _ := decodeByteAtOffset(pcm, start, 3)
+	declaredLen := int(binary.BigEndian.Uint16([]byte{b2, b3}))
 	if declaredLen == 0 || declaredLen > data.FloorMaxFrameSize {
-		return nil, transport.ErrWireFrameOversize
+		return nil, 0, transport.ErrWireFrameOversize
 	}
-	if bytesAvailable < 4+declaredLen {
-		return nil, ErrAFSKTruncated
+	neededSamples := (4 + declaredLen) * 8 * AFSKSamplesPerBit
+	if len(pcm)-start < neededSamples {
+		return nil, 0, ErrAFSKTruncated
 	}
 
 	out := make([]byte, declaredLen)
 	for i := 0; i < declaredLen; i++ {
-		out[i] = decodeByte(4 + i)
+		out[i], _, _ = decodeByteAtOffset(pcm, start, 4+i)
 	}
-	return out, nil
+	return out, c0 + c1, nil
+}
+
+// DemodulateAFSK recovers raw FaithNet wire bytes from 16-bit PCM audio samples
+// by comparing Goertzel signal energy at 1200 Hz (Mark) vs 2400 Hz (Space),
+// including an energy-gated sliding-window preamble correlator for raw
+// asynchronous microphone captures with arbitrary leading silence.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Listens to an incoming stream of radio/modem chirps—even inside a microphone
+// recording that starts with room silence—locks onto the preamble automatically,
+// and translates the tones back into the exact original FaithNet envelope.
+//
+// ### For Systems Programmers & Engine Architects:
+// Uses an O(1) fast path at sample offset 0, falling back to a quarter-symbol
+// (4-sample) energy-gated sliding search + single-sample peak-contrast fine
+// lock around `0xAA55` for asynchronous physical air-gap recordings.
+func DemodulateAFSK(pcm []int16) ([]byte, error) {
+	const headerSamples = 4 * 8 * AFSKSamplesPerBit
+	if len(pcm) < headerSamples {
+		return nil, ErrAFSKTruncated
+	}
+
+	// Fast path: aligned sample offset 0.
+	out0, _, err0 := demodulateAtOffset(pcm, 0)
+	if err0 == nil {
+		return out0, nil
+	}
+
+	// Sliding-window energy-gated preamble lock for asynchronous mic captures.
+	maxStart := len(pcm) - headerSamples
+	const coarseStep = AFSKSamplesPerBit / 4 // 4 samples = 0.42ms at 9600Hz
+	for s := 0; s <= maxStart; s += coarseStep {
+		win := pcm[s : s+AFSKSamplesPerBit]
+		energy := goertzelPower(win, AFSKFreqMarkHz, float64(AFSKSampleRate)) +
+			goertzelPower(win, AFSKFreqSpaceHz, float64(AFSKSampleRate))
+		if energy < afskMinToneEnergy {
+			continue
+		}
+		candOut, candContrast, err := demodulateAtOffset(pcm, s)
+		if err != nil {
+			continue
+		}
+		// Fine-tune +/- 3 samples around coarse hit to center Goertzel windows.
+		bestOut := candOut
+		bestContrast := candContrast
+		for delta := -3; delta <= 3; delta++ {
+			if delta == 0 {
+				continue
+			}
+			fineOut, fineContrast, fineErr := demodulateAtOffset(pcm, s+delta)
+			if fineErr == nil && fineContrast > bestContrast {
+				bestOut = fineOut
+				bestContrast = fineContrast
+			}
+		}
+		return bestOut, nil
+	}
+
+	return nil, err0
 }
 
 // ------------------------------------------------------------------------------

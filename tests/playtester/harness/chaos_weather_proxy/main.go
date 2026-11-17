@@ -389,6 +389,68 @@ func main() {
 		fmt.Fprintf(os.Stderr, "[CASCADE ERROR] %v\n", err)
 		os.Exit(1)
 	}
+	if err := runSilentBlackholeAutoCascade(); err != nil {
+		fmt.Fprintf(os.Stderr, "[SILENT AUTO-CASCADE ERROR] %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runSilentBlackholeAutoCascade() error {
+	dA, _ := orchestrator.NewDispatcher(
+		data.DefaultNodeManifest(chaosAlpha, "silent-a"), engine.NewMonotonicClock(),
+	)
+	dB, _ := orchestrator.NewDispatcher(
+		data.DefaultNodeManifest(chaosBeta, "silent-b"), engine.NewMonotonicClock(),
+	)
+	defer func() {
+		_ = dA.Close()
+		_ = dB.Close()
+	}()
+
+	// Wire BOTH Rung 2 RAM backup AND Rung 3 UDP routed through a 100% silent-drop proxy!
+	ram := rung2_host.NewMemoryBus()
+	_ = dA.Ladder().RegisterRung(ram.Attach(chaosAlpha))
+	_ = dB.Ladder().RegisterRung(ram.Attach(chaosBeta))
+
+	udpA, _ := rung3_local.NewUDPTransceiver(chaosAlpha, "127.0.0.1:0")
+	udpB, _ := rung3_local.NewUDPTransceiver(chaosBeta, "127.0.0.1:0")
+	proxy, err := newUDPChaosProxy(udpA.Addr(), udpB.Addr())
+	if err != nil {
+		return err
+	}
+	defer proxy.close()
+	proxy.setProfile(WeatherProfile{Name: "BLACKHOLE", DropProb: 1.0})
+
+	_ = udpA.RegisterPeer(chaosBeta, proxy.connA.LocalAddr().String())
+	_ = udpB.RegisterPeer(chaosAlpha, proxy.connB.LocalAddr().String())
+	_ = dA.Ladder().RegisterRung(udpA)
+	_ = dB.Ladder().RegisterRung(udpB)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = dA.Start(ctx)
+	_ = dB.Start(ctx)
+
+	// Send 5 pings with 60ms timeout: pings 1..3 silently time out on Rung 3 UDP,
+	// triggering passive EVT_CASCADE_DOWN -> pings 4..5 AUTOMATICALLY succeed on Rung 2!
+	var succeeded int
+	var recoveredRung data.RungLevel
+	for i := 1; i <= 5; i++ {
+		pCtx, pCancel := context.WithTimeout(ctx, 60*time.Millisecond)
+		_, rung, err := dA.PingPeer(pCtx, chaosBeta, []byte("SILENT-RESCUE"))
+		pCancel()
+		if err == nil {
+			succeeded++
+			recoveredRung = rung
+		}
+	}
+	fmt.Printf("[REGIME 6: SILENT_BLACKHOLE_AUTO_CASCADE] sent=5 (3 silent drops -> auto-cascade) | rescued=%d/2 on %s | activeRung=%s\n",
+		succeeded, recoveredRung, dA.Ladder().ActiveRung())
+	if succeeded < 2 || recoveredRung != data.Rung2Host {
+		return fmt.Errorf("expected 2 rescued pings on RUNG_2_HOST after 3 silent timeouts, got %d on %s",
+			succeeded, recoveredRung)
+	}
+	return nil
 }
 
 // End of tests/playtester/harness/chaos_weather_proxy/main.go

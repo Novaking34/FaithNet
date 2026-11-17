@@ -1,0 +1,134 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_002_WAVE8_HARDENED.adoc
+@id            playtest.report.session_002
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 002 Report)
+@archetype     report | empirical_playtest_ledger
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Playtester Wave 8 Gap-Closure Verification
+@role          Before/After Empirical Proof Closing All 3 Session 001 Gaps
+@maturity      Rev 5 Baseline | Executed Live on Inspiron-16-5640 (Linux 7.0)
+================================================================================
+////
+= Playtest Session 002: Wave 8 Gap-Closure Proof (Before vs. After)
+CreativeWorkzStudio LLC / ProfessorSeanEX
+2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / OBJECTIVE & REGRESSION PROOF
+// =============================================================================
+
+toc::[]
+
+== Objective
+
+Verify empirically—on the exact same host (`professorseanex-Inspiron-16-5640`,
+`Linux 7.0`, `Go 1.26.8`)—that Wave 8 closed all three physical-world gaps
+exposed by **Session 001** (`SESSION_001_BASELINE.adoc`), with zero regressions
+across the 4x4 `-race` verification matrix.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / BEFORE VS. AFTER EMPIRICAL COMPARISON
+// =============================================================================
+
+== Gap Closure Scorecard (Session 001 -> Session 002)
+
+[cols="2,3,3,1", options="header"]
+|===
+| Playtest Gap | Session 001 (Before Wave 8) | Session 002 (After Wave 8) | Status
+
+| **Gap #1: Silent Blackhole Cascade**
+| `100%` silent UDP drop caused 5/5 timeouts while `activeRung` stayed stuck on
+  `RUNG_3_LOCAL`.
+| `REGIME 6`: 3 consecutive silent timeouts trigger `MarkRungDegraded` +
+  `EVT_CASCADE_DOWN`; pings 4 & 5 **rescued `2/2` on `RUNG_2_HOST`** via
+  reply-on-arrival-rung (`SendOnRung`), while sole-link storms keep `RUNG_3_LOCAL`
+  alive (`8/8` bit-flips caught).
+| **CLOSED**
+
+| **Gap #2: Acoustic Mic Start-Offset**
+| `DemodulateAFSK` failed at `>= 16` samples (`1.67 ms`) of leading silence.
+| Energy-gated 4-sample sliding correlator + +/-3-sample peak-contrast fine
+  lock: **`0`, `5`, `16`, `40`, `200`, and `4,000` samples (`416.67 ms`) ALL
+  PASS 100% bit-exact!**
+| **CLOSED**
+
+| **Gap #3: Zero-Config LAN Discovery & REPL**
+| Manual peer registration only; no interactive live operator session; short
+  lab timeouts below Laptop #2's `347.4 ms` Wi-Fi spike.
+| `DiscoverLANBroadcastIP()` + `SetBroadcastAddr()` + self-broadcast echo
+  suppression + periodic 3s LAN `OpBeacon` + `2000 ms` LAN ping timeout +
+  `--interactive` live REPL (`peers`, `ping`, `say`, `beacon`, `status`).
+| **CLOSED**
+|===
+
+== Full Session 002 Empirical Telemetry
+
+* **Cross-Process OS Isolation (`multiprocess_arena`, `0` bytes shared RAM):**
+  * **Rung 3 UDP:** `100/100` (`0.0%` loss) | `min=16.6 us`, **`p50=39.1 us`**,
+    `p95=68.2 us`, `p99=127.3 us`, `max=186.4 us` | Heap = `0.85 MB`.
+  * **Rung 4 TCP:** `100/100` (`0.0%` loss) | `min=233.1 us`, **`p50=338.4 us`**,
+    `p95=561.4 us`, `p99=783.2 us`, `max=878.4 us` | Heap = `1.28 MB`.
+* **Chaos Weather Proxy (`chaos_weather_proxy` — 6 Regimes):**
+  * `CLEAR_SKY`: `30/30` (`100%`), `avgRTT = 0.15 ms`.
+  * `CONGESTED_LAN`: `22/30` (`73.3%`), `avgRTT = 15.39 ms`, `0` panics.
+  * `STORM_CORRUPTION`: `11/30` (`36.7%`), **`8/8` wire bit-flips caught by
+    FNV-1a** (`0` corrupt deliveries), sole link preserved (`RUNG_3_LOCAL`).
+  * `HARD_LINK_CUT`: `UDP->RAM` failover in **`21.0 us`**, `RAM->AFSK` in
+    **`0.9 ms`**, total `1.28 ms` (`0%` loss).
+  * `SILENT_BLACKHOLE_AUTO_CASCADE`: 3 silent UDP drops -> auto-cascade ->
+    **`2/2` rescued on `RUNG_2_HOST`**!
+* **Rung 1 OS Kernel FIFO SLIP (`pty_serial_bench`):**
+  * `50/50` OS FIFO pings: `avgRTT = 130.6 us`.
+  * `200` worst-case 512B escape frames: **`1,126.6 KB/s` (`9.23 Mbps`)**!
+  * `10B` corrupt cable-glitch resync: **`126.9 us`**!
+* **Rung 1 Acoustic AFSK & 1844 Morse (`audio_torture_bench`):**
+  * SNR curve: **PASS down to `+3.93 dB`** (knee at `+2.32 dB`).
+  * Volume invariance: **PASS from `100%` down to `1%`**.
+  * Microphone leading-silence offset: **`0 / 5 / 16 / 40 / 200 / 4,000`
+    samples (`0..416.67 ms`) = `6/6` PASS!**
+  * `ffmpeg` **32 kbps lossy MP3** & **300–3400 Hz telephone bandpass**: **PASS**.
+* **Live Well HTTP Portal Load (`well_live_load`):**
+  * `480` real TCP requests (`12` workers, `6` OSes): **`3,375 req/s`**,
+    `p50 = 2.88 ms`, Heap = `1.08 MB`, **`120/120` hostile attacks blocked
+    (`0` breaches, `0` net errors)**.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / ARCHITECTURAL BONUS DISCOVERY
+// =============================================================================
+
+== Bonus Distributed-Systems Discovery Caught During Session 002
+
+During the first run of `REGIME 6`, Alpha successfully cascaded from silent-drop
+`RUNG_3_LOCAL` to `RUNG_2_HOST`, yet Beta's `OpPong` disappeared because Beta
+blindly replied on its highest rung (`RUNG_3_LOCAL`) instead of replying on the
+rung that carried the `OpPing`!
+
+Fixing this with `AdaptiveLadder.SendOnRung(in.Rung, ...)` in
+`orchestrator/dispatcher.go` solved **asymmetric silent-blackhole replies across
+all 4 rungs**—a classic distributed-networking failure mode that only real
+adversarial playtesting uncovers.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / CLEARED FOR LIVE TWO-DEVICE FIELD PLAYTEST
+// =============================================================================
+
+== Readiness Verdict
+
+All 3 Session 001 gaps are closed and empirically verified. FaithNet is cleared
+for **Live Field Kit 01 & 02 Playtesting** between Laptop #1 (`192.168.1.217`)
+and Laptop #2 (`seanje-lenox-wise-Inspiron-5579.local`, `192.168.1.99`).
+
+// End of tests/playtester/reports/SESSION_002_WAVE8_HARDENED.adoc

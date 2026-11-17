@@ -29,4 +29,5 @@ exec go run ./cmd/faithnet-node \
   --well \
   --well-addr="0.0.0.0:8077" \
   --beacon \
-  --beacon-ssid="FaithNet-HomeRoom"
+  --beacon-ssid="FaithNet-HomeRoom" \
+  "$@"

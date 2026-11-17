@@ -57,6 +57,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // --- Tier 2: External Library Dependencies (None) ---
@@ -265,6 +266,33 @@ func TestLadderUnit_Sec4_RegisteredSnapshotAndDumpCard(t *testing.T) {
 	_ = lad.Close()
 	if lad.ActiveRung() != data.RungNone || lad.ActiveTransceiver() != nil {
 		t.Fatal("[SEC 4] Close() left active rung behind")
+	}
+}
+
+func TestLadderUnit_Sec4_SilentBlackholeCooldownCascadeAndAutoRiseUp(t *testing.T) {
+	clk := engine.NewMockClock(1_000)
+	lad := orchestrator.NewAdaptiveLadder(
+		data.DefaultNodeManifest(common.NodeAlpha, "silent-degrade"), clk,
+	)
+	defer func() { _ = lad.Close() }()
+
+	_ = lad.RegisterRung(newStubRung("r2", data.Rung2Host))
+	_ = lad.RegisterRung(newStubRung("r3", data.Rung3Local))
+	if lad.ActiveRung() != data.Rung3Local {
+		t.Fatalf("[SEC 4] expected Rung3Local, got %s", lad.ActiveRung())
+	}
+
+	// Passive silent-blackhole quarantine drops Rung 3 -> Rung 2 for 5s cooldown.
+	next := lad.MarkRungDegraded(data.Rung3Local, 5*time.Second, "silent blackhole")
+	if next != data.Rung2Host || lad.EvaluateAndAdapt("during cooldown") != data.Rung2Host {
+		t.Fatalf("[SEC 4] expected Rung2Host during cooldown, got next=%s active=%s",
+			next, lad.ActiveRung())
+	}
+
+	// Once monotonic cooldown elapses, EvaluateAndAdapt automatically Rises Up!
+	clk.Advance((5 * time.Second).Nanoseconds())
+	if healed := lad.EvaluateAndAdapt("post cooldown"); healed != data.Rung3Local {
+		t.Fatalf("[SEC 4] expected automatic Rising Up to Rung3Local after cooldown, got %s", healed)
 	}
 }
 
