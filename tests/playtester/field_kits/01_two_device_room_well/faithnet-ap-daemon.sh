@@ -94,6 +94,7 @@ CREATED_VIRTUAL_AP=0
 SWITCH_HOLD=0
 NEED_REBIND=0
 SHUTTING_DOWN=0
+ORIG_IP_FORWARD="0"
 
 log() {
   echo "[faithnet-ap $(date '+%H:%M:%S')] $*"
@@ -181,6 +182,7 @@ cleanup() {
   fi
   stop_ap
   clear_wan_firewall
+  sysctl -w "net.ipv4.ip_forward=${ORIG_IP_FORWARD}" >/dev/null 2>&1 || true
   rm -rf "${RUN_DIR}"
 }
 trap cleanup EXIT
@@ -619,6 +621,7 @@ main() {
   preflight_daemon
   mkdir -p "${RUN_DIR}"
   rm -f "${SWITCH_HOLD_FILE}"
+  ORIG_IP_FORWARD="$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo 0)"
   echo "$$" > "${DAEMON_PID_FILE}"
   echo "${EGRESS_MODE}" > "${RUN_DIR}/egress_mode"
   log "FaithNet Persistent Sovereign Micro-ISP Daemon starting (PID=$$, WAN=${STA_IF}, Egress=${EGRESS_MODE}, Country=${COUNTRY_CODE})..."
