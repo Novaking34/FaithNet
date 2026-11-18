@@ -8,20 +8,20 @@ BLOCK 1: METADATA BLOCK
 @id            docs.series.05_field_runbooks
 @layer         Layer 5: Sovereign Documentation Series (Volume 05)
 @archetype     documentation | operator_field_runbooks
-@version       0.1.0-dev
+@version       0.2.0-dev
 @interface_rev Rev 5
 @date          2026-11-17
 @updated       2026-11-17
 @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
-@system        FaithNet Sovereign Adaptive Networking Substrate
+@system        FaithNet Sovereign Adaptive Networking Substrate (FNP/1)
 @role          Volume 05: Ready-to-Run Physical Field Playtest Runbooks
-@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+@maturity      Rev 5 Baseline | Wave 16 (Kit 01 Complete Across Linux/Win/macOS)
 ================================================================================
 ////
 = Volume 05: Physical Field Playtest Runbooks
 CreativeWorkzStudio LLC / ProfessorSeanEX
-v0.1.0-dev, 2026-11-17
+v0.2.0-dev, 2026-11-17
 :toc: macro
 :sectnums:
 :icons: font
@@ -36,46 +36,58 @@ toc::[]
 
 This volume documents how to execute the four physical-world **Field Kits**
 staged inside `tests/playtester/field_kits/`—covering everything that requires
-two physical machines, room air, copper wires, or privileged kernel network
+real consumer machines, room air, copper wires, or privileged kernel network
 namespaces.
 
 [IMPORTANT]
 ====
-**Zero-Brick Safety Rule:** None of these runbooks modify permanent host
-networking, boot configuration, or firewall defaults on either Laptop #1
-(`professorseanex-Inspiron-16-5640`) or Laptop #2
-(`seanje-lenox-wise-Inspiron-5579`). All namespace tests use ephemeral isolated
-namespaces with automatic cleanup traps.
+**Zero-Brick Safety Rule:** None of these runbooks permanently break host
+networking, NetworkManager profiles, or default firewall policies on either
+Laptop #1 (`professorseanex-Inspiron-16-5640`) or Laptop #2
+(`seanje-lenox-wise-Inspiron-5579`). All AP, split-DNS, and dual-stack WAN
+guard rules live inside isolated runtime chains (`FAITHNET_WAN_GUARD`,
+`FAITHNET_WAN_EGRESS`) torn down cleanly on `systemctl stop faithnet-ap`.
 ====
 
 // =============================================================================
 // BLOCK 3: BODY BLOCK / THE FOUR STAGED FIELD KITS
 // =============================================================================
 
-== Field Kit 01: Two-Device Room & The Well (`192.168.1.217` <-> `192.168.1.99`)
+== Field Kit 01: Sovereign Micro-ISP, Room & The Well *(COMPLETED — Sessions 003–007)*
 
 * **Kit Path:** `tests/playtester/field_kits/01_two_device_room_well/`
-* **Ready Now:** Both laptops are verified live on `wlp3s0` (`192.168.1.0/24`).
-* **Step 1 (Home Laptop #1 — `192.168.1.217`):**
+  (full Rev 5 5-Block scripts for **Linux**, **Windows `windows/*.ps1`**
+  parity-verified on PowerShell 7.7.0, and **macOS `macos/*.sh`**!).
+* **Completed Live Milestones:**
+  1. Persistent boot-time `faithnet-home.service` + `faithnet-ap.service`
+     (`FaithNet-HomeRoom`, `10.77.77.1/24`, **dedicated 2nd USB Wi-Fi adapter
+     auto-detect ready**).
+  2. Native **Zero-HTTP `FNP/1` `OpFetch` over Port `7777/udp`** (`0.26 ms` RTT)
+     + registered `faithnet://` OS URI handler + `/etc/services` Port `7777`.
+  3. Dual-stack IPv4+IPv6 `FAITHNET_WAN_GUARD`, instant `island`/`bridge`
+     toggle, and **Zero-`TheTribe` standalone Channel 6 offline proof**!
+* **Daily Operator Commands (Linux Sovereign Host):**
 +
 [source,bash]
 ----
-./tests/playtester/field_kits/01_two_device_room_well/run_room_well_host.sh
-----
-* **Step 2 (Peer Laptop #2 — `seanje-lenox-wise-Inspiron-5579` or Phone):**
-  Open `http://192.168.1.217:8077/` in a browser, verify OS detection, submit a
-  clean bulletin (`202 Accepted`, `0:AWAIT`), submit `<script>alert(1)</script>`
-  (`403 Forbidden`), and toggle Wi-Fi off/on to test recovery.
-* **What to Log:** Real browser screenshots/notes, any `ufw`/firewall prompts,
-  and `/api/status` JSON output saved into `tests/playtester/reports/SESSION_002_*.adoc`.
+# Inspect status, Split-DNS, dual-stack WAN firewall & connected peers:
+faithnet-netctl status
 
-== Field Kit 02: Acoustic Air-Gap Playtest (Speaker -> Room Air -> Mic)
+# Test live native ZERO-HTTP FNP/1 fetch over Port 7777/udp:
+faithnet-node --fetch=faithnet://faithnet.lan/well
+faithnet-open faithnet://faithnet.lan/status
+
+# Toggle air-gapped island mode vs. daily-driver bridge mode:
+sudo faithnet-netctl mode island
+sudo faithnet-netctl mode bridge
+----
+
+== Field Kit 02: Acoustic Air-Gap Playtest *(NEXT UP — Speaker -> Room Air -> Mic)*
 
 * **Kit Path:** `tests/playtester/field_kits/02_acoustic_airgap_kit/`
 * **Prerequisites:** `aplay` and `arecord` (already verified installed).
-* **Note:** Session 001 revealed Gap #2 (sliding preamble sync for `>= 16`
-  samples leading silence). Use this kit both to *confirm* the offset behavior
-  in real room air and to *verify* the Wave 8 sliding-correlator upgrade!
+* **Wave 8 Hardening Ready:** Sliding Goertzel preamble sync already passed
+  `0..4,000` samples (`0..416.67 ms`) of leading mic silence `6/6` in the lab!
 * **Execution:**
 +
 [source,bash]

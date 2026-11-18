@@ -129,6 +129,7 @@ type NodeCLIOptions struct {
 	TLSKeyFile        string
 	TLSCADir          string
 	BeaconSSID        string
+	FetchURI          string
 	PingTimeoutMs     int
 	EnableWell        bool
 	EnableBeacon      bool
@@ -285,6 +286,67 @@ func runSovereignNode(opts NodeCLIOptions) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Wire native zero-HTTP FNP/1 resource responder on Port 7777 (OpFetch -> OpResource).
+	disp.SetResourceHandler(func(reqPath string, from data.NodeID) ([]byte, bool) {
+		switch reqPath {
+		case "/status":
+			bulletins := 0
+			if well != nil {
+				var buf [interpreter.MaxWellBulletins]interpreter.BulletinEntry
+				bulletins = well.BulletinsSnapshotInto(buf[:])
+			}
+			return []byte(fmt.Sprintf(
+				`{"protocol":"FNP/1","transport":"udp_7777_zero_http","node_id":"%s","label":"%s","active_rung":"%s","peer_count":%d,"bulletins":%d,"airlock_blocked":%d}`,
+				manifest.ID.String(),
+				manifest.Label,
+				disp.Ladder().ActiveRung().String(),
+				disp.Router().ActiveCount(),
+				bulletins,
+				disp.StatsSnapshot().AirlockBlocked,
+			)), true
+		case "/", "/well":
+			bulletins := 0
+			if well != nil {
+				var buf [interpreter.MaxWellBulletins]interpreter.BulletinEntry
+				bulletins = well.BulletinsSnapshotInto(buf[:])
+			}
+			return []byte(fmt.Sprintf(
+				"=== FAITHNET NATIVE FNP/1 ROOM (ZERO HTTP) ===\nNode:      %s (%s)\nProtocol:  FNP/1 on Port 7777/udp | Active Rung: %s\nPeers:     %d | Bulletins: %d\nRoutes:    /status | /well | /protocol | /bulletins",
+				manifest.Label,
+				manifest.ID.String(),
+				disp.Ladder().ActiveRung().String(),
+				disp.Router().ActiveCount(),
+				bulletins,
+			)), true
+		case "/bulletins":
+			if well == nil {
+				return []byte("FNP/1 Bulletins: (The Well bulletin ring disabled on this node)"), true
+			}
+			var buf [interpreter.MaxWellBulletins]interpreter.BulletinEntry
+			n := well.BulletinsSnapshotInto(buf[:])
+			if n == 0 {
+				return []byte("FNP/1 Bulletins (0): Room is quiet. Use 'say <msg>' or The Well to post."), true
+			}
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("FNP/1 Bulletins (%d latest):\n", n))
+			start := 0
+			if n > 5 {
+				start = n - 5
+			}
+			for i := n - 1; i >= start; i-- {
+				e := buf[i]
+				line := fmt.Sprintf("[#%d | %s | %s] %s\n", e.Seq, e.Truth, e.ClientOS, e.Message)
+				if sb.Len()+len(line) > data.FloorMaxPayload {
+					break
+				}
+				sb.WriteString(line)
+			}
+			return []byte(strings.TrimRight(sb.String(), "\n")), true
+		default:
+			return nil, false
+		}
+	})
+
 	// Forward live incoming peer messages to terminal and The Well (if enabled).
 	// Suppress repetitive periodic [BEACON RX] spam so interactive typing stays clean.
 	var seenMu sync.Mutex
@@ -386,6 +448,70 @@ func runSovereignNode(opts NodeCLIOptions) error {
 	return nil
 }
 
+func runNativeFNP1Fetch(rawURI string, timeoutMs int) error {
+	u, err := engine.ParseFaithNetURI(rawURI)
+	if err != nil {
+		return fmt.Errorf("invalid --fetch URI %q: %w", rawURI, err)
+	}
+	if timeoutMs <= 0 {
+		timeoutMs = DefaultLANPingTimeoutMs
+	}
+
+	host := u.Host
+	targetID := data.NodeID(DefaultNodeID)
+	if u.HasNodeID() {
+		targetID = u.NodeID
+		host = engine.FaithNetDefaultHost
+	} else if strings.EqualFold(host, "home-anchor") {
+		host = engine.FaithNetDefaultHost
+	}
+
+	reqPath := "/"
+	if u.Action != "" {
+		reqPath = "/" + u.Action
+		if u.Target != "" {
+			reqPath += "/" + u.Target
+		}
+	}
+
+	clientID := data.NodeID(0xFA17F00000000000 | uint64(time.Now().UnixNano()&0xFFFF))
+	manifest := data.DefaultNodeManifest(clientID, "FNP1-Fetch-Client")
+	clk := engine.NewMonotonicClock()
+	disp, err := orchestrator.NewDispatcher(manifest, clk)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = disp.Close() }()
+
+	udpTx, err := rung3_local.NewUDPTransceiver(clientID, "0.0.0.0:0")
+	if err != nil {
+		return err
+	}
+	remoteAddr := net.JoinHostPort(host, strconv.Itoa(int(u.Port)))
+	if err := udpTx.RegisterPeer(targetID, remoteAddr); err != nil {
+		_ = udpTx.Close()
+		return fmt.Errorf("failed resolving FNP/1 target %s: %w", remoteAddr, err)
+	}
+	if err := disp.Ladder().RegisterRung(udpTx); err != nil {
+		_ = udpTx.Close()
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
+	defer cancel()
+	if err := disp.Start(ctx); err != nil {
+		return err
+	}
+
+	payload, rttNs, rung, err := disp.FetchResource(ctx, targetID, reqPath)
+	if err != nil {
+		return fmt.Errorf("FNP/1 OpFetch %s (%s) failed: %w", rawURI, remoteAddr, err)
+	}
+	fmt.Printf("[FNP/1 %s | %s | RTT=%.2fms | %dB | ZERO-HTTP]\n%s\n",
+		rung.String(), remoteAddr, float64(rttNs)/1e6, len(payload), string(payload))
+	return nil
+}
+
 // ------------------------------------------------------------------------------
 // Sub-Assembly 3.2: Interactive Live Playtest Operator REPL
 // ------------------------------------------------------------------------------
@@ -402,7 +528,7 @@ func runInteractiveREPL(
 	if pingTimeoutMs <= 0 {
 		pingTimeoutMs = DefaultLANPingTimeoutMs
 	}
-	fmt.Println("Interactive mode active. Commands: help | status | peers | ping <hex|all> | say <msg> | beacon | quit")
+	fmt.Println("Interactive mode active. Commands: help | status | peers | ping <hex|all> | fetch <path> | say <msg> | beacon | quit")
 	sc := bufio.NewScanner(os.Stdin)
 	var seq uint32 = 1
 
@@ -428,6 +554,7 @@ func runInteractiveREPL(
 			fmt.Println("  status           - print live Ladder, Dispatcher & Well cards")
 			fmt.Println("  peers            - list auto-discovered sovereign peers")
 			fmt.Println("  ping <hex|all>   - send live sovereign ping (timeout", pingTimeoutMs, "ms)")
+			fmt.Println("  fetch <path>     - native zero-HTTP FNP/1 fetch (/status, /well, /protocol, /bulletins)")
 			fmt.Println("  say <message>    - broadcast sovereign +1:ALIGNED bulletin")
 			fmt.Println("  beacon           - broadcast immediate LAN discovery OpBeacon")
 			fmt.Println("  quit             - shut down cleanly")
@@ -523,6 +650,29 @@ func runInteractiveREPL(
 				fmt.Printf("  beacon failed: %v\n", err)
 			} else {
 				fmt.Printf("  beacon broadcast sent on %s\n", rung.String())
+			}
+		case "fetch":
+			reqPath := arg
+			if reqPath == "" {
+				reqPath = "/status"
+			}
+			if !strings.HasPrefix(reqPath, "/") {
+				reqPath = "/" + reqPath
+			}
+			var routes [engine.MaxPeers]engine.PeerRoute
+			n := disp.Router().SnapshotInto(routes[:])
+			if n == 0 {
+				fmt.Println("  (no discovered peers yet — wait for beacon or use --join)")
+				continue
+			}
+			fCtx, fCancel := context.WithTimeout(ctx, time.Duration(pingTimeoutMs)*time.Millisecond)
+			body, rtt, rung, err := disp.FetchResource(fCtx, routes[0].PeerID, reqPath)
+			fCancel()
+			if err != nil {
+				fmt.Printf("  fetch %s from %s FAILED: %v\n", reqPath, routes[0].PeerID.String(), err)
+			} else {
+				fmt.Printf("  [FNP/1 %s | %s | RTT=%.2fms | ZERO-HTTP]\n%s\n",
+					rung.String(), routes[0].PeerID.String(), float64(rtt)/1e6, string(body))
 			}
 		case "quit", "exit":
 			cancel()
@@ -696,6 +846,7 @@ func main() {
 	flag.StringVar(&opts.TLSKeyFile, "tls-key", "", "Tier 3 public rollout PEM private key for The Well")
 	flag.StringVar(&opts.TLSCADir, "tls-ca-dir", "", "Tier 2 persistent offline Sovereign Local Root CA directory")
 	flag.StringVar(&opts.BeaconSSID, "beacon-ssid", data.DefaultBeaconSSID, "Room Beacon SSID (1..32 bytes)")
+	flag.StringVar(&opts.FetchURI, "fetch", "", "Execute native zero-HTTP FNP/1 OpFetch over Port 7777 (e.g. faithnet://faithnet.lan/well)")
 	flag.IntVar(&opts.PingTimeoutMs, "ping-timeout", DefaultLANPingTimeoutMs, "Live LAN ping timeout in milliseconds")
 	flag.BoolVar(&opts.EnableWell, "well", false, "Enable The Well zero-install HTML captive portal")
 	flag.BoolVar(&opts.EnableBeacon, "beacon", false, "Activate Room Beacon switch and periodic LAN OpBeacon discovery")
@@ -708,6 +859,14 @@ func main() {
 
 	if opts.AuditOnly {
 		if !runFullNodeAudits() {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	if opts.FetchURI != "" {
+		if err := runNativeFNP1Fetch(opts.FetchURI, opts.PingTimeoutMs); err != nil {
+			fmt.Fprintf(os.Stderr, "faithnet-node --fetch failed: %v\n", err)
 			os.Exit(1)
 		}
 		os.Exit(0)

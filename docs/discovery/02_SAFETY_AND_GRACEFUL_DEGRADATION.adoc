@@ -169,12 +169,21 @@ non-negotiable safety laws proved in Field Kit 01:
 4. **The Zero-Scare Psychology Law:** User-facing security must degrade cleanly
    (Tier 3 -> Tier 2 -> Tier 1) without terrifying non-technical community users
    or forcing them to disable browser protections.
-5. **The Firewalled-Uplink Sovereignty Law (Next Major Milestone):** As FaithNet
-   grows toward becoming the host PC's own primary network identity, the legacy
-   commercial internet (`wlp3s0`) should be treated as an **untrusted,
-   firewalled Rung 4 WAN uplink** — inbound-blocked by default, outbound-gated
-   by operator policy — while local `FaithNet-HomeRoom` (`ap0` + `lo`) remains
-   always sovereign, trusted, and reachable even when Rung 4 is severed.
+5. **The Firewalled-Uplink Sovereignty Law *(PROVEN LIVE IN S007!)*:**  
+   `FaithNet-HomeRoom` (`ap0` + `lo` + local split-DNS `faithnet.lan`) is the
+   host PC's primary sovereign identity, while commercial `wlp3s0` is isolated
+   behind a **dual-stack IPv4+IPv6 inbound firewall (`FAITHNET_WAN_GUARD`)**
+   with an instant zero-reboot **`island` / `bridge`** egress toggle and
+   automatic **Zero-`TheTribe` standalone Channel 6 fallback** (`t = 12s`).
+
+[NOTE]
+====
+**Dual-Stack Legal & Containment Proof (Session 007):**  
+When `island` mode engages—or when `wlp3s0` disconnects completely from
+`TheTribe`—both IPv4 and IPv6 commercial traffic drop cleanly to zero, proving
+FaithNet never attempts unauthorized ISP bypass while preserving lawful local
+sovereign communication on unlicensed ISM spectrum.
+====
 
 // =============================================================================
 // BLOCK 4: AUDIT PROCEDURES BLOCK / SAFETY INVARIANT VERIFICATION

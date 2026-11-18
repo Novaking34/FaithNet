@@ -117,6 +117,10 @@ const (
 // legacy-wrapped frames after passing Codec and Genesis 3 Airlock verification.
 type DeliverHandler func(frame *data.Frame, verdict covenant.Verdict)
 
+// ResourceHandler resolves native zero-HTTP FNP/1 OpFetch requests (such as
+// `/status`, `/well`, `/protocol`, `/bulletins`) into <=480-byte sector replies.
+type ResourceHandler func(reqPath string, from data.NodeID) ([]byte, bool)
+
 // DispatcherStats captures a point-in-time read-only telemetry snapshot.
 type DispatcherStats struct {
 	FramesDecoded  uint64 // Valid frames unpacked by Codec
@@ -154,11 +158,16 @@ type Dispatcher struct {
 	router   *engine.Router
 	airlock  *covenant.Filter
 
-	handlerMu sync.RWMutex
-	onDeliver DeliverHandler
+	handlerMu  sync.RWMutex
+	onDeliver  DeliverHandler
+	onResource ResourceHandler
 
 	pongMu     sync.Mutex
 	pongNotify chan uint32
+
+	fetchMu      sync.Mutex
+	fetchWaiters map[uint32]chan []byte
+	fetchSeq     atomic.Uint32
 
 	lifeMu    sync.Mutex
 	running   bool
@@ -357,6 +366,66 @@ func (d *Dispatcher) HandleInboundEnvelope(env transport.WireEnvelope) InboundOu
 			}
 		}
 
+	case data.OpFetch:
+		reqPath := string(in.PayloadSlice())
+		if reqPath == "" {
+			reqPath = "/"
+		}
+		d.handlerMu.RLock()
+		resFn := d.onResource
+		d.handlerMu.RUnlock()
+
+		var body []byte
+		var ok bool
+		if resFn != nil {
+			body, ok = resFn(reqPath, in.SourceID)
+		}
+		if !ok {
+			body = d.defaultNativeResource(reqPath)
+		}
+		if len(body) > data.FloorMaxPayload {
+			body = body[:data.FloorMaxPayload]
+		}
+		var resp data.Frame
+		resp.Version = data.ProtocolVersion
+		resp.Rung = in.Rung
+		resp.Opcode = data.OpResource
+		resp.Flags = data.FlagCovenantVerified
+		resp.Truth = data.QuadPositive
+		resp.SourceID = d.manifest.ID
+		resp.TargetID = in.SourceID
+		resp.SeqID = in.SeqID
+		if resp.SetPayload(body) {
+			var wire [data.FloorMaxFrameSize]byte
+			if n, encErr := engine.EncodeInto(wire[:], &resp); encErr == nil {
+				if _, sendErr := d.ladder.SendOnRung(in.Rung, resp.TargetID, wire[:n]); sendErr == nil {
+					d.framesSent.Add(1)
+					outcome.Reflected = true
+				}
+			}
+		}
+
+	case data.OpResource:
+		payloadCopy := make([]byte, len(in.PayloadSlice()))
+		copy(payloadCopy, in.PayloadSlice())
+		d.fetchMu.Lock()
+		ch, waiting := d.fetchWaiters[in.SeqID]
+		d.fetchMu.Unlock()
+		if waiting {
+			select {
+			case ch <- payloadCopy:
+			default:
+			}
+		} else {
+			d.dataDelivered.Add(1)
+			d.handlerMu.RLock()
+			fn := d.onDeliver
+			d.handlerMu.RUnlock()
+			if fn != nil {
+				fn(&in, verdict)
+			}
+		}
+
 	default:
 		d.dataDelivered.Add(1)
 		d.handlerMu.RLock()
@@ -407,6 +476,100 @@ func (d *Dispatcher) SendFrame(f *data.Frame) (data.RungLevel, error) {
 	}
 	d.framesSent.Add(1)
 	return usedRung, nil
+}
+
+// SetResourceHandler installs a custom native FNP/1 zero-HTTP resource handler
+// answering inbound OpFetch frames on Port 7777 (or any lower rung).
+func (d *Dispatcher) SetResourceHandler(fn ResourceHandler) {
+	d.handlerMu.Lock()
+	d.onResource = fn
+	d.handlerMu.Unlock()
+}
+
+func (d *Dispatcher) defaultNativeResource(reqPath string) []byte {
+	switch reqPath {
+	case "/protocol":
+		return []byte(fmt.Sprintf(
+			"FNP/1 | Scheme: faithnet:// | Port: %d/udp & %d/tcp | Sector: 512B | Node: %s (%s)",
+			engine.FaithNetDefaultPort,
+			engine.FaithNetDefaultPort,
+			d.manifest.Label,
+			d.manifest.ID.String(),
+		))
+	case "/status", "/", "/well":
+		return []byte(fmt.Sprintf(
+			`{"protocol":"FNP/1","transport":"native_zero_http","node_id":"%s","label":"%s","active_rung":"%s","peer_count":%d}`,
+			d.manifest.ID.String(),
+			d.manifest.Label,
+			d.ladder.ActiveRung().String(),
+			d.router.ActiveCount(),
+		))
+	default:
+		return []byte(fmt.Sprintf("FNP/1 404 NOT FOUND: %s on %s", reqPath, d.manifest.Label))
+	}
+}
+
+// FetchResource sends a native zero-HTTP FNP/1 OpFetch request for reqPath to
+// target over the AdaptiveLadder and returns the sovereign OpResource payload,
+// exact monotonic RTT in nanoseconds, and the survival rung that carried it.
+//
+// ### For Architects, Operators & Non-Programmers:
+// Fetches pages, status, or bulletins directly over FaithNet's own Port 7777
+// protocol without HTTP, HTTPS, or web servers ever touching the wire.
+//
+// ### For Systems Programmers & Engine Architects:
+// Allocates a monotonic SeqID, registers a per-request buffered channel in
+// `fetchWaiters`, transmits an OpFetch frame, and awaits OpResource under ctx.
+func (d *Dispatcher) FetchResource(
+	ctx context.Context,
+	target data.NodeID,
+	reqPath string,
+) ([]byte, int64, data.RungLevel, error) {
+	if reqPath == "" {
+		reqPath = "/"
+	}
+	if len(reqPath) > data.FloorMaxPayload {
+		return nil, 0, data.RungNone, engine.ErrPayloadTooLarge
+	}
+
+	seq := d.fetchSeq.Add(1)
+	waitCh := make(chan []byte, 1)
+	d.fetchMu.Lock()
+	d.fetchWaiters[seq] = waitCh
+	d.fetchMu.Unlock()
+	defer func() {
+		d.fetchMu.Lock()
+		delete(d.fetchWaiters, seq)
+		d.fetchMu.Unlock()
+	}()
+
+	var req data.Frame
+	req.Version = data.ProtocolVersion
+	req.Rung = d.ladder.ActiveRung()
+	req.Opcode = data.OpFetch
+	req.Flags = data.FlagCovenantVerified
+	req.Truth = data.QuadPositive
+	req.SourceID = d.manifest.ID
+	req.TargetID = target
+	req.SeqID = seq
+	req.SetPayload([]byte(reqPath))
+
+	startNs := d.clock.NowNano()
+	usedRung, err := d.SendFrame(&req)
+	if err != nil {
+		return nil, 0, usedRung, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, 0, usedRung, ctx.Err()
+	case payload := <-waitCh:
+		rtt := d.clock.NowNano() - startNs
+		if rtt < 0 {
+			rtt = 0
+		}
+		return payload, rtt, usedRung, nil
+	}
 }
 
 // PingPeer sends a live OpPing to target over the AdaptiveLadder and waits
@@ -768,13 +931,14 @@ func NewDispatcher(
 		clock = engine.NewMonotonicClock()
 	}
 	return &Dispatcher{
-		manifest:   manifest,
-		clock:      clock,
-		ladder:     NewAdaptiveLadder(manifest, clock),
-		ping:       engine.NewPingEngine(manifest.ID, clock),
-		router:     engine.NewRouter(manifest.ID),
-		airlock:    covenant.NewFilter(),
-		pongNotify: make(chan uint32, engine.MaxInFlightPings),
+		manifest:     manifest,
+		clock:        clock,
+		ladder:       NewAdaptiveLadder(manifest, clock),
+		ping:         engine.NewPingEngine(manifest.ID, clock),
+		router:       engine.NewRouter(manifest.ID),
+		airlock:      covenant.NewFilter(),
+		pongNotify:   make(chan uint32, engine.MaxInFlightPings),
+		fetchWaiters: make(map[uint32]chan []byte),
 	}, nil
 }
 

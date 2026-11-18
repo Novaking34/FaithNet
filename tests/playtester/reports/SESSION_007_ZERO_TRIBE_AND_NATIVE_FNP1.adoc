@@ -1,0 +1,182 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_007_ZERO_TRIBE_AND_NATIVE_FNP1.adoc
+@id            playtest.report.session_007
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 007 Report)
+@archetype     report | zero_tribe_and_native_fnp1_proof
+@version       0.2.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Zero-TheTribe Standalone Micro-ISP & Native Zero-HTTP FNP/1
+@role          Proves Standalone Zero-ISP Resolution, Dual-Stack Guard & Port 7777 Fetch
+@maturity      Rev 5 Baseline | Wave 16 Native Zero-HTTP FNP/1 & Legal Safeguard Proof
+================================================================================
+////
+= Playtest Session 007: Zero-`TheTribe` Standalone Proof, Gap #10 (IPv6) & Native Zero-HTTP `FNP/1`
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.2.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / THE BIG QUESTION ANSWERED EMPIRICALLY
+// =============================================================================
+
+toc::[]
+
+== The Big Question Answered: Can This Laptop Run FaithNet With ZERO `TheTribe`?
+
+[IMPORTANT]
+====
+**Verdict: EMPIRICALLY PROVEN YES.**  
+With `wlp3s0` completely disconnected from `TheTribe` (`0` IPv4 addresses, `0`
+commercial internet), `faithnet-ap.service` automatically brought up
+`FaithNet-HomeRoom` on standalone Channel 6 (`2437 MHz`, `10.77.77.1/24`) at
+`t = 12s`. While completely offline from any commercial ISP, **this laptop
+itself** resolved `faithnet.lan` and `faithnet.home.arpa` natively, served
+trusted green-padlock HTTPS (`0` `--cacert` flags), and then handed back off to
+`TheTribe` on Channel 11 with **zero PCI lockup**.
+====
+
+== Legal & Architectural Safeguard Proof (Why FaithNet Is Never "Free ISP Wi-Fi")
+
+[NOTE]
+====
+Both the **Session 006 Hotspot Switch** and **Session 007 Zero-`TheTribe`
+Test** double as concrete **legal and ethical safeguards**:
+
+1. **Zero Unauthorized ISP Bypass:** When `wlp3s0` disconnected from `TheTribe`,
+   commercial internet (`https://example.com`) dropped immediately to **OFFLINE
+   (`0` packets routed)**. FaithNet never cracks, spoofs, or siphons AT&T,
+   Spectrum, Xfinity, or carrier networks.
+2. **Owner-Authorized Bridging Only (`bridge` mode):** Legacy commercial web
+   access only flows when the host owner explicitly connects their *own*
+   authorized Wi-Fi or personal mobile hotspot—identical in principle to
+   standard Windows Mobile Hotspot, macOS Internet Sharing, or Android tethering.
+3. **Pure Sovereign Local Airspace (`island` & Zero-ISP modes):** When severed
+   from commercial WAN, `FaithNet-HomeRoom` operates exclusively on unlicensed
+   ISM radio bands (`2.4 GHz` / `5 GHz`) serving purely local sovereign content
+   (`10.77.77.1`, `faithnet.lan`, The Well `:8077`, and native `FNP/1` `:7777`).
+====
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / GAP #10 CATCH, ZERO-TRIBE RUN & NATIVE FNP/1 FETCH
+// =============================================================================
+
+== Gap #10 Caught Live & Sealed: Dual-Stack IPv4 + IPv6 WAN Firewall
+
+During our first live `sudo faithnet-netctl mode island` test, IPv4 `iptables`
+blocked `example.com` immediately—yet `curl https://example.com` **still
+succeeded**!
+
+* **Root Cause (Diagnosed in 1 Second):** `TheTribe` assigns a global **IPv6**
+  address (`2600:6c40:...`) to `wlp3s0`. Blocking IPv4 alone left an IPv6
+  escape path out `wlp3s0`.
+* **Fix (`54b88f6`):** Sealed BOTH **`iptables` (IPv4)** and **`ip6tables`
+  (IPv6)** inside `FAITHNET_WAN_GUARD` (inbound `DROP` on `wlp3s0`, preserving
+  `ESTABLISHED,RELATED`, ICMP/ICMPv6 Neighbor Discovery, and DHCP/DHCPv6) and
+  `FAITHNET_WAN_EGRESS` (`island` mode `REJECT` on both stacks).
+
+== Consolidated Live Field Verification Matrix (Session 007)
+
+[cols="2,3,1", options="header"]
+|===
+| Live Verification Check | Observed Physical Telemetry on `Inspiron-16-5640` | Verdict
+
+| **Dual-Stack `island` Mode — Commercial IPv4 & IPv6**
+| `curl -4 https://example.com` -> **BLOCKED (`rc=28`)**;
+  `curl -6 https://example.com` -> **BLOCKED (`rc=28`)**.
+| **PASS**
+
+| **Dual-Stack `island` Mode — Local HomeRoom Survival**
+| `https://faithnet.lan:8077/api/status` & `https://faithnet.home.arpa:8077/api/status`
+  returned **`200 OK`** (`peer_count: 1`, zero `--cacert`); all **3 physical
+  clients** (PlayStation, `Inspiron-5579`, iPhone) stayed attached (`0` drops).
+| **PASS**
+
+| **Zero-`TheTribe` Complete Disconnect (`nmcli dev disconnect wlp3s0`)**
+| `wlp3s0: disconnected` (`0` IPv4, `0` internet). At **`t = 12s`**, `ap0`
+  auto-booted standalone **Channel 6 (`2437 MHz`)**. Both `faithnet.lan` and
+  `faithnet.home.arpa` resolved natively (`10.77.77.1`) and served trusted
+  HTTPS (`200 OK`) on Laptop #1 itself!
+| **PASS**
+
+| **Zero-Lockup Reconnect Back to `TheTribe`**
+| `nmcli con up TheTribe` cleanly yielded Channel 6, restored
+  `wlp3s0: connected: TheTribe`, and retuned `ap0` back onto Channel 11 (`2462 MHz`).
+| **PASS**
+
+| **Native Zero-HTTP `FNP/1` `OpFetch` -> `OpResource` (Port `7777/udp`)**
+| Fetched `/well` (**`0.68 ms`**, `232 B`), `/status` (**`0.31 ms`**, `184 B`),
+  `/protocol` (**`0.26 ms`**, `111 B`), and `/bulletins` (**`0.43 ms`**, `72 B`)
+  directly over **UDP Port `7777`** with **ZERO HTTP/HTTPS/TCP on the wire!**
+| **PASS**
+|===
+
+[%collapsible]
+.Captured Live Zero-HTTP `FNP/1` Wire Output (Port `7777/udp` — Expand)
+====
+[source,text]
+----
+=== LIVE ZERO-HTTP FNP/1 FETCH #1: faithnet://faithnet.lan/well ===
+[FNP/1 RUNG_3_LOCAL | faithnet.lan:7777 | RTT=0.68ms | 232B | ZERO-HTTP]
+=== FAITHNET NATIVE FNP/1 ROOM (ZERO HTTP) ===
+Node:      Home-Anchor (0xFA17000000000001)
+Protocol:  FNP/1 on Port 7777/udp | Active Rung: RUNG_3_LOCAL
+Peers:     1 | Bulletins: 0
+Routes:    /status | /well | /protocol | /bulletins
+
+=== LIVE ZERO-HTTP FNP/1 FETCH #2: faithnet://faithnet.lan/status ===
+[FNP/1 RUNG_3_LOCAL | faithnet.lan:7777 | RTT=0.31ms | 184B | ZERO-HTTP]
+{"protocol":"FNP/1","transport":"udp_7777_zero_http","node_id":"0xFA17000000000001","label":"Home-Anchor","active_rung":"RUNG_3_LOCAL","peer_count":2,"bulletins":0,"airlock_blocked":0}
+
+=== LIVE ZERO-HTTP FNP/1 FETCH #3: faithnet://faithnet.lan/protocol ===
+[FNP/1 RUNG_3_LOCAL | faithnet.lan:7777 | RTT=0.26ms | 111B | ZERO-HTTP]
+FNP/1 | Scheme: faithnet:// | Port: 7777/udp & 7777/tcp | Sector: 512B | Node: Home-Anchor (0xFA17000000000001)
+----
+====
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / OPERATOR REPRODUCTION COMMANDS
+// =============================================================================
+
+== Reproducing Session 007 Checks
+
+[source,bash]
+----
+# 1. Inspect dual-stack IPv4+IPv6 guard, Split-DNS & attached HomeRoom peers:
+faithnet-netctl status
+
+# 2. Fetch live native zero-HTTP FNP/1 content directly over Port 7777/udp:
+faithnet-node --fetch=faithnet://faithnet.lan/well
+faithnet-open faithnet://faithnet.lan/status
+faithnet-open faithnet://faithnet.lan/protocol
+faithnet-open faithnet://faithnet.lan/bulletins
+
+# 3. Verify USB Wi-Fi adapter readiness for wireless zero-blink DEDICATED_RADIO:
+faithnet-netctl adapters
+----
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SESSION 007 SIGN-OFF
+// =============================================================================
+
+== Session 007 Sign-Off
+
+Field Kit 01 has now cleared **every single sovereign milestone**:
+**Zero-`TheTribe` standalone Micro-ISP proof**, **dual-stack IPv4+IPv6 WAN
+firewall + instant `island`/`bridge` switch**, **registered `faithnet://` OS
+protocol & Port `7777`**, and **sub-millisecond (`0.26 ms`) native zero-HTTP
+`FNP/1` content fetching**. On MillenniumOS, `FNP/1` is the native internet
+layer; The Well (`:8077`) remains a gracious legacy bridge for today's HTTP(S)
+world.
+
+// End of tests/playtester/reports/SESSION_007_ZERO_TRIBE_AND_NATIVE_FNP1.adoc

@@ -8,20 +8,20 @@ BLOCK 1: METADATA BLOCK
 @id            docs.series.03_faithnet_vs_internet
 @layer         Layer 5: Sovereign Documentation Series (Volume 03)
 @archetype     documentation | comparative_architecture
-@version       0.1.0-dev
+@version       0.2.0-dev
 @interface_rev Rev 5
 @date          2026-11-17
 @updated       2026-11-17
 @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
-@system        FaithNet Sovereign Adaptive Networking Substrate
-@role          Volume 03: FaithNet vs. Modern Commercial Internet Architecture
-@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+@system        FaithNet Sovereign Adaptive Networking Substrate (FNP/1)
+@role          Volume 03: FaithNet (FNP/1) vs. Commercial HTTP(S) Internet
+@maturity      Rev 5 Baseline | Wave 16 Dual-Audience Alignment
 ================================================================================
 ////
-= Volume 03: FaithNet vs. Modern Commercial Internet Design
+= Volume 03: FaithNet (`FNP/1`) vs. Modern Commercial Internet Design
 CreativeWorkzStudio LLC / ProfessorSeanEX
-v0.1.0-dev, 2026-11-17
+v0.2.0-dev, 2026-11-17
 :toc: macro
 :sectnums:
 :icons: font
@@ -32,11 +32,22 @@ v0.1.0-dev, 2026-11-17
 
 toc::[]
 
-== Compatibility Without Dependency
+== Compatibility Without Dependency *(HTTP(S) Bridge vs. Native `faithnet://`)*
 
 FaithNet was not built to pretend the modern internet does not exist. It was
 built to end the silent assumption that **communication requires commercial
 infrastructure to survive**.
+
+[IMPORTANT]
+====
+**How Both Worlds Coexist Cleanly:**  
+Today's legacy phones, laptops, and PlayStations expect **`http(s)://`**, so
+FaithNet serves them gracefully via **The Well (`:8077`)** with an offline
+Tier 2 Sovereign Root CA green padlock. Meanwhile, native FaithNet nodes—and
+**MillenniumOS**, where FaithNet *is* the built-in internet layer—speak pure
+zero-HTTP **`FNP/1`** (`faithnet://`, Port **`7777`**, verified live at
+**`0.26 ms` RTT**!).
+====
 
 Modern internet architecture grew over 50 years by layering specialized
 protocols—Ethernet, ARP, IPv4/IPv6, DHCP, DNS, BGP, TCP/QUIC, TLS, HTTP/3,
@@ -44,6 +55,16 @@ JSON/GraphQL, and cloud CDNs—assuming abundant bandwidth, always-on power,
 trusted institutional registries, and central servers. That stack excels at
 global streaming and cloud commerce, **but collapses catastrophically at the
 local room and neighborhood edge whenever upstream power, fiber, or DNS breaks.**
+
+[NOTE]
+====
+**Legal Boundary vs. Commercial ISPs:**  
+FaithNet never pirates, spoofs, or bypasses commercial ISPs. In `island` mode
+or with zero upstream Wi-Fi, commercial web traffic drops cleanly to **zero**
+while local sovereign traffic runs strictly on lawful unlicensed ISM spectrum
+(`2.4 GHz` / `5 GHz`). Legacy bridging (`bridge` mode) uses only the host
+owner's own authorized connection behind a dual-stack IPv4+IPv6 inbound wall.
+====
 
 // =============================================================================
 // BLOCK 3: BODY BLOCK / SIDE-BY-SIDE ARCHITECTURAL MATRIX

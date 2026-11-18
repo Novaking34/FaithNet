@@ -247,7 +247,7 @@ func ParseFaithNetURI(raw string) (FaithNetURI, error) {
 			action = strings.ToLower(pathPart)
 		}
 		switch action {
-		case "well", "status", "ping", "pair", "say", "ca":
+		case "well", "status", "ping", "pair", "say", "ca", "protocol", "bulletins":
 			// Canonical FNP/1 URI actions.
 		default:
 			return FaithNetURI{}, ErrURIBadAction

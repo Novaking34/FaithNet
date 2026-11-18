@@ -84,14 +84,22 @@ fi
 
 case "${ACTION}" in
   ""|"well")
+    if [[ "${2:-}" == "--native" ]] && [[ -x "${HOME}/.local/bin/faithnet-node" ]]; then
+      exec "${HOME}/.local/bin/faithnet-node" --fetch="${URI}"
+    fi
     URL="https://${HOST}:8077/"
     if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v xdg-open >/dev/null 2>&1; then
       exec xdg-open "${URL}"
+    elif [[ -x "${HOME}/.local/bin/faithnet-node" ]]; then
+      exec "${HOME}/.local/bin/faithnet-node" --fetch="${URI}"
     else
       echo "${URL}"
     fi
     ;;
-  "status")
+  "status"|"protocol"|"bulletins")
+    if [[ -x "${HOME}/.local/bin/faithnet-node" ]]; then
+      exec "${HOME}/.local/bin/faithnet-node" --fetch="${URI}"
+    fi
     curl -fsS "https://${HOST}:8077/api/status" && echo ""
     ;;
   "pair")

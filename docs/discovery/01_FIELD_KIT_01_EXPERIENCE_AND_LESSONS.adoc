@@ -170,7 +170,26 @@ boundaries.**
   foreground script so paired devices had no SSID on startup.
 | Installed `/etc/systemd/system/faithnet-ap.service` boot-time Micro-ISP
   daemon + pinned `10.77.77.1` in TLS SANs (Wave 13).
+
+| **#10**
+| Session 007 Live `island` Test
+| IPv4 `iptables` sealed commercial IPv4 immediately, yet `curl https://example.com`
+  still escaped over `TheTribe`'s global **IPv6 (`2600:...`)** address!
+| Added dual-stack **`ip6tables`** `FAITHNET_WAN_GUARD` + `FAITHNET_WAN_EGRESS`
+  — verified LIVE blocking BOTH `curl -4` & `curl -6` while keeping all 3
+  HomeRoom devices & `faithnet.lan` 100% alive (Wave 15/16).
 |===
+
+[IMPORTANT]
+====
+**What the Hotspot & Zero-`TheTribe` Tests Also Proved Legally:**  
+Disconnecting `wlp3s0` from `TheTribe` dropped commercial internet immediately
+to **zero (`OFFLINE`)**—while `FaithNet-HomeRoom` automatically booted its
+standalone Channel 6 island (`t = 12s`) and served trusted `faithnet.lan`
+locally on unlicensed ISM Wi-Fi spectrum. FaithNet never cracks or siphons any
+commercial ISP; legacy bridging only ever shares the host owner's own
+authorized connection (and stays behind a dual-stack IPv4+IPv6 firewall wall).
+====
 
 == Why Deep Layered Testing Accelerated Every Single Fix
 

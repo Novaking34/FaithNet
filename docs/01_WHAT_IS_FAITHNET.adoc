@@ -8,20 +8,20 @@ BLOCK 1: METADATA BLOCK
 @id            docs.series.01_what_is_faithnet
 @layer         Layer 5: Sovereign Documentation Series (Volume 01)
 @archetype     documentation | conceptual_foundation
-@version       0.1.0-dev
+@version       0.2.0-dev
 @interface_rev Rev 5
 @date          2026-11-17
 @updated       2026-11-17
 @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
-@system        FaithNet Sovereign Adaptive Networking Substrate
-@role          Volume 01: Philosophy, First Principles, CPI-SI & The 5 Cogs
-@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+@system        FaithNet Sovereign Adaptive Networking Substrate (FNP/1)
+@role          Volume 01: Philosophy, Publishing-House Mission, CPI-SI & 5 Cogs
+@maturity      Rev 5 Baseline | Wave 16 Dual-Audience Alignment
 ================================================================================
 ////
 = Volume 01: What Is FaithNet?
 CreativeWorkzStudio LLC / ProfessorSeanEX
-v0.1.0-dev, 2026-11-17
+v0.2.0-dev, 2026-11-17
 :toc: macro
 :sectnums:
 :icons: font
@@ -32,14 +32,30 @@ v0.1.0-dev, 2026-11-17
 
 toc::[]
 
-== The Founding Premise
+== The Founding Premise *(Plain English First)*
 
-**FaithNet** is a sovereign, offline-first, data-driven adaptive networking
-substrate built in pure Go (100% standard library, zero external dependencies)
-for the **OmniCode** framework and **MillenniumOS**.
+Look at any recent week of tech news: rolling outages across AWS, Microsoft
+365, Apple, airlines, banks, and regional ISPs—knocking whole communities
+offline from one bad update or misconfigured router. That happens because the
+modern internet puts everybody's voice on a handful of distant corporate towers.
 
-It begins with a question that sounds strange only until the power or ISP goes
-out:
+**FaithNet (`FNP/1`)** is a sovereign, offline-first networking protocol and
+micro-ISP substrate built in pure Go (**100% standard library, zero external
+dependencies**) for **OmniCode** and **MillenniumOS**.
+
+[IMPORTANT]
+====
+**Why CreativeWorkzStudio LLC Builds This (Sovereign Publishing House, Not a
+SaaS Vendor):**  
+**CreativeWorkzStudio LLC** is building a sovereign publishing house—stories,
+games (*Tenebris and Lux*), art, and creative works meant to serve people
+directly. Software is not our commercial end product; owning our own vertical
+in-house foundation (**MillenniumOS** -> **OmniCode** -> **FaithNet** ->
+**Cornerstone**) protects the studio from cloud lockouts and lets us turn any
+room into a live local gathering space whenever commercial networks stumble.
+====
+
+It begins with a question that sounds unusual only until the power or ISP drops:
 
 [quote]
 ____
@@ -57,7 +73,31 @@ apart in the same room suddenly cannot exchange a single sentence.
 FaithNet rejects that dependency from first principles. For **Covenant
 Partnered Intelligence - Structured Intelligence (CPI-SI)** and
 **MillenniumOS**, sending a packet is not an HTTP request to a rented server:
-**it is one sovereign body speaking directly to another sovereign body.**
+**it is one sovereign body speaking directly to another sovereign body over
+`FNP/1` (`faithnet://`, Port `7777`).**
+
+[NOTE]
+====
+**Two Worlds, One Foundation — Legacy `HTTP(S)` Today vs. Native `faithnet://`
+on MillenniumOS:**  
+Everyday consumer devices (iPhones, Windows laptops, Macs, PlayStations) only
+understand `http(s)://`. FaithNet respects that reality through **The Well
+(`:8077`)** so any visitor can walk into a room with zero app installs. On
+native FaithNet nodes—and as the built-in internet layer of **MillenniumOS**—
+devices speak pure zero-HTTP **`FNP/1`** directly on **Port `7777`**.
+====
+
+[TIP]
+====
+**Built-In Legal & Ethical Safeguard:**  
+FaithNet never cracks, spoofs, or bypasses commercial ISPs (AT&T, Spectrum,
+Xfinity, or mobile carriers). Disconnecting your own authorized Wi-Fi or
+entering `island` mode drops commercial internet to **zero (`OFFLINE`)** while
+your own lawful local airspace (`FaithNet-HomeRoom` on unlicensed ISM Wi-Fi
+bands) stays 100% alive. Legacy web bridging only ever shares the host owner's
+own authorized connection—identical to built-in Windows Mobile Hotspot or macOS
+Internet Sharing.
+====
 
 == The Core Design Principles
 

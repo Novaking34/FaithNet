@@ -8,20 +8,20 @@ BLOCK 1: METADATA BLOCK
 @id            docs.series.04_playtesting_benchmarks
 @layer         Layer 5: Sovereign Documentation Series (Volume 04)
 @archetype     documentation | empirical_benchmarks_and_gaps
-@version       0.1.0-dev
+@version       0.2.0-dev
 @interface_rev Rev 5
 @date          2026-11-17
 @updated       2026-11-17
 @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
-@system        FaithNet Sovereign Adaptive Networking Substrate
+@system        FaithNet Sovereign Adaptive Networking Substrate (FNP/1)
 @role          Volume 04: 4x4 Verification, Live Playtesting, Benchmarks & Gaps
-@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+@maturity      Rev 5 Baseline | Wave 16 (346 Tests, 24 Gates, Sessions 001–007)
 ================================================================================
 ////
 = Volume 04: Verification, Playtesting, Benchmarks & Honest Gaps
 CreativeWorkzStudio LLC / ProfessorSeanEX
-v0.1.0-dev, 2026-11-17
+v0.2.0-dev, 2026-11-17
 :toc: macro
 :sectnums:
 :icons: font
@@ -32,20 +32,30 @@ v0.1.0-dev, 2026-11-17
 
 toc::[]
 
+[TIP]
+====
+**Companion Live Benchmark Ledger:** This volume captures our foundational
+4x4 Lab & Local-OS Harness baseline (Sessions 001–002). For the complete
+side-by-side comparison against **real physical Wi-Fi, 3-device NAT, Zero-`TheTribe`
+offline mode, and `0.26 ms` zero-HTTP `FNP/1` live field telemetry (Sessions
+003–007)**, see `docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc`.
+====
+
 == The Lab (`4x4 Matrix`) vs. The Field Lab (`tests/playtester/`)
 
 FaithNet treats software assurance as two distinct disciplines that cannot
 replace each other:
 
 1. **The 4x4 Verification Matrix (`tests/{functional,unit,integrated,system}`):**
-   **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 per-cog
-   unit, `6` integrated, `5` system) + `tests/common/fixtures.go` = **329
-   verified test functions**, **22 live Block 4 pre-flight gates**, and **0
-   data races** under `go test -count=1 -race ./tests/...`.
+   **48 dedicated 5-Block test files** (`7` functional, **`30` strict 1:1
+   per-cog unit**, `6` integrated, `5` system) + `tests/common/fixtures.go` =
+   **346 verified test functions**, **24 live Block 4 pre-flight gates**, and
+   **0 data races** under `go test -count=1 -race ./tests/...`.
 2. **The Playtester Proving Ground (`tests/playtester/`):** Live multi-process
    arenas, userspace chaos weather proxies, real kernel FIFO serial streams,
    real 16-bit PCM `.wav` acoustic torture benches, live TCP HTTP Well load
-   tests, and physical **Field Kits**.
+   tests, and physical **Field Kits** (with **all 10 empirical gaps `#1..#10`
+   caught and closed** through Wave 16!).
 
 // =============================================================================
 // BLOCK 3: BODY BLOCK / VERIFIED EMPIRICAL BENCHMARKS (SESSION 001)

@@ -56,6 +56,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // --- Tier 2: External Library Dependencies (None) ---
@@ -240,6 +241,53 @@ func TestDispatcherUnit_Sec4_SendFrameAutoStampsSourceAndUpdatesStats(t *testing
 		t.Fatalf("[SEC 4] unexpected dispatcher card:\n%s", card)
 	}
 	common.AssertAuditPass(t, dA.AuditState(), card)
+}
+
+func TestDispatcherUnit_Sec4_NativeZeroHTTPFetchResourceRoundtrip(t *testing.T) {
+	clk := engine.NewMonotonicClock()
+	bus := rung2_host.NewMemoryBus()
+
+	dA, err := orchestrator.NewDispatcher(data.DefaultNodeManifest(common.NodeAlpha, "Client-A"), clk)
+	if err != nil {
+		t.Fatalf("[SEC 4] NewDispatcher A failed: %v", err)
+	}
+	dB, err := orchestrator.NewDispatcher(data.DefaultNodeManifest(common.NodeBeta, "Anchor-B"), clk)
+	if err != nil {
+		t.Fatalf("[SEC 4] NewDispatcher B failed: %v", err)
+	}
+	defer func() { _ = dA.Close(); _ = dB.Close() }()
+
+	if err := dA.Ladder().RegisterRung(bus.Attach(common.NodeAlpha)); err != nil {
+		t.Fatalf("[SEC 4] RegisterRung A failed: %v", err)
+	}
+	if err := dB.Ladder().RegisterRung(bus.Attach(common.NodeBeta)); err != nil {
+		t.Fatalf("[SEC 4] RegisterRung B failed: %v", err)
+	}
+
+	dB.SetResourceHandler(func(reqPath string, from data.NodeID) ([]byte, bool) {
+		if reqPath == "/custom" {
+			return []byte("FNP/1-NATIVE-OK:" + from.String()), true
+		}
+		return nil, false
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := dA.Start(ctx); err != nil {
+		t.Fatalf("[SEC 4] dA.Start failed: %v", err)
+	}
+	if err := dB.Start(ctx); err != nil {
+		t.Fatalf("[SEC 4] dB.Start failed: %v", err)
+	}
+
+	body, _, rung, err := dA.FetchResource(ctx, common.NodeBeta, "/custom")
+	if err != nil || rung != data.Rung2Host || !strings.Contains(string(body), "FNP/1-NATIVE-OK:") {
+		t.Fatalf("[SEC 4] native OpFetch /custom failed: body=%q rung=%s err=%v", string(body), rung, err)
+	}
+	defBody, _, _, err := dA.FetchResource(ctx, common.NodeBeta, "/protocol")
+	if err != nil || !strings.Contains(string(defBody), "FNP/1") {
+		t.Fatalf("[SEC 4] default /protocol OpFetch failed: body=%q err=%v", string(defBody), err)
+	}
 }
 
 // ==============================================================================

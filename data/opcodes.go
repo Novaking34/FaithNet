@@ -74,8 +74,8 @@ const (
 	// OpcodeMinValid is the lowest valid protocol verb (OpPing = 0x01).
 	OpcodeMinValid Opcode = OpPing
 
-	// OpcodeMaxValid is the highest recognized protocol verb (OpData = 0x08).
-	OpcodeMaxValid Opcode = OpData
+	// OpcodeMaxValid is the highest recognized protocol verb (OpResource = 0x0A).
+	OpcodeMaxValid Opcode = OpResource
 )
 
 // ------------------------------------------------------------------------------
@@ -133,6 +133,12 @@ const (
 
 	// OpData carries bounded general-purpose sovereign payload bytes.
 	OpData Opcode = 0x08
+
+	// OpFetch requests a native FNP/1 sovereign resource path (zero-HTTP faithnet://).
+	OpFetch Opcode = 0x09
+
+	// OpResource returns a native FNP/1 sovereign resource payload (<=480B sector).
+	OpResource Opcode = 0x0A
 )
 
 // FrameFlags holds bitwise boolean attributes for a FaithNet wire frame.
@@ -223,6 +229,10 @@ func (op Opcode) String() string {
 		return "EVT_CASCADE_UP"
 	case OpData:
 		return "DATA"
+	case OpFetch:
+		return "FETCH"
+	case OpResource:
+		return "RESOURCE"
 	default:
 		return "INVALID"
 	}

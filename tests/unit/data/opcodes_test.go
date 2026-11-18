@@ -93,6 +93,8 @@ func TestOpcodesUnit_Sec1_AllValidOpcodesAndLabels(t *testing.T) {
 		data.OpCascadeDown: {"EVT_CASCADE_DOWN", true},
 		data.OpCascadeUp:   {"EVT_CASCADE_UP", true},
 		data.OpData:        {"DATA", false},
+		data.OpFetch:       {"FETCH", false},
+		data.OpResource:    {"RESOURCE", false},
 	}
 	for op, exp := range want {
 		if !op.IsValid() {
@@ -126,7 +128,7 @@ func TestOpcodesUnit_Sec1_FrameFlagsSingleAndCombinedMasks(t *testing.T) {
 // ------------------------------------------------------------------------------
 
 func TestOpcodesUnit_Sec2_InvalidOpcodesAndUnsetFlags(t *testing.T) {
-	for _, bad := range []data.Opcode{data.OpInvalid, 0x09, 0x7F, 0xFF} {
+	for _, bad := range []data.Opcode{data.OpInvalid, 0x0B, 0x7F, 0xFF} {
 		if bad.IsValid() || bad.IsControl() {
 			t.Fatalf("[SEC 2] invalid opcode 0x%02X accepted", uint8(bad))
 		}
@@ -151,7 +153,7 @@ func TestOpcodesUnit_Sec3_WirePinningAndBitwiseOrthogonality(t *testing.T) {
 	if uint8(data.OpPing) != 0x01 || uint8(data.OpPong) != 0x02 {
 		t.Fatal("[SEC 3] OpPing (0x01) / OpPong (0x02) wire pinning violated")
 	}
-	if data.OpcodeMinValid != data.OpPing || data.OpcodeMaxValid != data.OpData {
+	if data.OpcodeMinValid != data.OpPing || data.OpcodeMaxValid != data.OpResource {
 		t.Fatal("[SEC 3] OpcodeMinValid/MaxValid bounds drifted")
 	}
 
@@ -188,8 +190,8 @@ func TestOpcodesUnit_Sec4_ExhaustiveByteSpacePartition(t *testing.T) {
 			t.Fatalf("[SEC 4] invalid opcode 0x%02X returned %q", b, op.String())
 		}
 	}
-	if validCount != 8 {
-		t.Fatalf("[SEC 4] expected exactly 8 valid opcodes, counted %d", validCount)
+	if validCount != 10 {
+		t.Fatalf("[SEC 4] expected exactly 10 valid opcodes, counted %d", validCount)
 	}
 }
 

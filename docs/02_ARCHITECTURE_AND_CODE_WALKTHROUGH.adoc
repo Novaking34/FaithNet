@@ -8,20 +8,20 @@ BLOCK 1: METADATA BLOCK
 @id            docs.series.02_architecture_code
 @layer         Layer 5: Sovereign Documentation Series (Volume 02)
 @archetype     documentation | technical_architecture
-@version       0.1.0-dev
+@version       0.2.0-dev
 @interface_rev Rev 5
 @date          2026-11-17
 @updated       2026-11-17
 @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
-@system        FaithNet Sovereign Adaptive Networking Substrate
-@role          Volume 02: Layer-by-Layer Code Walkthrough & 5-Block Standard
-@maturity      Rev 5 Baseline | Wave 7B Documentation Series
+@system        FaithNet Sovereign Adaptive Networking Substrate (FNP/1)
+@role          Volume 02: Layer-by-Layer Code Walkthrough, FNP/1 & 5-Block Guide
+@maturity      Rev 5 Baseline | Wave 16 (30 Production Cogs, 30:30 Units, 24 Gates)
 ================================================================================
 ////
-= Volume 02: Architecture & Codebase Walkthrough
+= Volume 02: Architecture & Codebase Walkthrough (`FNP/1`)
 CreativeWorkzStudio LLC / ProfessorSeanEX
-v0.1.0-dev, 2026-11-17
+v0.2.0-dev, 2026-11-17
 :toc: macro
 :sectnums:
 :icons: font
@@ -32,34 +32,44 @@ v0.1.0-dev, 2026-11-17
 
 toc::[]
 
+[NOTE]
+====
+**For Non-Technical Readers:** Think of FaithNet's codebase like a five-story
+building where every floor only relies on the stone foundation beneath it.
+The bottom two floors (identity, envelope packing, balanced-ternary math, and
+`faithnet://` address parsing) have **zero internet or OS dependencies**, so
+they run identically on Linux, Windows, macOS, or bare-metal MillenniumOS.
+====
+
 == The Downward Dependency Law
 
-FaithNet enforces a strict acyclic layer hierarchy across all **28 production
-Go files**: imports flow strictly downward (`Layer 4 -> 3 -> 2 -> 1 -> 0`).
+FaithNet enforces a strict acyclic layer hierarchy across all **30 production
+Go files** (strictly paired **30:30** with dedicated Tier-2 unit suites):
+imports flow strictly downward (`Layer 4 -> 3 -> 2 -> 1 -> 0`).
 
 * **Layer 0 (`data/`)** imports *only* `fmt`.
 * **Layer 1 (`engine/`, `engine/covenant/`)** imports *zero* `net` and *zero*
-  `os` packages (`encoding/binary`, `bytes`, `errors`, `fmt`, `sync`,
-  `sync/atomic`, `time`, and `data`).
+  `os` packages (`encoding/binary`, `bytes`, `errors`, `fmt`, `strconv`,
+  `strings`, `sync`, `sync/atomic`, `time`, and `data`).
 * **External Third-Party Dependencies:** **`0`** (`go list -m all` contains
   only `github.com/CreativeWorkzStudio/FaithNet`).
 
 [source,text]
 ----
-Layer 4 (CLIs & Verification)  cmd/faithnet-ping, cmd/faithnet-node, tests/
+Layer 4 (CLIs & Verification)  cmd/faithnet-ping, cmd/faithnet-node (--fetch, 24 gates), tests/
        │
        ▼
-Layer 3B (Human/OS Bridge)     interpreter/ (translator, captive_web, legacy_bridge)
+Layer 3B (Human/OS Bridge)     interpreter/ (translator, captive_web + /pair.sh + /pair.ps1, legacy_bridge)
 Layer 3A (Physical/Virt Wire)  transport/   (transceiver + rung1..rung4)
        │
        ▼
-Layer 2 (Orchestrator Brain)   orchestrator/ (probe, ladder, dispatcher)
+Layer 2 (Orchestrator Brain)   orchestrator/ (probe, [5][4] ladder, dispatcher + OpFetch/OpResource)
        │
        ▼
-Layer 1 (Pure State Machines)  engine/ (codec, clock, ping, router, covenant/filter)
+Layer 1 (Pure State Machines)  engine/ (codec, trit [Bit<->Trit], uri [FNP/1], clock, ping, router, covenant/filter)
        │
        ▼
-Layer 0 (Pure Vocabulary)      data/ (types, opcodes, frame, profile, audit)
+Layer 0 (Pure Vocabulary)      data/ (types, 10 opcodes 0x01..0x0A, 512B frame, profile, audit)
 ----
 
 // =============================================================================
@@ -70,11 +80,24 @@ Layer 0 (Pure Vocabulary)      data/ (types, opcodes, frame, profile, audit)
 
 * `data/types.go`: Defines `NodeID`, `RungLevel` (`Rung1Floor..Rung4Global`
   with saturating `StepUp()` / `StepDown()`), and `QuadState` ($\mathbb{T}_4$).
-* `data/opcodes.go`: Pins canonical wire verbs (`OpPing=0x01`, `OpPong=0x02`,
-  `OpBeacon=0x03`, `OpCPISync=0x04`, `OpData=0x05`, `OpLegacyWrap=0x06`,
-  `OpCascadeDown=0x07`, `OpCascadeUp=0x08`) and orthogonal `FrameFlags`.
+* `data/opcodes.go`: Pins all **10 canonical `FNP/1` wire verbs** (`OpPing=0x01`,
+  `OpPong=0x02`, `OpBeacon=0x03`, `OpCPISync=0x04`, `OpLegacyWrap=0x05`,
+  `OpCascadeDown=0x06`, `OpCascadeUp=0x07`, `OpData=0x08`, **`OpFetch=0x09`**,
+  **`OpResource=0x0A`**) and orthogonal `FrameFlags`.
 * `data/frame.go`: Defines the **512-byte Floppy Sector Invariant** (`32B`
   fixed header + `[480]byte` inline zero-heap payload):
+
+[TIP]
+====
+**Wave 15–16 Layer 1 Protocol & OmniCode Submodule Cogs:**
+
+* `engine/trit.go`: Pure **`ALLOC_ZERO_HEAP`** Bit <-> Balanced-Trit <-> Bit
+  codec (`Tryte5` packs 5 balanced trits = $3^5 = 243$ states into `0x00..0xF2`
+  with 13 reserved sentinels incl. `0xFF = NULL`; `BytesToBalancedTrits` /
+  `BalancedTritsToBytes` roundtrip all 256 byte values losslessly at `0 allocs`).
+* `engine/uri.go`: Canonical **`FNP/1`** Port **`7777`** (`7777/udp`, `7777/tcp`)
+  and **`faithnet://`** URI parser/formatter with CRLF/injection rejection.
+====
 
 [source,text]
 ----
