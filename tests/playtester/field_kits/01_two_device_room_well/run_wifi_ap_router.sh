@@ -58,8 +58,10 @@ echo "Router IP    : ${AP_IP}/24 | The Well: https://faithnet.lan:8077/ | https:
 echo "WPA2 Pass    : ${PASS}"
 echo ""
 
-# 3. Create virtual AP interface (keep DOWN so hostapd brings it up via nl80211
-#    on rtw89/RTL8852CE without RTNETLINK EBUSY!).
+# 3. Clean any stale prior AP processes & create virtual AP interface (keep DOWN
+#    so hostapd brings it up via nl80211 on rtw89/RTL8852CE without EBUSY!).
+sudo pkill -f "/tmp/faithnet-ap-" 2>/dev/null || true
+sleep 0.3
 sudo iw dev "${AP_IF}" del 2>/dev/null || true
 sudo iw dev "${STA_IF}" interface add "${AP_IF}" type __ap
 sudo nmcli dev set "${AP_IF}" managed no 2>/dev/null || true
