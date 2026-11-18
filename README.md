@@ -41,7 +41,7 @@ PURPOSE & ARCHITECTURAL ROLE:
 > **A sovereign, offline-first networking protocol and micro-ISP substrate built for real people, creative studios, and local communities.**  
 > *Compatibility with the modern HTTP(S) internet—without ever being held hostage by it.*
 
-`Protocol: FNP/1` · `Port: 7777/udp & 7777/tcp` · `URI: faithnet://` · `Go 1.26.8 Stdlib (0 External Deps)` · `346 Race-Free Tests` · `24/24 Live Block 4 Gates`
+`Protocol: FNP/1` · `Port: 7777/udp & 7777/tcp` · `URI: faithnet://` · `Go 1.26.8 Stdlib (0 External Deps)` · `359 Race-Free Tests` · `27/27 Live Block 4 Gates`
 
 ---
 
@@ -127,7 +127,7 @@ flowchart TD
 | **Runtime Language** | Go 1.26.8 (**100% Standard Library**, Zero Third-Party Dependencies; cross-compiles `linux`/`windows`/`darwin`) |
 | **OmniCode Submodule Seam** | Balanced Ternary $\mathbb{T}_4 = \{-1, 0, +1, \text{NULL}\}$ + **Zero-Heap Bit $\leftrightarrow$ Balanced-Trit $\leftrightarrow$ Bit Codec** ([engine/trit.go](engine/trit.go)) |
 | **Frame & Memory Discipline** | 32B Header + 480B Floor MTU = **512-Byte Floppy Sector Invariant** · **`ALLOC_ZERO_HEAP`** (`0.00 allocs/op`) |
-| **Verification Matrix** | **4x4 Lab Matrix** (`48` test files, `30:30` strict 1:1 unit pairing, **`346` race-free tests**) + **`24/24` live Block 4 gates** |
+| **Verification Matrix** | **4x4 Lab Matrix** (`51` test files, `33:33` strict 1:1 unit pairing, **`359` race-free tests**) + **`27/27` live Block 4 gates** |
 | **Live Field Proving Ground** | **5 local OS/chaos/audio harnesses** + **Cross-platform Field Kit 01 (Linux/Win/macOS)** + **7 live session reports** |
 
 <details>

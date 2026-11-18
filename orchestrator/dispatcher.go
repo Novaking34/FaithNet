@@ -90,6 +90,12 @@ const (
 	// DefaultSilentDegradeCooldown is the monotonic cooldown window applied to
 	// a rung that failed via silent blackhole before Rising Up retries it.
 	DefaultSilentDegradeCooldown = 5 * time.Second
+
+	// DefaultMaxRelayHops caps multi-hop forwarding depth (OSI L3 loop guard).
+	DefaultMaxRelayHops uint8 = 4
+
+	// relaySeenRingSize is the bounded power-of-two dedup ring preventing loops.
+	relaySeenRingSize = 64
 )
 
 var (
@@ -130,6 +136,7 @@ type DispatcherStats struct {
 	PongsMatched   uint64 // OpPong echoes correlated with local PingEngine
 	DataDelivered  uint64 // Permitted non-ping frames handed to DeliverHandler
 	FramesSent     uint64 // Outbound frames transmitted over AdaptiveLadder
+	FramesRelayed  uint64 // Multi-hop frames forwarded to NextHopID (OSI L3)
 }
 
 // InboundOutcome summarizes how HandleInboundEnvelope processed one envelope.
@@ -138,7 +145,14 @@ type InboundOutcome struct {
 	Verdict   covenant.Verdict // Genesis 3 Airlock T4 verdict
 	Opcode    data.Opcode      // Decoded protocol verb (if Decoded)
 	RTTNano   int64            // Measured RTT if Opcode==OpPong matched
-	Reflected bool             // True if an OpPong echo was transmitted
+	Reflected bool             // True if an OpPong/OpResource echo was transmitted
+	Relayed   bool             // True if frame was forwarded onto NextHopID (OSI L3)
+}
+
+type relaySeenKey struct {
+	src    data.NodeID
+	seq    uint32
+	opcode data.Opcode
 }
 
 // Dispatcher wires Layer 1 engines to Layer 2's 4-Rung AdaptiveLadder.
@@ -181,7 +195,13 @@ type Dispatcher struct {
 	pongsMatched   atomic.Uint64
 	dataDelivered  atomic.Uint64
 	framesSent     atomic.Uint64
+	framesRelayed  atomic.Uint64
 	silentTimeouts atomic.Uint32
+
+	relayEnabled atomic.Bool
+	relayMu      sync.Mutex
+	relaySeen    [relaySeenRingSize]relaySeenKey
+	relaySeenIdx int
 }
 
 // ------------------------------------------------------------------------------
@@ -307,12 +327,31 @@ func (d *Dispatcher) HandleInboundEnvelope(env transport.WireEnvelope) InboundOu
 		}
 	}
 
-	// Ignore frames explicitly addressed to another non-broadcast node.
+	// Non-local unicast frame: either ignore (leaf node) or forward via Router
+	// NextHopID with bounded seen-ring deduplication when RelayEnabled is true!
 	if in.TargetID != d.manifest.ID && !in.TargetID.IsBroadcast() {
+		relayed := false
+		if d.relayEnabled.Load() && in.SourceID != d.manifest.ID {
+			if rt, found := d.router.Lookup(in.TargetID); found &&
+				rt.HopCount <= DefaultMaxRelayHops &&
+				rt.NextHopID.IsValid() &&
+				rt.NextHopID != in.SourceID &&
+				rt.NextHopID != d.manifest.ID {
+				key := relaySeenKey{src: in.SourceID, seq: in.SeqID, opcode: in.Opcode}
+				if d.markRelaySeenIfNew(key) {
+					if _, fwdErr := d.ladder.SendFrame(rt.NextHopID, env.Slice()); fwdErr == nil {
+						d.framesRelayed.Add(1)
+						d.framesSent.Add(1)
+						relayed = true
+					}
+				}
+			}
+		}
 		return InboundOutcome{
 			Decoded: true,
 			Verdict: verdict,
 			Opcode:  in.Opcode,
+			Relayed: relayed,
 		}
 	}
 
@@ -484,6 +523,25 @@ func (d *Dispatcher) SetResourceHandler(fn ResourceHandler) {
 	d.handlerMu.Lock()
 	d.onResource = fn
 	d.handlerMu.Unlock()
+}
+
+// SetRelayEnabled toggles active OSI Layer 3 multi-hop forwarding across
+// learned Router NextHopID paths with bounded seen-ring loop suppression.
+func (d *Dispatcher) SetRelayEnabled(enabled bool) {
+	d.relayEnabled.Store(enabled)
+}
+
+func (d *Dispatcher) markRelaySeenIfNew(k relaySeenKey) bool {
+	d.relayMu.Lock()
+	defer d.relayMu.Unlock()
+	for i := 0; i < relaySeenRingSize; i++ {
+		if d.relaySeen[i] == k {
+			return false
+		}
+	}
+	d.relaySeen[d.relaySeenIdx] = k
+	d.relaySeenIdx = (d.relaySeenIdx + 1) & (relaySeenRingSize - 1)
+	return true
 }
 
 func (d *Dispatcher) defaultNativeResource(reqPath string) []byte {
@@ -874,6 +932,7 @@ func (d *Dispatcher) StatsSnapshot() DispatcherStats {
 		PongsMatched:   d.pongsMatched.Load(),
 		DataDelivered:  d.dataDelivered.Load(),
 		FramesSent:     d.framesSent.Load(),
+		FramesRelayed:  d.framesRelayed.Load(),
 	}
 }
 

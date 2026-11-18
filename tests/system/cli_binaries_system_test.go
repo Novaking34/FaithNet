@@ -193,8 +193,8 @@ func TestCLIBinariesSystem_Sec3_AuditGateCountsMatchExactArchitectureInventory(t
 	if err != nil {
 		t.Fatalf("[SEC 3] faithnet-node --audit failed: %v\n%s", err, nodeOut)
 	}
-	if got := strings.Count(string(nodeOut), "[PASS]"); got != 24 {
-		t.Fatalf("[SEC 3] expected exactly 24 [PASS] gates from faithnet-node --audit, got %d:\n%s",
+	if got := strings.Count(string(nodeOut), "[PASS]"); got != 27 {
+		t.Fatalf("[SEC 3] expected exactly 27 [PASS] gates from faithnet-node --audit, got %d:\n%s",
 			got, nodeOut)
 	}
 }

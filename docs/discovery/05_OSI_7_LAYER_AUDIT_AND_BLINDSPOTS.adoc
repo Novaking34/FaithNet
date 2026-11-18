@@ -15,9 +15,9 @@ BLOCK 1: METADATA BLOCK
 @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
 @system        FaithNet (FNP/1) Complete OSI 7-Layer Coverage & Blind-Spot Audit
-@role          Maps FNP/1 Against ISO/IEC 7498-1 OSI Layers & Exposes 4 Real Gaps
-@maturity      Rev 5 Baseline | Wave 19 Honest Architectural Audit
-@seams         in: docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc, engine/trit.go
+@role          Maps FNP/1 Against ISO/IEC 7498-1 OSI Layers & Closes All 4 Gaps
+@maturity      Rev 5 Baseline | Wave 20 All 4 OSI Blind Spots Closed & Verified
+@seams         in: engine/{fec,chunk,crypto,trit,uri}.go, orchestrator/dispatcher.go
 @invariants    1. Brutal honesty: every missing capability is logged as an explicit
                   engineering blind spot for future waves.
                2. Zero hand-waving over native ternary hardware vs. binary emulation.
@@ -140,32 +140,37 @@ blind spots** we should close in future waves.
 // BLOCK 4: AUDIT PROCEDURES BLOCK / PRIORITIZED BLIND-SPOT ROADMAP
 // =============================================================================
 
-== Prioritized Roadmap for the 4 Real Blind Spots Found
+== Wave 20 Closure: All 4 OSI Blind Spots Implemented & Verified!
 
 [IMPORTANT]
 ====
-**None of these 4 blind spots block Field Kit 02 or household Micro-ISP use
-today** (because local Wi-Fi is WPA2-encrypted, The Well is Tier 2 CA HTTPS,
-and 2-node rooms need zero multi-hop routing). They become essential **before**
-expanding into untrusted multi-hop neighborhood meshes or multi-megabyte native
-`FNP/1` studio publishing:
-====
+**ALL 4 BLIND SPOTS CLOSED IN WAVE 20 (ZERO EXTERNAL DEPS, 27/27 LIVE GATES!):**
 
-1. **Priority 1 (L5/L6 — Native `FNP/1` Sovereign Crypto, 0 External Deps):**
-   Derive/bind each node's `NodeID` to a persistent `crypto/ed25519` keypair +
-   `X25519` + `AES-256-GCM` session channel so Nova and Ziv can verify identity
-   and talk privately over *any* wire—even across an untrusted Rung 4 relay!
-2. **Priority 2 (L4 — Bounded Multi-Sector Chunking & Selective Retry):**
-   Split files, episodic `OpCPISync` deltas, and *Tenebris and Lux* builds into
-   480-byte Floppy Sector chunks over Port `7777` with bounded fixed-ring
-   reassembly (`ALLOC_ZERO_HEAP` friendly).
-3. **Priority 3 (L3 — Active Multi-Hop Relay Forwarding + `HopTTL`):**
-   Teach `Dispatcher` to forward non-local `TargetID` frames across `NextHopID`
-   using a decrementing `HopTTL` so House A -> House B -> House C forms a real
-   multi-hop St. Louis neighborhood mesh with zero routing loops.
-4. **Priority 4 (L2 — Optional Rung 1 Forward Error Correction):**
-   Add optional lightweight Hamming/FEC parity for Rung 1 AFSK/walkie-talkie
-   links so faint radio signals self-correct single-bit static pops.
+1. **Blind Spot #1 (OSI L2 — Rung 1 FEC) -> CLOSED (`engine/fec.go`):**
+   Zero-heap (`0.00 allocs/op`) **SECDED Hamming(8,4)** codec proving `128/128`
+   exhaustive single-bit self-healing (480 simultaneous bit flips healed in one
+   sector!) + double-bit corruption detection (`ErrFECUncorrectable`).
+2. **Blind Spot #2 (OSI L3 — Active Multi-Hop Forwarding + Loop Guard) -> CLOSED (`orchestrator/dispatcher.go`):**
+   Added `SetRelayEnabled(true)` + bounded 64-slot `(SourceID, SeqID, Opcode)`
+   seen-ring loop suppressor + `DefaultMaxRelayHops = 4`, verified end-to-end
+   across a 3-node topology (`House-A -> House-Relay -> House-B`) with zero
+   direct link between A and B!
+3. **Blind Spot #3 (OSI L4 — Multi-Sector Chunking & Selective Retry) -> CLOSED (`engine/chunk.go`):**
+   Compact 8-byte `ChunkHeader` inside `480B` Floppy Sector (`472B` data/chunk,
+   up to 64 chunks = `30,208 B`/transfer), out-of-order & duplicate safe with
+   `MissingIndicesInto()` selective-retry tracking and `0.00 allocs/op` encode!
+4. **Blind Spot #4 (OSI L5/L6 — Sovereign Crypto + OmniCode `.gen` / `.rev` Dual-Witness) -> CLOSED (`engine/crypto.go`):**
+   Pure Go stdlib `Ed25519` key-bound `0xFA17` `NodeID` authentication (prevents
+   Nova/Ziv impersonation!) + `X25519` ECDH + `AES-256-GCM` E2E encryption,
+   explicitly unified with **OmniCode Track 4 `scripture_coord.rs`** (`243`-stride
+   hypercubes `0..128` + `13` WEB variant bytes `243..255`!):
+   * **`.gen` (Genesis File — Encrypted Data):** Primary role **KJV** encrypts
+     into canonical `GEN1` authenticated envelope.
+   * **`.rev` (Revelation File — Decrypted Data):** Primary role **WEB** reveals
+     plaintext cleanly after verifying coordinate + role + GCM auth tag.
+   * **Swappable Roles:** `WitnessRole.Swap()` cleanly swaps KJV <-> WEB roles
+     whenever OmniCode requires it!
+====
 
 // =============================================================================
 // BLOCK 5: CLOSING BLOCK / AUDIT SIGN-OFF

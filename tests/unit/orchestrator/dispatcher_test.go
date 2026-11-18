@@ -290,6 +290,93 @@ func TestDispatcherUnit_Sec4_NativeZeroHTTPFetchResourceRoundtrip(t *testing.T) 
 	}
 }
 
+func TestDispatcherUnit_Sec4_ActiveMultiHopRelayAndLoopSuppression(t *testing.T) {
+	clk := engine.NewMonotonicClock()
+	// Cross-medium 3-node multi-hop topology with ZERO direct link between A and B:
+	//   House-A <---(Rung 2 MemoryBus)---> House-Relay <---(Rung 2 Host IPC)---> House-B
+	// Because House-A is only on MemoryBus and House-B is only on Unix IPC,
+	// House-B can ONLY receive the frame if House-Relay actively forwards it!
+	busLeft := rung2_host.NewMemoryBus()
+	tmpDir := t.TempDir()
+	relaySock := tmpDir + "/relay.sock"
+	betaSock := tmpDir + "/beta.sock"
+	ipcRelay, err := rung2_host.NewIPCTransceiver(common.NodeRelay, relaySock)
+	if err != nil {
+		t.Fatalf("[SEC 4] NewIPCTransceiver Relay failed: %v", err)
+	}
+	ipcB, err := rung2_host.NewIPCTransceiver(common.NodeBeta, betaSock)
+	if err != nil {
+		_ = ipcRelay.Close()
+		t.Fatalf("[SEC 4] NewIPCTransceiver B failed: %v", err)
+	}
+	ipcRelay.RegisterPeer(common.NodeBeta, betaSock)
+	ipcB.RegisterPeer(common.NodeRelay, relaySock)
+
+	dA, _ := orchestrator.NewDispatcher(data.DefaultNodeManifest(common.NodeAlpha, "House-A"), clk)
+	dRelay, _ := orchestrator.NewDispatcher(data.DefaultNodeManifest(common.NodeRelay, "House-Relay"), clk)
+	dB, _ := orchestrator.NewDispatcher(data.DefaultNodeManifest(common.NodeBeta, "House-B"), clk)
+	defer func() { _ = dA.Close(); _ = dRelay.Close(); _ = dB.Close() }()
+
+	_ = dA.Ladder().RegisterRung(busLeft.Attach(common.NodeAlpha))
+	_ = dRelay.Ladder().RegisterRung(busLeft.Attach(common.NodeRelay))
+	_ = dRelay.Ladder().RegisterRung(ipcRelay)
+	_ = dB.Ladder().RegisterRung(ipcB)
+
+	// Enable OSI L3 active multi-hop relay on House-Relay and install route to House-B.
+	dRelay.SetRelayEnabled(true)
+	_ = dRelay.Router().UpsertRoute(engine.PeerRoute{
+		PeerID:    common.NodeBeta,
+		NextHopID: common.NodeBeta,
+		Rung:      data.Rung2Host,
+		HopCount:  1,
+	})
+
+	delivered := make(chan string, 4)
+	dB.SetDeliverHandler(func(f *data.Frame, _ covenant.Verdict) {
+		delivered <- string(f.PayloadSlice())
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = dA.Start(ctx)
+	_ = dRelay.Start(ctx)
+	_ = dB.Start(ctx)
+
+	// Send directly to Relay's MemoryBus link, addressed to final TargetID = NodeBeta!
+	var f data.Frame
+	f.Version = data.ProtocolVersion
+	f.Rung = data.Rung2Host
+	f.Opcode = data.OpData
+	f.Flags = data.FlagCovenantVerified
+	f.Truth = data.QuadPositive
+	f.SourceID = common.NodeAlpha
+	f.TargetID = common.NodeBeta
+	f.SeqID = 777
+	f.SetPayload([]byte("MULTI-HOP-A-TO-B"))
+
+	var wire [data.FloorMaxFrameSize]byte
+	n, _ := engine.EncodeInto(wire[:], &f)
+	if _, err := dA.Ladder().SendFrame(common.NodeRelay, wire[:n]); err != nil {
+		t.Fatalf("[SEC 4] NodeA -> Relay send failed: %v", err)
+	}
+
+	select {
+	case got := <-delivered:
+		if got != "MULTI-HOP-A-TO-B" {
+			t.Fatalf("[SEC 4] NodeB received wrong relayed payload: %q", got)
+		}
+	case <-ctx.Done():
+		t.Fatal("[SEC 4] timed out waiting for active multi-hop relay A -> Relay -> B")
+	}
+
+	// Resend EXACT SAME (SourceID, SeqID, OpData) frame -> seen-ring MUST suppress loop!
+	_, _ = dA.Ladder().SendFrame(common.NodeRelay, wire[:n])
+	time.Sleep(50 * time.Millisecond)
+	if relayedCnt := dRelay.StatsSnapshot().FramesRelayed; relayedCnt != 1 {
+		t.Fatalf("[SEC 4] loop suppression failed: expected FramesRelayed=1, got %d", relayedCnt)
+	}
+}
+
 // ==============================================================================
 // BLOCK 4: AUDIT PROCEDURES BLOCK
 // ( Preflight Diagnostic Gates & Physical Source Anchor Verification )
