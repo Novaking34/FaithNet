@@ -35,10 +35,13 @@ cleanup() {
 trap cleanup EXIT
 
 # 1. Read active STA channel (RTL8852CE requires STA + AP on same channel).
+#    If no upstream Wi-Fi is connected (true offline blackout!), default cleanly
+#    to 2.4 GHz Channel 6 so FaithNet-HomeRoom still broadcasts as a local island!
 CHAN="$(iw dev "${STA_IF}" info | awk '/channel / {print $2; exit}')"
+UPSTREAM_MODE="CONNECTED"
 if [[ -z "${CHAN}" ]]; then
-  echo "ERROR: Could not detect active channel on ${STA_IF}." >&2
-  exit 1
+  CHAN="6"
+  UPSTREAM_MODE="OFFLINE_ISLAND (no upstream Wi-Fi)"
 fi
 HW_MODE="g"
 if (( CHAN > 14 )); then
@@ -52,7 +55,7 @@ NEW_FIRST="$(printf '%02x' $(( (0x${FIRST_OCTET_HEX} | 0x02) ^ 0x04 )))"
 AP_MAC="${NEW_FIRST}:${BASE_MAC#*:}"
 
 echo "=== FAITHNET REAL WI-FI AP ROUTER (SIMULTANEOUS STA + AP) ==="
-echo "Upstream STA : ${STA_IF} (Channel ${CHAN}, mode ${HW_MODE}) — UNTOUCHED"
+echo "Upstream STA : ${STA_IF} (${UPSTREAM_MODE} | Channel ${CHAN}, mode ${HW_MODE}) — UNTOUCHED"
 echo "Virtual AP   : ${AP_IF} (${AP_MAC}) -> SSID '${SSID}'"
 echo "Router IP    : ${AP_IP}/24 | The Well: https://faithnet.lan:8077/ | https://${AP_IP}:8077/"
 echo "WPA2 Pass    : ${PASS}"
