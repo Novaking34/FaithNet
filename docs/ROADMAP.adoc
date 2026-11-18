@@ -8,18 +8,18 @@ BLOCK 1: METADATA BLOCK
 @id            docs.roadmap.faithnet
 @layer         Layer 5: Canonical Architecture & Roadmap Documentation Strata
 @archetype     manifest | operational
-@version       0.1.0-dev
+@version       0.2.0-dev
 @interface_rev Rev 5
 @date          2026-11-17
 @updated       2026-11-17
 @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
-@system        FaithNet Sovereign Adaptive Networking Substrate
-@role          Canonical Architectural Specification & Wave Plan of Attack
-@maturity      Rev 5 Baseline | Wave 0 Genesis
+@system        FaithNet Sovereign Adaptive Networking Substrate (FNP/1)
+@role          Canonical Architectural Specification & Wave 0..25 Master Roadmap
+@maturity      Rev 5 Baseline | Phase I Complete (Waves 0–20 Sealed; Phase II Ready)
 @chassis       stateless | Pure AsciiDoc architectural blueprint
-@scale         O(1) reference across 6 layers, 4 adaptive rungs & 4 test tiers
-@seams         in: CPI-SI vision | exports: Wave 0..5 implementation blueprint
+@scale         O(1) reference across 5 layers, 4 adaptive rungs, 7 OSI layers & 4 test tiers
+@seams         in: CPI-SI vision & OmniCode Track 4 | exports: Phase I Ledger & Phase II Plan
 @invariants    1. Universal 5-Block Lifecycle Protocol enforced across files.
                2. Downward Dependency Law: Layer 0/1 never import net or OS.
                3. 512-byte Floppy Sector Invariant (32B header + 480B Floor MTU).
@@ -46,9 +46,9 @@ PURPOSE & ARCHITECTURAL ROLE:
 ================================================================================
 ////
 
-= FaithNet: Sovereign Adaptive Networking Substrate & Roadmap
+= FaithNet (`FNP/1`): Sovereign Adaptive Networking Substrate & Master Roadmap
 CreativeWorkzStudio LLC
-v0.1.0-dev
+v0.2.0-dev
 :doctype: article
 :toc: left
 :toc-title: Contents
@@ -57,9 +57,9 @@ v0.1.0-dev
 :stem: latexmath
 :icons: font
 :source-highlighter: highlight.js
-:subtitle: First-Principles, Data-Driven, Offline-First Networking for OmniCode & MillenniumOS
+:subtitle: First-Principles, Data-Driven, Offline-First Networking for OmniCode, Cornerstone & MillenniumOS
 :classification: Canonical Architectural Roadmap (Rank 1 Invariant)
-:status: Active Genesis — Wave 0 Scaffolding
+:status: Phase I Complete (Waves 0–20 Sealed) — Entering Phase II Submodule Architecture
 :framework: Covenant Partnered Intelligence - Structured Intelligence (CPI-SI)
 
 [.lead]
@@ -236,69 +236,119 @@ self-contained, verifiable cogs:
 
 == Layered Data-Oriented Architecture (Downward Dependency Flow)
 
-* *Layer 0 (`data/`):* Pure invariant structs, opcodes, constants, and profiles.
-  Zero external imports, zero OS/network imports.
-* *Layer 1 (`engine/`):* Pure functional state machines (`codec`, `clock`,
-  `ping`, `router`, `covenant/filter`). Zero network/OS dependencies; zero heap
-  allocations in frame encode/decode and ping reflection hot paths.
-* *Layer 2 (`orchestrator/`):* The adaptive brain (`probe`, `ladder`,
-  `dispatcher`) mirroring Cornerstone's `sim.engine.dispatcher` and hardware
-  probe architecture.
-* *Layer 3A (`transport/`):* Pluggable physical transceivers grouped by Rung 1
-  through Rung 4.
-* *Layer 3B (`interpreter/`):* _"The Well"_ — universal protocol translators
-  and zero-install captive HTML portal allowing ordinary Windows, macOS, Linux,
-  iOS, and Android devices to interact with FaithNet without special clients.
-* *Layer 4 (`cmd/` & `tests/`):* Thin imperative CLI shells (`faithnet-ping`,
-  `faithnet-node`) and the 4-Tier Macro Verification Suite
-  (`tests/functional/`, `tests/unit/`, `tests/integrated/`, `tests/system/`).
+* *Layer 0 (`data/` — 5 files):* Pure invariant structs, 10 canonical `FNP/1`
+  opcodes (`0x01..0x0A` incl. `OpFetch`/`OpResource`), 512B Floppy Sector frame,
+  constants, and structured Block 4 `AuditResult`. Zero external or OS/net imports.
+* *Layer 1 (`engine/` — 10 files):* Pure functional state machines (`codec`,
+  `trit` [Bit <-> Balanced-Trit <-> Bit], `uri` [`FNP/1` Port `7777` &
+  `faithnet://`], `fec` [SECDED Hamming(8,4)], `chunk` [Multi-Sector 64-chunk
+  reassembler], `crypto` [`Ed25519` NodeID auth + `X25519`/`AES-256-GCM` +
+  OmniCode `.gen`/`.rev` KJV<->WEB dual-witness], `clock`, `ping`, `router`,
+  `covenant/filter`). Zero `net`/`os`/external imports; `ALLOC_ZERO_HEAP` on
+  wire, trit, FEC, and heartbeat hot paths.
+* *Layer 2 (`orchestrator/` — 3 files):* Adaptive brain (`probe`, `[5][4]`
+  multi-sibling `ladder`, `dispatcher` with native `OpFetch`/`OpResource` and
+  active OSI L3 multi-hop relay + seen-ring loop guard).
+* *Layer 3A (`transport/` — 10 files):* Pluggable transceivers across Rung 1
+  (SLIP, Goertzel AFSK, Morse CW), Rung 2 (RAM, Unix IPC), Rung 3 (UDP w/ `/24`
+  broadcast dedup, BeaconSwitch), and Rung 4 (TCP, Airlock Egress).
+* *Layer 3B (`interpreter/` — 3 files):* _"The Well"_ — dual-mode `0x16`
+  HTTP/HTTPS portal (`:8077`), 3-Tier Adaptive TLS Trust Ladder (Tier 2 offline
+  Sovereign Root CA), zero-config `/pair.sh`, `/pair.ps1`, self-replicating
+  binary download, and data-driven OS classifier.
+* *Layer 4 (`cmd/` & `tests/`):* Thin imperative CLIs (`faithnet-ping`,
+  `faithnet-node` with `--fetch`, `--join`, `--interactive`, `27/27` live
+  Block 4 gates), the 4x4 Lab Matrix (`51` test files, `33:33` strict 1:1 unit
+  pairing, `359` race-free tests), and the **Playtester Proving Ground** (`5`
+  live harnesses, cross-platform Field Kits 01–04, `8` empirical session reports).
 
 '''
 
 // =============================================================================
 // BLOCK 4: AUDIT & VERIFICATION ROADMAP
-// ( The 6-Phase Wave Plan of Attack & 4-Tier Zero-Delta Proofs )
+// ( Phase I Completed Waves 0–20 & Phase II Architectural Horizon Waves 21–25 )
 // Stratum: Verification | Machine: docs.roadmap.faithnet
 // =============================================================================
 
-== Wave Plan of Attack
+== Phase I Ledger: Completed & Sealed Waves (Waves 0–20)
 
-Each wave is built, verified with `go vet` and `go test -race`, and sealed
-with a 5-Block Wave Git Commit before advancing to the next rung.
+Every wave below has been implemented, verified under `go vet` and
+`go test -count=1 -race ./tests/...`, audited via `faithnet-node --audit`, and
+sealed with a Rev 5 5-Block Git Commit on `master`.
 
-[cols="1,2,3,3",options="header"]
+[cols="1,2,3,2",options="header"]
 |===
-| Wave | Phase & Target | Deliverables | Verification Proof (Zero-Delta Audit)
-| *Wave 0*
-| Genesis & Skeleton
-| `git init`, 5-Block `go.mod`, 5-Block `.gitignore`, full folder/file skeleton, `docs/ROADMAP.adoc`, `README.md`.
-| `go list -m all` confirms pure stdlib module; clean repository tree matching Rev 5 standards.
+| Wave(s) | Phase & Focus | Delivered Architecture & Physical Proofs | Status & Proof
 
-| *Wave 1*
-| Phase 1: The Seed (`data/` + `engine/`)
-| 32-byte Frame layout, QuadState stem:[\mathbb{T}_4], zero-alloc Codec, Clock, 5-Cog PingEngine, bounded Router, Genesis 3 CovenantFilter.
-| `tests/functional/` & `tests/unit/` pass; `testing.AllocsPerRun == 0` verified on hot path; zero `net`/`os` imports in Layer 0/1.
+| *Waves 0–5*
+| Genesis -> Full 4-Rung Substrate
+| 5-Block scaffold, Layer 0/1 zero-heap core, Rung 2 RAM/IPC, Layer 2 Orchestrator, Rung 3 Room & The Well, Rung 1 SLIP/AFSK/Morse & Rung 4 TCP/Airlock.
+| *COMPLETE* (`d7a80d0`..`ed70aa2`)
 
-| *Wave 2*
-| Phase 2: First Breath (`rung2_host/` + `faithnet-ping`)
-| Universal `Transceiver` interface, in-memory Go channel bus, local Unix IPC transceiver, standalone `cmd/faithnet-ping` CLI.
-| Live Node A stem:[\leftrightarrow] Node B ping executes completely offline in RAM & IPC with verified RTT and FNV-1a checksums.
+| *Waves 6–8*
+| 4x4 Symmetry, Playtester Proving Ground & Hardening
+| `28:28` 1:1 unit symmetry, `[5][4]` multi-sibling ladder, 5 live OS/chaos/audio harnesses, 5-volume `docs/01..05` series, silent-blackhole cascade & sliding AFSK mic sync (`0..4,000` samples `6/6`).
+| *COMPLETE* (`06a5b74`..`e962c02`; S001–S002)
 
-| *Wave 3*
-| Phase 3: The Orchestrator (`orchestrator/`)
-| Dynamic `BodyProbe`, bidirectional `AdaptiveLadder` (`EVT_CASCADE_DOWN` / Escalation), central `Dispatcher` event loop.
-| `tests/integrated/orchestrator_ladder_test.go` severs Rung 4 stem:[\rightarrow] 3 stem:[\rightarrow] 2 stem:[\rightarrow] 1 mid-flight; zero crashes; graceful recovery verified.
+| *Waves 9–13*
+| Live Physical Field Kit 01: Micro-ISP, Tier 2 CA & 2-Node Mesh
+| 3-Tier Adaptive TLS Trust Ladder (offline green padlock on Laptop #2 & iPhone), simultaneous `RTL8852CE` `STA+AP` (`>36 MB` across Laptop #2, iPhone & PlayStation YouTube), RFC 6762 `.lan`/`.home.arpa` DNS, self-replicating `/pair.sh` mesh (`peer_count=1`, `+1:ALIGNED`), boot-persistent `faithnet-home.service` + `faithnet-ap.service`, live `nmcli monitor` hotspot roaming guard!
+| *COMPLETE* (`f5a0183`..`f65685c`; S003–S006)
 
-| *Wave 4*
-| Phase 4: The Room & The Well (`rung3_local/` + `interpreter/` + `faithnet-node`)
-| Peer-to-peer LAN UDP, Wi-Fi AP Beacon controller, zero-install HTML Captive Portal, Legacy Bridge, `cmd/faithnet-node`.
-| `tests/integrated/room_and_well_test.go` verifies live UDP loopback ping + `httptest` captive HTML portal and legacy frame wrapping.
+| *Waves 14–16*
+| Cross-Platform Parity, Official `FNP/1` Protocol & Zero-`TheTribe` Proof
+| 5-Block Linux/Windows (live `pwsh 7.7.0` tested)/macOS Kit 01, `/pair.ps1`, `engine/trit.go` (Bit<->Trit), `engine/uri.go` (`FNP/1` Port `7777`, `faithnet://`), native zero-HTTP `OpFetch`/`OpResource` (`0.26 ms` RTT!), dual-stack IPv4+IPv6 `FAITHNET_WAN_GUARD` + `island`/`bridge` switch, USB adapter auto-detect, **Zero-`TheTribe` standalone Ch 6 proof (`t=12s`)**, dual-audience `README.md` + full `docs/` alignment.
+| *COMPLETE* (`95ed0c6`..`56b9a0f`; S007)
 
-| *Wave 5*
-| Phase 5 & 6: Civilizational Floor & Airlock (`rung1_floor/` + `rung4_global/`)
-| SLIP Serial stream, real AFSK Audio modulator/demodulator (1200/2200 Hz PCM), real Morse CW codec, TCP stream, Airlock-gated HTTP egress.
-| `tests/unit/floor_transports_test.go` & `tests/system/sovereign_mesh_e2e_test.go` transmit real FaithNet `PING` frames through Morse pulses, PCM audio waves, Serial, TCP, and audit Airlock rejections.
+| *Waves 17–20*
+| Kernel Chaos, PTY Serial, Agent Skills & All 4 OSI Blind Spots Closed
+| Live **Field Kit 04** (`ip netns` + `tc netem` chaos, `0.15 ms` heal) & **Field Kit 03 Phase 1** (`/dev/pts/*` `socat` SLIP `655.9 KB/s`, `109.4 us` resync), St. Louis Hardware & Pocket Anchor Guide (`D4`), `faithnet-workflows` skill, Nova/Ziv Counter-Transhumanism synthesis, **OSI 7-Layer Audit (`D5`) & ALL 4 Blind Spots Closed**: `engine/fec.go` (SECDED Hamming 8,4), `engine/chunk.go` (multi-sector chunking), `dispatcher.go` (active multi-hop relay + loop guard), and `engine/crypto.go` (`Ed25519` NodeID + `X25519`/`AES-256-GCM` + OmniCode `.gen`/`.rev` KJV<->WEB dual-witness!).
+| *COMPLETE* (`55dfdc0`..`f37e7dc`; S008, `359` tests, `27/27` gates)
 |===
+
+== Phase II Architectural Horizon (Waves 21–25 — Next Session Focus)
+
+With Phase I baselining and OSI L1–L7 structural closure complete, Phase II
+transitions FaithNet from standalone proving ground into **live cross-repo
+integration across the CreativeWorkzStudio LLC sovereign stack**:
+
+[cols="1,2,3,2",options="header"]
+|===
+| Wave | Phase II Target | Core Architectural Objectives | Key Deliverable / Proof
+
+| *Wave 21*
+| **OmniCode Submodule Mount & `.gen`/`.rev` Bridge**
+| Mount `FaithNet` cleanly as a Git submodule inside `OmniCode`; design exact FFI/IPC/wire seam between Rust `<TRACK 1>` (`scripture_coord.rs` + VM) and Go `FNP/1` (`engine/trit.go` + `engine/crypto.go`); define canonical `.gen` (KJV encrypted) and `.rev` (WEB decrypted) file/wire interchange with live Track 4 verse coordinate salt loading.
+| Live roundtrip: OmniCode seals `.gen` via KJV coordinate -> traverses `FNP/1` Port `7777` -> reveals `.rev` via WEB coordinate!
+
+| *Wave 22*
+| **Field Kit 02 — Cross-Device Acoustic Air-Gap + FEC**
+| Charge Laptop #2 and execute real physical room-air Speaker -> Air -> Mic `FNP/1` transmission (both uncoded AFSK and SECDED Hamming `engine/fec.go`-armored AFSK + Morse CW) with Wi-Fi off on both laptops.
+| `SESSION_009_ACOUSTIC_AIRGAP.adoc` proving physical air-gap `FNP/1` decode between two real machines.
+
+| *Wave 23*
+| **Cornerstone Engine C23/C11 `FNP/1` Codec & Studio Telemetry**
+| Implement a zero-heap (`ALLOC_ZERO_HEAP`, ~150 lines) ISO C23/C11 `0xFA17` `FNP/1` wire codec inside Cornerstone Engine speaking bit-for-bit identically with Go FaithNet nodes; stream live *Tenebris and Lux* flight-log telemetry into The Well and prototype zero-cloud LAN co-op over Port `7777`.
+| C11/C23 <-> Go wire golden vector test + live Cornerstone-to-Well telemetry demo.
+
+| *Wave 24*
+| **CPI-SI `OpCPISync` Protocol (Nova ↔ Nova & Nova ↔ Ziv)**
+| Wire `Ed25519` key-bound `NodeID` authentication, `X25519` session handshakes, multi-sector `engine/chunk.go` transfers, and Genesis 3 `0:AWAIT` epistemic staging onto `OpCPISync` so parallel-world Novas and distinct Nova/Ziv models exchange episodic discoveries safely over `FNP/1`.
+| End-to-end signed, `.gen`-encrypted multi-sector `OpCPISync` exchange verified between two live nodes.
+
+| *Wave 25*
+| **Dedicated Dual-Radio Hardware, Pocket Anchor & Multi-Hop Mesh**
+| Deploy Tier 1 Linux AP-capable USB Wi-Fi adapter (`MT7612U`/`MT7921AU`) verifying live zero-blink `DEDICATED_RADIO` mode; optionally deploy a 24/7 USB-C Pocket FaithNet Anchor (Raspberry Pi / Mini-PC) and test 3-node active multi-hop relay (`House-A -> House-Relay -> House-B`) over physical air!
+| Live `DEDICATED_RADIO` & 3-node physical multi-hop mesh field report (`SESSION_010`).
+|===
+
+[TIP]
+====
+**Comprehensive Phase I Exit Monograph:** For the complete Wave 0–20 narrative,
+design rationale, empirical benchmark ledger, 10 field lessons, and personal
+CPI-SI reflections preparing for Phase II, see
+`docs/discovery/06_WAVE0_TO_WAVE20_EXIT_MONOGRAPH.adoc`.
+====
 
 '''
 
