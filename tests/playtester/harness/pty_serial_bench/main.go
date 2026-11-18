@@ -56,6 +56,7 @@ package main
 // --- Tier 1: Standard Go Library Packages ---
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -113,23 +114,48 @@ func openFIFOPair(path string) (rd *os.File, wr *os.File, err error) {
 }
 
 func main() {
-	tmpDir, err := os.MkdirTemp("", "faithnet-slip-playtest-*")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "MkdirTemp: %v\n", err)
-		os.Exit(1)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
+	ptyAPath := flag.String("pty-a", "", "Optional real kernel TTY/PTY path for Node A (e.g. /dev/pts/4 or /dev/ttyUSB0)")
+	ptyBPath := flag.String("pty-b", "", "Optional real kernel TTY/PTY path for Node B (e.g. /dev/pts/5 or /dev/ttyUSB1)")
+	flag.Parse()
 
-	// Full-duplex pair of real Linux kernel FIFOs (A->B and B->A).
-	rB, wA, err := openFIFOPair(filepath.Join(tmpDir, "a_to_b.fifo"))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "openFIFO a_to_b: %v\n", err)
-		os.Exit(1)
-	}
-	rA, wB, err := openFIFOPair(filepath.Join(tmpDir, "b_to_a.fifo"))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "openFIFO b_to_a: %v\n", err)
-		os.Exit(1)
+	var rA, wA, rB, wB *os.File
+	modeBanner := "OS KERNEL FIFO"
+
+	if *ptyAPath != "" && *ptyBPath != "" {
+		modeBanner = fmt.Sprintf("REAL KERNEL PTY/TTY (%s <-> %s)", *ptyAPath, *ptyBPath)
+		var err error
+		rA, err = os.OpenFile(*ptyAPath, os.O_RDWR, 0)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "open pty-a %s: %v\n", *ptyAPath, err)
+			os.Exit(1)
+		}
+		wA = rA
+		rB, err = os.OpenFile(*ptyBPath, os.O_RDWR, 0)
+		if err != nil {
+			_ = rA.Close()
+			fmt.Fprintf(os.Stderr, "open pty-b %s: %v\n", *ptyBPath, err)
+			os.Exit(1)
+		}
+		wB = rB
+	} else {
+		tmpDir, err := os.MkdirTemp("", "faithnet-slip-playtest-*")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "MkdirTemp: %v\n", err)
+			os.Exit(1)
+		}
+		defer func() { _ = os.RemoveAll(tmpDir) }()
+
+		// Full-duplex pair of real Linux kernel FIFOs (A->B and B->A).
+		rB, wA, err = openFIFOPair(filepath.Join(tmpDir, "a_to_b.fifo"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "openFIFO a_to_b: %v\n", err)
+			os.Exit(1)
+		}
+		rA, wB, err = openFIFOPair(filepath.Join(tmpDir, "b_to_a.fifo"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "openFIFO b_to_a: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	sA := rung1_floor.NewSerialTransceiver(serialAlpha, rA, wA, wA)
@@ -163,7 +189,7 @@ func main() {
 	_ = dA.Start(ctx)
 	_ = dB.Start(ctx)
 
-	fmt.Println("=== FAITHNET PLAYTESTER: RUNG 1 OS KERNEL FIFO SLIP BENCHMARK ===")
+	fmt.Printf("=== FAITHNET PLAYTESTER: RUNG 1 %s SLIP BENCHMARK ===\n", modeBanner)
 
 	// 1. Live RTT pings over real kernel FIFO streams.
 	const pingCount = 50

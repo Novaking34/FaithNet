@@ -1,0 +1,178 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/discovery/04_STL_HARDWARE_SOURCING_AND_FIELD_PLAN.adoc
+@id            docs.discovery.04_stl_hardware_sourcing
+@layer         Layer 5: Discovery Documentation Series (Volume D4)
+@archetype     discovery | hardware_sourcing_and_field_plan
+@version       0.2.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet St. Louis Local Hardware Sourcing & Field Plan of Attack
+@role          Priority-Tiered Hardware Guide & St. Louis Local Store Sourcing
+@maturity      Rev 5 Baseline | Wave 17 Physical Hardware Plan of Attack
+@seams         in: docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc | exports: shopping & test plan
+@invariants    1. Clear separation between REQUIRED vs. OPTIONAL hardware.
+               2. Exact Linux driver/chipset compatibility guidance before buying.
+               3. Verified St. Louis metropolitan local storefronts + online fallbacks.
+
+PURPOSE & ARCHITECTURAL ROLE:
+  Answers Seanje's practical question ("Do I need walkie-talkies and TTL cables,
+  and where in the St. Louis area can I source materials?") with a prioritized,
+  budget-conscious, zero-waste Plan of Attack—so every dollar spent unlocks a
+  real physical capability for CreativeWorkzStudio LLC and FaithNet.
+================================================================================
+////
+= Discovery 04: St. Louis Hardware Sourcing Guide & Physical Field Plan of Attack
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.2.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / DO YOU ACTUALLY NEED WALKIE-TALKIES & TTL CABLES?
+// =============================================================================
+
+toc::[]
+
+== Straight Answer First: What Is Required vs. Optional?
+
+[IMPORTANT]
+====
+**You do NOT need walkie-talkies or USB-TTL cables to build, run, or daily-drive
+FaithNet!**  
+Everything proven in Field Kit 01 (persistent `FaithNet-HomeRoom` Micro-ISP,
+`FNP/1` Port `7777` zero-HTTP fetching, The Well `:8077`, dual-stack IPv4+IPv6
+WAN firewall, and Zero-`TheTribe` standalone offline mode) **already works on
+the two laptops you own today with \$0 extra hardware.**
+====
+
+External hardware only enters the picture when you want to unlock **specific
+physical upgrades**:
+
+1. **Zero-Blink Wireless Dual-Radio Bridge (Since Your Router Is Upstairs):**
+   Right now your laptop uses 1 Wi-Fi radio (`RTL8852CE`) for both upstream
+   `TheTribe` and `FaithNet-HomeRoom`. Adding **1 Linux AP-capable USB Wi-Fi
+   adapter** gives `FaithNet-HomeRoom` its own dedicated physical radio—so it
+   never blinks during upstream roaming or 5 GHz DFS hotspots.
+2. **Physical Rung 1 Copper Wire Proof (Field Kit 03 — Optional):**
+   Two inexpensive USB-to-TTL serial adapters + jumper wires let you physically
+   yank a copper wire mid-transmission and watch RFC 1055 SLIP resync live.
+3. **Physical Rung 1 Analog Radio "Across the Street" Proof (Field Kit 03 — Optional):**
+   Two license-free **FRS walkie-talkies** + audio cables let you transmit real
+   `FNP/1` AFSK/Morse frames across walls or down the street with zero Wi-Fi
+   and zero cell towers.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / PRIORITY-TIERED PLAN OF ATTACK & ST. LOUIS STORES
+// =============================================================================
+
+== Priority-Tiered Plan of Attack (Buy Only When Ready!)
+
+[cols="1,2,2,2,2", options="header"]
+|===
+| Tier | Hardware Item | Why / What It Unlocks | Approx. Cost | Best St. Louis Local Source
+
+| **Tier 1** *(Best First Upgrade)*
+| **1x Linux AP-Capable USB Wi-Fi Adapter** *(MediaTek `MT7612U`, `MT7921AU`, or Atheros `AR9271`)*
+| Activates `DEDICATED_RADIO` mode automatically in `faithnet-ap-daemon.sh`! Zero-blink `FaithNet-HomeRoom` downstairs while `wlp3s0` talks to upstairs Wi-Fi or hotspot.
+| **\$18 – \$35**
+| **Micro Center St. Louis (Brentwood)** *(Networking Aisle — check online pickup stock first!)* or online (Panda Wireless / Alfa / BrosTrend Linux).
+
+| **Tier 2** *(Field Kit 03 Copper Wire)*
+| **2x USB-to-TTL Serial Adapters** (`FTDI FT232RL` or `CP2102`, 3.3V/5V) + **1x Female-to-Female Jumper Wire Pack**
+| True physical copper `TX->RX`, `RX->TX`, `GND->GND` serial link (`/dev/ttyUSB0`) for Rung 1 SLIP cable-pull testing.
+| **\$15 – \$25** total
+| **Micro Center St. Louis (Brentwood)** *(Back-right DIY / Maker / Raspberry Pi & Arduino section)*.
+
+| **Tier 3** *(Field Kit 03 Radio / "Across the Street")*
+| **2x License-Free FRS Walkie-Talkies** (with VOX + headset jack, e.g. Motorola Talkabout T200/T260 or Midland T51) + **2x 3.5mm Audio Cables**
+| Real analog RF transmission over 1200/2400 Hz AFSK & Morse CW across walls/neighborhood—**zero FCC license required!**
+| **\$35 – \$60** pair
+| **Walmart, Target, Best Buy, Academy Sports, or Bass Pro Shops (St. Charles)** for FRS pairs; **Micro Center Brentwood** for 3.5mm cables.
+
+| **Tier 4** *(Future 24/7 Studio Anchor)*
+| **1x Dedicated Mini-PC or Single-Board Computer** (e.g., Raspberry Pi 4/5 or x86 Mini-PC)
+| Always-on 24/7 CreativeWorkzStudio `FaithNet-HomeRoom` anchor so your primary dev laptop can leave the house while the room stays live.
+| **\$45 – \$90**
+| **Micro Center St. Louis (Brentwood)** *(DIY / SBC section)*.
+|===
+
+== Verified St. Louis Metro Local Storefronts
+
+=== Primary Hub: Micro Center St. Louis (Brentwood, MO)
+* **Address:** `87 Brentwood Promenade Ct., Brentwood, MO 63144`
+* **Phone:** `(314) 252-3961`
+* **Hours:** Mon–Sat `10:00 AM – 9:00 PM` | Sun `11:00 AM – 6:00 PM`
+* **What to grab in ONE trip:** USB Wi-Fi adapter (Networking aisle), 2x USB-to-TTL serial boards + female-to-female jumper wires (Back-right DIY/Maker/Pi aisle), and 3.5mm audio cables.
+* **Pro Tip:** Use Micro Center's website **"In-Store Pickup" (18-minute hold)** before driving to Brentwood Promenade so you confirm exact stock and chipset before walking in.
+
+=== Local St. Louis Electronics & Radio Notes (Honest 2026 Landscape)
+* **Classic Component Shops:** Legacy St. Louis walk-in shops (*Gateway Electronics* and *Electronics Exchange*) have permanently closed—Micro Center Brentwood is now the #1 local walk-in electronics/maker hub in the metro area.
+* **Walkie-Talkies (FRS — License-Free):** No dedicated ham storefront exists inside St. Louis city limits anymore (nearest full ham showroom is Associated Radio in Overland Park, KS). For license-free FRS walkie-talkies, local **Walmart, Target, Best Buy, Academy Sports, or Bass Pro Shops (St. Charles)** stock Motorola/Midland pairs off the shelf.
+* **Local Radio Community:** If CreativeWorkzStudio ever expands into licensed GMRS or amateur packet radio later, the **St. Louis & Suburban Radio Club (SLSRC)** hosts local meetups and gear swaps across the metro area.
+* **Online Specialist Fallbacks (When Exact Chipset Matters):** **DigiKey**, **Mouser**, or **Amazon/Alfa/Panda Wireless** when you want a guaranteed mainline-Linux `MT7612U` / `MT7921AU` USB Wi-Fi chipset or exact audio isolation transformers.
+
+[WARNING]
+====
+**Critical Linux Chipset Check Before Buying a Tier 1 USB Wi-Fi Adapter:**  
+Many cheap retail USB Wi-Fi dongles use locked-down Realtek chipsets that require
+out-of-tree DKMS drivers or do **not** support Linux `nl80211` AP mode!  
+Before buying at Micro Center or online, confirm the chipset is **mainline Linux
+kernel supported with AP mode**:
+
+* **Best Picks (Plug-and-Play on Ubuntu Linux 7.0, Zero Drivers Needed):**
+  * **MediaTek `MT7612U`** (Dual-band AC1200, rock-solid `mt76x2u` in-kernel AP mode — e.g., Alfa AWUS036ACM, BrosTrend AC1L/AC3L Linux edition, Netgear A6210).
+  * **MediaTek `MT7921AU`** (Wi-Fi 6E, in-kernel `mt7921u`).
+  * **Atheros `AR9271`** (2.4 GHz workhorse, in-kernel `ath9k_htc` — e.g., Panda Wireless PAU05/PAU06/PAU09).
+====
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / INSTANT POST-PURCHASE HARDWARE VERIFICATION
+// =============================================================================
+
+== Instant Verification Commands Once Hardware Arrives
+
+[%collapsible]
+.Expand: Step-by-Step Verification Checklist for Tier 1 & Tier 2 Hardware
+====
+[source,bash]
+----
+# 1. After plugging in your Tier 1 USB Wi-Fi Adapter (ZERO config edits needed!):
+faithnet-netctl adapters                 # Should report "2 physical Wi-Fi radios detected!"
+sudo systemctl restart faithnet-ap       # Auto-switches to DEDICATED_RADIO mode!
+faithnet-netctl status                   # Confirm "Radio Mode: DEDICATED_RADIO"
+
+# 2. After plugging in Tier 2 USB-to-TTL Serial Adapter(s):
+ls -l /dev/ttyUSB* /dev/ttyACM*          # Confirm kernel enumerates CP2102 / FT232RL
+dmesg | tail -n 15                       # Verify clean USB serial attach
+----
+====
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / PHASED ORDER OF EXECUTION
+// =============================================================================
+
+== Recommended Order of Attack (Zero Rushing, Maximum Signal)
+
+1. **Today (Zero Extra Cost, Laptop #1 Solo):** Run **Field Kit 04** (isolated
+   Linux kernel `ip netns` + `tc netem` chaos) and **Field Kit 03 Phase 1**
+   (`socat` real Linux kernel `/dev/pts/*` PTY serial).
+2. **Next (Once Laptop #2 Is Charged, Zero Extra Cost):** Run **Field Kit 02**
+   (real physical speaker -> room air -> microphone AFSK/Morse between Laptop #1
+   and Laptop #2!).
+3. **First Hardware Purchase (Whenever Convenient — Brentwood Trip):** Pick up
+   1x **Tier 1 Linux AP-capable USB Wi-Fi adapter** so your downstairs laptop
+   becomes a zero-blink wireless `DEDICATED_RADIO` Sovereign Micro-ISP!
+4. **Optional Later Fun (Brentwood / Local Retail):** Add Tier 2 USB-TTL copper
+   wires and Tier 3 FRS walkie-talkies to physically prove Rung 1 "Across the
+   Room" and "Across the Street" civilizational floor links.
+
+// End of docs/discovery/04_STL_HARDWARE_SOURCING_AND_FIELD_PLAN.adoc

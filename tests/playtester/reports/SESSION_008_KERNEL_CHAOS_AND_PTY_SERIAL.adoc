@@ -1,0 +1,142 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_008_KERNEL_CHAOS_AND_PTY_SERIAL.adoc
+@id            playtest.report.session_008
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 008 Report)
+@archetype     report | field_kit_04_and_kit_03_phase1
+@version       0.2.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Field Kit 04 (Kernel Chaos) & Field Kit 03 Phase 1 (PTY Serial)
+@role          Live Single-Laptop Kernel netns/tc netem Chaos & Real /dev/pts/* SLIP Proof
+@maturity      Rev 5 Baseline | Wave 17 Field Kit 04 & Kit 03 Phase 1 Complete
+================================================================================
+////
+= Playtest Session 008: Field Kit 04 (Kernel `netns`/`tc netem`) & Field Kit 03 Phase 1 (`socat` PTY Serial)
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.2.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / SINGLE-LAPTOP KERNEL PROVING GROUND
+// =============================================================================
+
+toc::[]
+
+== Independence of Field Kits & Scope
+
+All four FaithNet Field Kits are completely independent physical arenas. While
+Laptop #2 recharged for Field Kit 02 (cross-device room-air acoustics), we
+executed both single-laptop kernel Field Kits live on Laptop #1
+(`professorseanex-Inspiron-16-5640`, Linux `7.0.0-43-generic`, Go `1.26.8`):
+
+1. **Field Kit 04 — Isolated Linux Kernel `ip netns` + `tc netem` Chaos:**
+   Real `faithnet-node` binaries running zero-HTTP `FNP/1` (`OpFetch` ->
+   `OpResource` on Port `7777/udp`) across isolated kernel network namespaces
+   (`fn_a` `10.77.0.1` <-> `fn_b` `10.77.0.2`) under real kernel `tc netem`
+   delay, jitter, packet loss, bit-corruption, and 100% total blackout.
+2. **Field Kit 03 (Phase 1) — Real Linux Kernel PTY Serial (`socat` + `stty raw`):**
+   Rung 1 Civilizational Floor `SerialTransceiver` (RFC 1055 SLIP) executing
+   across real kernel `/dev/pts/3 <-> /dev/pts/4` TTY devices with worst-case
+   `0xC0`/`0xDB` escape stuffing and mid-stream corrupt cable-glitch injection.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / EMPIRICAL KERNEL TELEMETRY
+// =============================================================================
+
+== Field Kit 04 Results (`run_netns_chaos.sh` — `fn_a` <-> `fn_b`)
+
+[cols="2,3,1", options="header"]
+|===
+| Kernel Chaos Stage | Observed Real Linux Kernel Telemetry | Verdict
+
+| **Stage 1: Clean Isolated Kernel `veth`**
+| ICMP `3/3` (`0%` loss, `avg = 0.089 ms`); live zero-HTTP `FNP/1`
+  `OpFetch /status` (`185 B`) -> **`0.53 ms` RTT**.
+| **PASS**
+
+| **Stage 2: Bidirectional `tc netem` Storm** +
+  (`delay 80ms +-20ms, loss 20%, corrupt 5%` on BOTH ends)
+| Expected round-trip survival `~56%`, expected RTT `~160 ms`. Observed:
+  **`4/10` intact deliveries (`143.50–174.13 ms` RTT)**, **`0` corrupted
+  frames leaked** past FNV-1a, `0` crashes.
+| **PASS**
+
+| **Stage 3: 100% Total Kernel Blackout** +
+  (`tc netem loss 100%`)
+| Clean bounded timeout (`600 ms`) with **0 hang and 0 node crash**.
+| **PASS**
+
+| **Stage 4: Instant Kernel Recovery** +
+  (`tc qdisc del`)
+| Immediate zero-HTTP `FNP/1` `OpFetch /well` (`233 B`, `Kit04-Anchor`)
+  succeeded in **`0.15 ms` RTT**! Ephemeral namespaces deleted cleanly; host
+  `wlp3s0` & `ap0` 100% untouched.
+| **PASS**
+|===
+
+== Field Kit 03 Phase 1 Results (`run_socat_pty_serial.sh` — `/dev/pts/3 <-> /dev/pts/4`)
+
+[cols="2,3,1", options="header"]
+|===
+| Kernel PTY Serial Check | Observed Real `/dev/pts/*` TTY Telemetry | Verdict
+
+| **Raw Kernel TTY Allocation & Discipline**
+| `socat` allocated `/dev/pts/3 <-> /dev/pts/4`; configured `stty raw -echo
+  -echoe -echok` on both kernel TTYs.
+| **PASS**
+
+| **Rung 1 SLIP Echo Pings (`50` frames)**
+| **`50/50` OK (`0%` loss)** — avg RTT = **`194.6 us`** (vs. `130.6 us` on
+  raw kernel FIFOs — `+64 us` real Linux TTY line-discipline overhead).
+| **PASS**
+
+| **Worst-Case 512B Escape Burst (`200` frames)** +
+  (Payload stuffed with literal `0xC0` & `0xDB`)
+| **`200/200` frames (`96,000` payload bytes)** in **`142.93 ms`** =
+  **`655.9 KB/s` (`5.37 Mbps`)** across real Linux kernel TTYs!
+| **PASS**
+
+| **Mid-Stream Cable-Glitch Resync**
+| Injected `10 B` corrupt burst (`0xDE AD BE EF ...`) straight into raw TTY ->
+  next sovereign ping **automatically resynced on `RUNG_1_FLOOR` in `109.4 us`**!
+| **PASS**
+|===
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / REPRODUCIBILITY COMMANDS
+// =============================================================================
+
+== Reproducing Session 008 (Single Laptop, Zero Host Mutation)
+
+[source,bash]
+----
+# Field Kit 04 (isolated Linux kernel netns + tc netem storm & blackout):
+./tests/playtester/field_kits/04_kernel_chaos_netns/run_netns_chaos.sh
+
+# Field Kit 03 Phase 1 (real Linux kernel /dev/pts/* PTY serial SLIP):
+./tests/playtester/field_kits/03_copper_serial_rf_kit/run_socat_pty_serial.sh
+----
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SESSION 008 SIGN-OFF
+// =============================================================================
+
+== Session 008 Sign-Off
+
+With **Field Kit 01**, **Field Kit 04**, and **Field Kit 03 (Phase 1)** all
+empirically verified live on real Linux kernel interfaces, the next physical
+field milestone is **Field Kit 02 (Acoustic Air-Gap)** between Laptop #1 and
+Laptop #2 once Laptop #2 is charged—plus optional St. Louis hardware upgrades
+documented in `docs/discovery/04_STL_HARDWARE_SOURCING_AND_FIELD_PLAN.adoc`.
+
+// End of tests/playtester/reports/SESSION_008_KERNEL_CHAOS_AND_PTY_SERIAL.adoc
