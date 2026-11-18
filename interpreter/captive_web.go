@@ -153,6 +153,24 @@ type WellTLSOptions struct {
 	CADir    string // Tier 2: Persistent local Sovereign Root CA directory
 }
 
+// WellPairOptions configures zero-config sovereign peer pairing served directly
+// by The Well (`/api/pair`, `/pair.sh`, and `/download/faithnet-node`).
+type WellPairOptions struct {
+	AnchorUDPPort string // Local Rung 3 UDP port peers should join (default "7777")
+	BinaryPath    string // Optional compiled faithnet-node path for self-replication
+}
+
+// WellPairPayload is the JSON handshake payload served at `GET /api/pair`.
+type WellPairPayload struct {
+	AnchorID       string `json:"anchor_id"`
+	AnchorLabel    string `json:"anchor_label"`
+	AnchorUDP      string `json:"anchor_udp"`
+	AssignedNodeID string `json:"assigned_node_id"`
+	BinaryURL      string `json:"binary_url"`
+	PairScriptURL  string `json:"pair_script_url"`
+	OneLiner       string `json:"one_liner"`
+}
+
 // WellServer hosts FaithNet's zero-install local HTML captive portal.
 //
 // ### For Architects, Operators & Non-Programmers:
@@ -179,6 +197,8 @@ type WellServer struct {
 	listener   net.Listener
 	mux        *http.ServeMux
 	tlsOpts    WellTLSOptions
+	pairOpts   WellPairOptions
+	nextPairID atomic.Uint64
 	tlsTier    string
 	rootCAPEM  []byte
 }
@@ -381,6 +401,132 @@ func (w *WellServer) SetTLSOptions(opts WellTLSOptions) {
 	w.srvMu.Unlock()
 }
 
+// SetPairOptions enables one-command sovereign peer pairing and self-replicating
+// binary download directly from The Well (`/api/pair`, `/pair.sh`, `/download/faithnet-node`).
+//
+// ### For Architects, Operators & Non-Programmers:
+// Lets a running FaithNet laptop hand a copy of itself and auto-generated join
+// configuration to any nearby laptop over Wi-Fi with one copy-paste command.
+//
+// ### For Systems Programmers & Engine Architects:
+// Mutex-guarded pairing configuration setter with atomic unique NodeID allocation.
+func (w *WellServer) SetPairOptions(opts WellPairOptions) {
+	if opts.AnchorUDPPort == "" {
+		opts.AnchorUDPPort = "7777"
+	}
+	w.srvMu.Lock()
+	w.pairOpts = opts
+	w.srvMu.Unlock()
+}
+
+func (w *WellServer) allocatePeerNodeID() data.NodeID {
+	selfID := uint64(w.dispatcher.Manifest().ID)
+	for {
+		n := w.nextPairID.Add(1)
+		candidate := uint64(0xFA17000000000001) + n
+		if candidate != selfID {
+			return data.NodeID(candidate)
+		}
+	}
+}
+
+func (w *WellServer) buildPairPayload(r *http.Request) WellPairPayload {
+	w.srvMu.Lock()
+	pOpts := w.pairOpts
+	w.srvMu.Unlock()
+	udpPort := pOpts.AnchorUDPPort
+	if udpPort == "" {
+		udpPort = "7777"
+	}
+
+	hostPort := r.Host
+	if hostPort == "" {
+		hostPort = w.ListenAddr()
+	}
+	hostOnly := hostPort
+	if h, _, err := net.SplitHostPort(hostPort); err == nil && h != "" {
+		hostOnly = h
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, hostPort)
+	m := w.dispatcher.Manifest()
+	assigned := w.allocatePeerNodeID()
+
+	pairURL := baseURL + "/pair.sh"
+	oneLiner := fmt.Sprintf("curl -fsSL %s | sh", pairURL)
+	if scheme == "https" {
+		oneLiner = fmt.Sprintf("curl -fsSLk %s | sh", pairURL)
+	}
+	return WellPairPayload{
+		AnchorID:       m.ID.String(),
+		AnchorLabel:    m.Label,
+		AnchorUDP:      net.JoinHostPort(hostOnly, udpPort),
+		AssignedNodeID: assigned.String(),
+		BinaryURL:      baseURL + "/download/faithnet-node",
+		PairScriptURL:  pairURL,
+		OneLiner:       oneLiner,
+	}
+}
+
+func (w *WellServer) handlePairJSON(rw http.ResponseWriter, r *http.Request) {
+	payload := w.buildPairPayload(r)
+	rw.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(rw).Encode(payload)
+}
+
+func (w *WellServer) handlePairScript(rw http.ResponseWriter, r *http.Request) {
+	p := w.buildPairPayload(r)
+	curlFlags := "-fsSL"
+	if strings.HasPrefix(p.BinaryURL, "https://") {
+		curlFlags = "-fsSLk"
+	}
+	script := fmt.Sprintf(`#!/bin/sh
+set -eu
+echo "=== FaithNet Zero-Config Sovereign Node Pairing ==="
+echo "Anchor : %s (%s) at %s"
+echo "NodeID : %s"
+DEST="/tmp/faithnet-node"
+echo "[1/2] Downloading self-contained native faithnet-node binary..."
+curl %s "%s" -o "${DEST}"
+chmod +x "${DEST}"
+LABEL="$(hostname 2>/dev/null || echo FaithNet-Peer)"
+echo "[2/2] Pairing '${LABEL}' (%s) with Anchor %s..."
+if [ -r /dev/tty ]; then
+  exec "${DEST}" --id=%s --label="${LABEL}" --udp=0.0.0.0:7777 --join="%s" --join-id=%s --beacon --interactive </dev/tty
+else
+  exec "${DEST}" --id=%s --label="${LABEL}" --udp=0.0.0.0:7777 --join="%s" --join-id=%s --beacon
+fi
+`, p.AnchorLabel, p.AnchorID, p.AnchorUDP, p.AssignedNodeID,
+		curlFlags, p.BinaryURL,
+		p.AssignedNodeID, p.AnchorUDP,
+		p.AssignedNodeID, p.AnchorUDP, p.AnchorID,
+		p.AssignedNodeID, p.AnchorUDP, p.AnchorID)
+
+	rw.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+	_, _ = rw.Write([]byte(script))
+}
+
+func (w *WellServer) handleDownloadBinary(rw http.ResponseWriter, r *http.Request) {
+	w.srvMu.Lock()
+	binPath := w.pairOpts.BinaryPath
+	w.srvMu.Unlock()
+
+	if binPath == "" {
+		http.Error(rw, "Self-replicating binary download not enabled on this node", http.StatusNotFound)
+		return
+	}
+	if _, err := os.Stat(binPath); err != nil {
+		http.Error(rw, "Binary unavailable on host", http.StatusNotFound)
+		return
+	}
+	rw.Header().Set("Content-Type", "application/octet-stream")
+	rw.Header().Set("Content-Disposition", `attachment; filename="faithnet-node"`)
+	http.ServeFile(rw, r, binPath)
+}
+
 // TLSTrustTier reports the active TLS trust tier ("TIER_3_PUBLIC_PEM",
 // "TIER_2_SOVEREIGN_CA", "TIER_1_EPHEMERAL", or "UNSTARTED").
 //
@@ -449,8 +595,18 @@ func (w *WellServer) handleHomeHTML(rw http.ResponseWriter, r *http.Request) {
 	sb.WriteString("</ul>")
 	w.srvMu.Lock()
 	hasCA := len(w.rootCAPEM) > 0
+	hasBin := w.pairOpts.BinaryPath != ""
 	tier := w.tlsTier
 	w.srvMu.Unlock()
+	if hasBin {
+		hostPort := r.Host
+		if hostPort == "" {
+			hostPort = w.ListenAddr()
+		}
+		sb.WriteString(`<hr><h3>Pair Another Linux Device (Zero-Config Auto-Join)</h3><pre>curl -fsSL http://`)
+		sb.WriteString(html.EscapeString(hostPort))
+		sb.WriteString(`/pair.sh | sh</pre>`)
+	}
 	if hasCA {
 		sb.WriteString(`<hr><p><small>TLS Trust: `)
 		sb.WriteString(html.EscapeString(tier))
@@ -680,6 +836,9 @@ func NewWellServer(disp *orchestrator.Dispatcher, listenAddr string) *WellServer
 	w.mux.HandleFunc("/", w.handleHomeHTML)
 	w.mux.HandleFunc("/api/status", w.handleStatus)
 	w.mux.HandleFunc("/api/message", w.handlePostMessage)
+	w.mux.HandleFunc("/api/pair", w.handlePairJSON)
+	w.mux.HandleFunc("/pair.sh", w.handlePairScript)
+	w.mux.HandleFunc("/download/faithnet-node", w.handleDownloadBinary)
 	w.mux.HandleFunc("/faithnet-root-ca.crt", w.handleRootCADownload)
 	w.mux.HandleFunc("/generate_204", w.handleCaptiveRedirect)
 	w.mux.HandleFunc("/hotspot-detect.html", w.handleCaptiveRedirect)

@@ -34,7 +34,8 @@ RestartSec=3
 WantedBy=default.target
 EOF
 
-echo "[3/3] Reloading and starting persistent faithnet-home.service..."
+echo "[3/3] Reloading and restarting persistent faithnet-home.service..."
 systemctl --user daemon-reload
-systemctl --user enable --now faithnet-home.service
+systemctl --user enable faithnet-home.service
+systemctl --user restart faithnet-home.service
 systemctl --user --no-pager status faithnet-home.service | head -n 16

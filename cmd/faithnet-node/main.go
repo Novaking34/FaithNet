@@ -121,6 +121,8 @@ type NodeCLIOptions struct {
 	Label             string
 	UDPAddr           string
 	BroadcastAddr     string
+	JoinAddr          string
+	JoinID            uint64
 	WellAddr          string
 	TLSCertFile       string
 	TLSKeyFile        string
@@ -196,6 +198,16 @@ func runSovereignNode(opts NodeCLIOptions) error {
 				return fmt.Errorf("invalid --broadcast-addr %s: %w", bcastTarget, err)
 			}
 		}
+		if opts.JoinAddr != "" {
+			anchorID := data.NodeID(opts.JoinID)
+			if !anchorID.IsValid() || anchorID.IsBroadcast() {
+				anchorID = data.NodeID(DefaultNodeID)
+			}
+			if err := udpTx.RegisterPeer(anchorID, opts.JoinAddr); err != nil {
+				_ = udpTx.Close()
+				return fmt.Errorf("invalid --join address %s: %w", opts.JoinAddr, err)
+			}
+		}
 		if err := disp.Ladder().RegisterRung(udpTx); err != nil {
 			_ = udpTx.Close()
 			return err
@@ -231,7 +243,8 @@ func runSovereignNode(opts NodeCLIOptions) error {
 		fmt.Println(beacon.ExecuteBeaconDumpCard())
 	}
 
-	// Optional Well captive HTML portal (with 3-Tier Adaptive TLS Trust Ladder).
+	// Optional Well captive HTML portal (with 3-Tier Adaptive TLS Trust Ladder
+	// and zero-config sovereign peer pairing + self-replicating binary download).
 	var well *interpreter.WellServer
 	if opts.EnableWell {
 		well = interpreter.NewWellServer(disp, opts.WellAddr)
@@ -239,6 +252,17 @@ func runSovereignNode(opts NodeCLIOptions) error {
 			CertFile: opts.TLSCertFile,
 			KeyFile:  opts.TLSKeyFile,
 			CADir:    opts.TLSCADir,
+		})
+		udpPort := "7777"
+		if udpTx != nil {
+			if _, p, splitErr := net.SplitHostPort(udpTx.Addr()); splitErr == nil && p != "" {
+				udpPort = p
+			}
+		}
+		exePath, _ := os.Executable()
+		well.SetPairOptions(interpreter.WellPairOptions{
+			AnchorUDPPort: udpPort,
+			BinaryPath:    exePath,
 		})
 		if !opts.ProbeOnly {
 			if err := well.Start(); err != nil {
@@ -308,6 +332,28 @@ func runSovereignNode(opts NodeCLIOptions) error {
 
 	fmt.Printf("FaithNet node %q (%s) online on %s. Press Ctrl-C to stop.\n",
 		manifest.Label, manifest.ID.String(), disp.Ladder().ActiveRung().String())
+
+	// If --join was supplied, execute immediate unicast Anchor handshake!
+	if opts.JoinAddr != "" {
+		anchorID := data.NodeID(opts.JoinID)
+		if !anchorID.IsValid() || anchorID.IsBroadcast() {
+			anchorID = data.NodeID(DefaultNodeID)
+		}
+		timeoutMs := opts.PingTimeoutMs
+		if timeoutMs <= 0 {
+			timeoutMs = DefaultLANPingTimeoutMs
+		}
+		pCtx, pCancel := context.WithTimeout(ctx, time.Duration(timeoutMs)*time.Millisecond)
+		rtt, rung, pErr := disp.PingPeer(pCtx, anchorID, []byte("JOIN-HANDSHAKE:"+manifest.Label))
+		pCancel()
+		if pErr != nil {
+			fmt.Printf("[JOIN WARN] Anchor %s (%s) handshake timed out (%v); periodic beacons remain active.\n",
+				anchorID.String(), opts.JoinAddr, pErr)
+		} else {
+			fmt.Printf("[PAIRED] Connected to Anchor %s (%s) on %s | RTT=%.2fms | +1:ALIGNED!\n",
+				anchorID.String(), opts.JoinAddr, rung.String(), float64(rtt)/1e6)
+		}
+	}
 
 	if opts.Interactive {
 		runInteractiveREPL(ctx, stop, disp, beacon, well, manifest, opts.PingTimeoutMs)
@@ -620,6 +666,8 @@ func main() {
 	flag.StringVar(&opts.Label, "label", DefaultNodeLabel, "Human-readable node label")
 	flag.StringVar(&opts.UDPAddr, "udp", rung3_local.DefaultLocalUDPAddr, "Rung 3 Local UDP listen address")
 	flag.StringVar(&opts.BroadcastAddr, "broadcast-addr", "", "Optional LAN UDP broadcast address (auto-detected when --beacon is on)")
+	flag.StringVar(&opts.JoinAddr, "join", "", "Anchor UDP address to pair with automatically (e.g. 10.77.77.1:7777)")
+	flag.Uint64Var(&opts.JoinID, "join-id", DefaultNodeID, "Anchor sovereign 64-bit NodeID for --join pairing")
 	flag.StringVar(&opts.WellAddr, "well-addr", data.DefaultWellListenAddr, "The Well HTML portal listen address")
 	flag.StringVar(&opts.TLSCertFile, "tls-cert", "", "Tier 3 public rollout PEM certificate chain for The Well")
 	flag.StringVar(&opts.TLSKeyFile, "tls-key", "", "Tier 3 public rollout PEM private key for The Well")
