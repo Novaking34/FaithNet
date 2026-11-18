@@ -308,10 +308,15 @@ func (u *UDPTransceiver) Send(target data.NodeID, raw []byte) error {
 	if target.IsBroadcast() {
 		u.mu.RLock()
 		targets := make([]*net.UDPAddr, 0, len(u.peers)+1)
+		bcast := u.broadcastAddr
 		for _, addr := range u.peers {
+			// Avoid transmitting duplicate datagrams when LAN broadcast already
+			// covers peers on the same IPv4 /24 subnet (or global 255.255.255.255).
+			if bcast != nil && coveredByBroadcast(bcast.IP, addr.IP) {
+				continue
+			}
 			targets = append(targets, addr)
 		}
-		bcast := u.broadcastAddr
 		u.mu.RUnlock()
 
 		for _, addr := range targets {
@@ -339,6 +344,18 @@ func (u *UDPTransceiver) Send(target data.NodeID, raw []byte) error {
 	}
 	u.sentCnt.Add(1)
 	return nil
+}
+
+func coveredByBroadcast(bcastIP, peerIP net.IP) bool {
+	b4 := bcastIP.To4()
+	p4 := peerIP.To4()
+	if b4 == nil || p4 == nil {
+		return false
+	}
+	if b4[0] == 255 && b4[1] == 255 && b4[2] == 255 && b4[3] == 255 {
+		return true
+	}
+	return b4[0] == p4[0] && b4[1] == p4[1] && b4[2] == p4[2] && b4[3] == 255
 }
 
 // ------------------------------------------------------------------------------

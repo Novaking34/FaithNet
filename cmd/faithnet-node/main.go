@@ -64,6 +64,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -131,6 +132,7 @@ type NodeCLIOptions struct {
 	PingTimeoutMs     int
 	EnableWell        bool
 	EnableBeacon      bool
+	VerboseBeacons    bool
 	Interactive       bool
 	AllowGlobalEgress bool
 	AuditOnly         bool
@@ -284,12 +286,20 @@ func runSovereignNode(opts NodeCLIOptions) error {
 	defer stop()
 
 	// Forward live incoming peer messages to terminal and The Well (if enabled).
+	// Suppress repetitive periodic [BEACON RX] spam so interactive typing stays clean.
+	var seenMu sync.Mutex
+	seenPeers := make(map[data.NodeID]bool)
 	disp.SetDeliverHandler(func(f *data.Frame, v covenant.Verdict) {
 		switch f.Opcode {
 		case data.OpData, data.OpLegacyWrap:
 			msg := string(f.PayloadSlice())
-			fmt.Printf("\n[RX %s | %s | %s] %s\n",
-				f.Rung.String(), f.SourceID.String(), v.State.String(), msg)
+			if opts.Interactive {
+				fmt.Printf("\r[RX %s | %s | %s] %s\nfaithnet> ",
+					f.Rung.String(), f.SourceID.String(), v.State.String(), msg)
+			} else {
+				fmt.Printf("[RX %s | %s | %s] %s\n",
+					f.Rung.String(), f.SourceID.String(), v.State.String(), msg)
+			}
 			if well != nil {
 				well.RecordBulletin(interpreter.BulletinEntry{
 					Seq:      f.SeqID,
@@ -300,8 +310,19 @@ func runSovereignNode(opts NodeCLIOptions) error {
 				})
 			}
 		case data.OpBeacon:
-			fmt.Printf("[BEACON RX] peer=%s rung=%s info=%q\n",
-				f.SourceID.String(), f.Rung.String(), string(f.PayloadSlice()))
+			seenMu.Lock()
+			firstTime := !seenPeers[f.SourceID]
+			seenPeers[f.SourceID] = true
+			seenMu.Unlock()
+			if firstTime || opts.VerboseBeacons {
+				if opts.Interactive {
+					fmt.Printf("\r[PEER DISCOVERED] peer=%s rung=%s info=%q\nfaithnet> ",
+						f.SourceID.String(), f.Rung.String(), string(f.PayloadSlice()))
+				} else {
+					fmt.Printf("[PEER DISCOVERED] peer=%s rung=%s info=%q\n",
+						f.SourceID.String(), f.Rung.String(), string(f.PayloadSlice()))
+				}
+			}
 		}
 	})
 
@@ -676,6 +697,7 @@ func main() {
 	flag.IntVar(&opts.PingTimeoutMs, "ping-timeout", DefaultLANPingTimeoutMs, "Live LAN ping timeout in milliseconds")
 	flag.BoolVar(&opts.EnableWell, "well", false, "Enable The Well zero-install HTML captive portal")
 	flag.BoolVar(&opts.EnableBeacon, "beacon", false, "Activate Room Beacon switch and periodic LAN OpBeacon discovery")
+	flag.BoolVar(&opts.VerboseBeacons, "verbose-beacons", false, "Log every periodic 3s beacon instead of announcing each peer once")
 	flag.BoolVar(&opts.Interactive, "interactive", false, "Enable interactive playtest operator console (REPL)")
 	flag.BoolVar(&opts.AllowGlobalEgress, "allow-global", false, "Explicitly opt in to Rung 4 Global egress")
 	flag.BoolVar(&opts.AuditOnly, "audit", false, "Run all Layer 0..3B Block 4 pre-flight audits and exit")

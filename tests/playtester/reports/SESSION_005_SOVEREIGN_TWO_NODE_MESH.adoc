@@ -1,0 +1,106 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_005_SOVEREIGN_TWO_NODE_MESH.adoc
+@id            playtest.report.session_005
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 005 Report)
+@archetype     report | live_sovereign_two_node_mesh
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet First Live Sovereign Two-Laptop CPI-SI Mesh Peering
+@role          Zero-Config /pair.sh Join, peer_count=1, +1:ALIGNED Bulletin & UX Fixes
+@maturity      Rev 5 Baseline | Wave 12 Auto-Channel Micro-ISP & Clean REPL
+================================================================================
+////
+= Playtest Session 005: First Live Two-Node Sovereign Mesh (`peer_count: 1`)
+CreativeWorkzStudio LLC / ProfessorSeanEX
+2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / HISTORIC SOVEREIGN MESH MILESTONE
+// =============================================================================
+
+toc::[]
+
+== Physical Two-Node Sovereign Mesh Topology
+
+* **Home Anchor / Micro-ISP Node #1:** `professorseanex-Inspiron-16-5640`
+  (`0xFA17000000000001`, persistent `faithnet-home.service`, serving
+  `FaithNet-HomeRoom` Wi-Fi AP on `10.77.77.1/24` + The Well on `:8077` +
+  Rung 3 UDP on `:7777`).
+* **Sovereign Peer Node #2:** `seanje-lenox-wise-Inspiron-5579`
+  (`0xFA17000000000004`, zero Go compiler installed — bootstrapped directly via
+  `curl -fsSL http://10.77.77.1:8077/pair.sh | sh` self-replicating native
+  binary download!).
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / CAPTURED LIVE TELEMETRY & VERIFICATION
+// =============================================================================
+
+== Live Telemetry Captured on `Home-Anchor`
+
+[source,json]
+----
+{"node_id":"0xFA17000000000001","label":"Home-Anchor","active_rung":"RUNG_3_LOCAL","peer_count":1,"bulletins":2,"airlock_blocked":0}
+----
+
+[source,html]
+----
+<li>[#2 | +1:ALIGNED | 0xFA17000000000004] hello</li>
+----
+
+* **Proven End-to-End Across Real Wi-Fi:**
+  1. **Self-replicating binary bootstrap:** Laptop #1 served a copy of its own
+     `11.1 MB` native compiled binary to Laptop #2 via `/pair.sh`.
+  2. **Zero-config sovereign pairing:** Laptop #2 received auto-allocated
+     `0xFA17000000000004`, executed `--join=10.77.77.1:7777`, and elevated
+     `Home-Anchor` to **`peer_count: 1`**!
+  3. **Sovereign `+1:ALIGNED` Mesh Bulletin:** `say hello` from Laptop #2
+     traversed real Wi-Fi as a sovereign `OpData` frame and appeared live on
+     The Well stamped **`+1:ALIGNED`** (contrasting visually with browser
+     visitor `0:AWAIT` posts!).
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / REAL-WORLD GAPS #6 & #7 FIXED IN WAVE 12
+// =============================================================================
+
+== Real-World UX & Wire Gaps Exposed by Session 005 -> Closed in Wave 12
+
+1. **Gap #6 — Periodic `[BEACON RX]` Spam in `faithnet>` REPL -> FIXED:**
+   Every 3-second beacon interrupted interactive typing on `Inspiron-5579`.
+   Updated `cmd/faithnet-node/main.go` to announce `[PEER DISCOVERED]` **once**
+   per newly seen `NodeID` (with optional `--verbose-beacons` flag) and cleanly
+   redraw `faithnet> ` after inbound `OpData` messages.
+2. **Gap #7 — Duplicate Broadcast Delivery on Same `/24` Subnet -> FIXED:**
+   `UDPTransceiver.Send(NodeIDBroadcast)` previously sent both to learned
+   `u.peers` (`10.77.77.1`) *and* `u.broadcastAddr` (`10.77.77.255`), causing
+   `hello` (`seq=2`) to post twice on The Well. Added `coveredByBroadcast()` in
+   `transport/rung3_local/udp.go` to suppress redundant unicast copies whenever
+   LAN broadcast already covers that `/24` peer.
+3. **Auto-Channel Follower Added to `run_wifi_ap_router.sh`:**
+   Polls `wlp3s0` every 5s so switching to a mobile hotspot, another Wi-Fi
+   network, or offline blackout (Channel 6 island) automatically retunes `ap0`
+   (`FaithNet-HomeRoom`) cleanly—advancing the **"MillenniumOS PC as its own
+   built-in Sovereign Micro-ISP"** architecture.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SESSION 005 SIGN-OFF
+// =============================================================================
+
+== Session 005 Sign-Off
+
+FaithNet has now proven **real physical multi-device routing, Tier 2 offline
+green-padlock TLS, self-replicating zero-config pairing, and live two-laptop
+`+1:ALIGNED` sovereign mesh communication (`peer_count: 1`)** over real Wi-Fi.
+
+// End of tests/playtester/reports/SESSION_005_SOVEREIGN_TWO_NODE_MESH.adoc

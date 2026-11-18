@@ -70,13 +70,18 @@ sudo iw dev "${STA_IF}" interface add "${AP_IF}" type __ap
 sudo nmcli dev set "${AP_IF}" managed no 2>/dev/null || true
 sudo ip link set dev "${AP_IF}" address "${AP_MAC}"
 
-# 4. Launch hostapd first so nl80211 initializes the AP radio on Channel ${CHAN}.
-cat > "${TMP_DIR}/hostapd.conf" <<EOF
+start_hostapd_on_channel() {
+  local ch="$1"
+  local mode="g"
+  if (( ch > 14 )); then
+    mode="a"
+  fi
+  cat > "${TMP_DIR}/hostapd.conf" <<EOF
 interface=${AP_IF}
 driver=nl80211
 ssid=${SSID}
-hw_mode=${HW_MODE}
-channel=${CHAN}
+hw_mode=${mode}
+channel=${ch}
 ieee80211n=1
 wmm_enabled=1
 auth_algs=1
@@ -85,13 +90,15 @@ wpa_passphrase=${PASS}
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
 EOF
-sudo hostapd -B -P "${TMP_DIR}/hostapd.pid" "${TMP_DIR}/hostapd.conf"
-sleep 1
-HOSTAPD_PID="$(cat "${TMP_DIR}/hostapd.pid" 2>/dev/null || true)"
+  sudo hostapd -B -P "${TMP_DIR}/hostapd.pid" "${TMP_DIR}/hostapd.conf"
+  sleep 1
+  HOSTAPD_PID="$(cat "${TMP_DIR}/hostapd.pid" 2>/dev/null || true)"
+  sudo ip addr flush dev "${AP_IF}"
+  sudo ip addr add "${AP_IP}/24" dev "${AP_IF}"
+}
 
-# 5. Assign router IP to live ap0 interface.
-sudo ip addr flush dev "${AP_IF}"
-sudo ip addr add "${AP_IP}/24" dev "${AP_IF}"
+# 4. Launch hostapd first so nl80211 initializes the AP radio on Channel ${CHAN}.
+start_hostapd_on_channel "${CHAN}"
 
 # 6. Restart persistent faithnet-home.service so Tier 2 CA signs 10.77.77.1 SAN!
 if systemctl --user is-active --quiet faithnet-home.service 2>/dev/null; then
@@ -131,7 +138,19 @@ echo "[LIVE] Wi-Fi SSID '${SSID}' is LIVE on ${AP_IF} (${AP_IP}/24, Channel ${CH
 echo "[LIVE] Connect phone or Laptop #2 now -> https://faithnet.lan:8077/ or https://${AP_IP}:8077/"
 echo "[LIVE] Also resolves: http://faithnet.home.arpa:8077/ (RFC 8375 unicast DNS)"
 echo "[LIVE] Tier 2 Sovereign Root CA: http://${AP_IP}:8077/faithnet-root-ca.crt"
-echo "[LIVE] Waiting (Ctrl-C to stop cleanly)..."
+echo "[LIVE] Auto-channel follower active (tracks ${STA_IF} across Wi-Fi/hotspot switches & offline island mode)..."
 while sudo kill -0 "${HOSTAPD_PID}" 2>/dev/null; do
-  sleep 2
+  sleep 5
+  NEW_CHAN="$(iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2; exit}')"
+  if [[ -z "${NEW_CHAN}" ]]; then
+    NEW_CHAN="6"
+  fi
+  if [[ "${NEW_CHAN}" != "${CHAN}" ]]; then
+    echo "[AUTO-CHANNEL] Upstream ${STA_IF} shifted Channel ${CHAN} -> ${NEW_CHAN}; retuning ${AP_IF} cleanly..."
+    sudo kill "${HOSTAPD_PID}" 2>/dev/null || true
+    sleep 0.5
+    CHAN="${NEW_CHAN}"
+    start_hostapd_on_channel "${CHAN}"
+    echo "[AUTO-CHANNEL] '${SSID}' back live on Channel ${CHAN} (${AP_IP}/24)!"
+  fi
 done

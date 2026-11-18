@@ -134,6 +134,10 @@ field execution:
   iOS phone, PlayStation streaming YouTube), Tier 2 Sovereign CA green padlock
   + Test C persistence proof, and Gap #5 RFC 6762 `.local` -> `.lan`/`.home.arpa`
   fix.
+* `reports/SESSION_005_SOVEREIGN_TWO_NODE_MESH.adoc` — First live two-laptop
+  sovereign mesh peering via self-replicating `/pair.sh` (`peer_count: 1`,
+  `+1:ALIGNED` live Well bulletin) + Wave 12 clean REPL, broadcast dedup &
+  auto-channel micro-ISP follower.
 
 // =============================================================================
 // BLOCK 5: CLOSING BLOCK / PLAYTEST DISCIPLINE
