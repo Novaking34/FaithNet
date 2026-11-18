@@ -1,0 +1,213 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc
+@id            docs.discovery.02_safety_and_graceful_degradation
+@layer         Layer 5: Discovery Documentation Series (Volume D2)
+@archetype     discovery | safety_philosophy_and_graceful_degradation
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Safety Locks, Containment & Graceful Degradation Doctrine
+@role          Explains Why Graceful Degradation Beats Hard Aborts Across Layers
+@maturity      Rev 5 Baseline | Wave 14 Discovery Series & Sovereign Micro-ISP
+@seams         in: docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc
+@invariants    1. Never brick or permanently mutate the operator's host NIC.
+               2. Never quarantine the sole surviving communication link.
+               3. Always preserve a deterministic, non-destructive recovery path.
+
+PURPOSE & ARCHITECTURAL ROLE:
+  Documents why FaithNet prioritizes bounded safety locks, non-destructive host
+  containment, and graceful degradation over brittle "fail-hard / abort" designs.
+  Draws directly from the Session 006 Realtek RTL8852CE hardware safety lock and
+  connects that physical lesson to every layer of the FaithNet software stack
+  and the upcoming "Firewalled Rung 4 WAN" sovereign host architecture.
+================================================================================
+////
+= Discovery 02: Why Safety Locks & Graceful Degradation Beat Hard Aborts
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / THE DIFFERENCE BETWEEN A CRASH AND A SAFETY LOCK
+// =============================================================================
+
+toc::[]
+
+== The Session 006 Lesson: When a Safety Lock Saves the Machine
+
+During Playtest Session 006, an everyday real-world action triggered a classic
+multi-system edge case: switching `wlp3s0` from `TheTribe` (Channel 11) to a
+mobile phone hotspot while `hostapd` still held virtual interface `ap0` pinned
+to Channel 11 on the single-radio `RTL8852CE` (`rtw89`) Wi-Fi card.
+
+Notice **what happened** — and even more importantly, **what did NOT happen**:
+
+* **What happened:** The `rtw89` driver and PCIe Wi-Fi firmware detected an
+  illegal concurrent dual-channel request on single-channel silicon (`#channels
+  <= 1`), tripped an internal hardware safety lock, and refused further radio
+  commands until power-cycle reset.
+* **What did NOT happen:** The laptop did not suffer a kernel panic, filesystem
+  corruption, fried RF state, or broken permanent NetworkManager profiles. **A
+  single clean reboot restored 100% of host networking in seconds.**
+
+Why did a reboot fix everything cleanly? Because **both the silicon AND our
+Field Kit scripts obeyed a non-destructive containment discipline**:
+
+1. **Zero Permanent Mutation of `wlp3s0`:** Our scripts never rewrote
+   `/etc/NetworkManager/system-connections/`, never uninstalled `NetworkManager`,
+   never hijacked `systemd-resolved` globally, and never persisted raw
+   `iptables-save` rules to `/etc/iptables/`.
+2. **Scoped Runtime State Only:** All AP configs (`hostapd.conf`, `dnsmasq.conf`,
+   leases, PIDs) lived inside ephemeral `/run/faithnet-ap/` (RAM-backed `tmpfs`)
+   and all NAT/forwarding rules were scoped strictly to `-i ap0` / `-o ap0`.
+3. **Hardware Safety Lock as a Feature, Not a Catastrophe:** Just like a circuit
+   breaker in a house trips *before* the wires catch fire, a well-designed
+   safety lock halts an unsafe transition cleanly while preserving a known-good
+   recovery baseline.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / GRACEFUL DEGRADATION VS. HARD ABORT ACROSS ALL 5 LAYERS
+// =============================================================================
+
+== Why "Graceful Degradation" Beats "Hard Abort" in Sovereign Systems
+
+Commercial cloud software often assumes an infinite, always-on, centrally
+managed infrastructure — so when a dependency fails, it throws a fatal error and
+exits (`os.Exit(1)`). **A sovereign offline-first substrate cannot afford that
+mentality.**
+
+When power fluctuates, Wi-Fi roams, a browser refuses HTTP, or a cable gets
+yanked mid-conversation, **aborting leaves humans stranded in silence.**
+Graceful degradation instead asks: *"What is the highest safe capability we can
+still hold right now without harming the host or leaking trust?"*
+
+=== The 5-Stratum Graceful Degradation Matrix
+
+[cols="2,2,3,3", options="header"]
+|===
+| System Layer | What a Naive "Hard Abort" Does | FaithNet Graceful Degradation Strategy | Verified Evidence
+
+| **Stratum 1: Wi-Fi Radio & Host OS (`faithnet-ap-daemon.sh`)**
+| Keeps fighting `wlp3s0` for channel control until the PCI driver locks up, or
+  crashes permanently requiring manual terminal restarts.
+| `nmcli device monitor wlp3s0` **yields `ap0` immediately** on `connecting` /
+  `disconnected`, gives `wlp3s0` 100% clean radio control to switch hotspots,
+  then re-engages `ap0` on the new channel (or falls back to an offline Channel
+  6 island after 10s of blackout; skips AP safely if upstream hits a 5 GHz DFS
+  radar channel).
+| Session 006 live mobile hotspot switch **PASS** with zero PCI lockup!
+
+| **Stratum 2: Adaptive Transport Ladder (`orchestrator/ladder.go`)**
+| Drops the entire session on the first silent packet loss, OR endlessly
+  quarantines every link until zero routes remain.
+| Passive cooldown quarantine (`MarkRungDegraded`) triggers `EVT_CASCADE_DOWN`
+  to the next healthy rung (`UDP -> RAM -> Serial -> AFSK -> Morse`). Crucially,
+  the **Sole-Link Retention Invariant** refuses to quarantine the *last*
+  surviving transceiver — a degraded wire is infinitely better than total
+  silence!
+| Session 002 Chaos Harness: silent UDP blackhole auto-rescued `2/2` on
+  `RUNG_2_HOST`; hard-cut `UDP -> RAM -> AFSK` completed in `1.28 ms` (`0%`
+  loss).
+
+| **Stratum 3: Browser TLS Trust (`interpreter/captive_web.go`)**
+| Serves HTTP-only (hard-broken by Firefox HTTPS-Only Mode) OR requires
+  internet-connected Let's Encrypt ACME (hard-broken offline).
+| **Dual-Mode `0x16` Peek** serves both HTTP and HTTPS on `:8077`, backed by
+  the **3-Tier Adaptive TLS Trust Ladder**: Tier 3 Public PEM -> Tier 2
+  Persistent Sovereign Root CA (`/faithnet-root-ca.crt`) -> Tier 1 Ephemeral
+  Emergency Floor.
+| Sessions 003 & 004: eliminated `SSL_ERROR_RX_RECORD_TOO_LONG` and proved
+  100% offline green padlock across Laptop #2 and iOS iPhone.
+
+| **Stratum 4: Wire Integrity & Airlock (`engine/codec.go`, `engine/covenant/`)**
+| Accepts corrupted/hostile payloads blindly OR crashes the whole node process
+  on malformed input.
+| Every wire bit-flip fails zero-heap FNV-1a verification and is silently
+  dropped; every external/browser payload is quarantined at **`0:AWAIT`** or
+  rejected (`-1:CONTRADICT`, HTTP `403`) without disturbing `+1:ALIGNED` mesh
+  peers.
+| Session 002: `8/8` storm bit-flips caught (`0` leaks), `120/120` Well web
+  attacks blocked under `6,126 req/s` load (`0` crashes).
+
+| **Stratum 5: Service Lifecycle & Operator Recovery (`systemd`)**
+| Hangs user terminal sessions, leaves orphaned root processes, or requires
+  manual editing of system configs to recover.
+| Clean separation between unprivileged `faithnet-home.service` (`systemd
+  --user`) and scoped `faithnet-ap.service` (`systemd` system unit), each with
+  instant non-destructive off-switches (`systemctl stop`) and automatic `TRAP`
+  teardown of `ap0` and `iptables` rules.
+| Sessions 004 & 006: clean reboot auto-recovery + instant clean stop leaving
+  `wlp3s0` 100% intact.
+|===
+
+== Design Rules Forged From Field Kit 01
+
+Every future FaithNet wave and MillenniumOS Track 0 driver now inherits five
+non-negotiable safety laws proved in Field Kit 01:
+
+1. **The Containment Law:** Any experimental or dynamic networking feature must
+   isolate its runtime state (dedicated interface `ap0`, dedicated `/run/`
+   directory, scoped firewall rules) so tearing it down restores the host to
+   byte-for-byte pre-run behavior.
+2. **The Yield-Before-Fight Law:** When sharing finite hardware (one Wi-Fi
+   radio, one audio card, one UART), secondary services must yield *before*
+   primary state transitions begin (event-driven `nmcli monitor`), never race
+   afterward via slow polling.
+3. **The Sole-Link Survival Law:** Graceful degradation may step down from
+   Rung 4 -> 3 -> 2 -> 1, and may temporarily cool down a silent link when a
+   backup exists, but **must never sever the sole remaining communication path.**
+4. **The Zero-Scare Psychology Law:** User-facing security must degrade cleanly
+   (Tier 3 -> Tier 2 -> Tier 1) without terrifying non-technical community users
+   or forcing them to disable browser protections.
+5. **The Firewalled-Uplink Sovereignty Law (Next Major Milestone):** As FaithNet
+   grows toward becoming the host PC's own primary network identity, the legacy
+   commercial internet (`wlp3s0`) should be treated as an **untrusted,
+   firewalled Rung 4 WAN uplink** — inbound-blocked by default, outbound-gated
+   by operator policy — while local `FaithNet-HomeRoom` (`ap0` + `lo`) remains
+   always sovereign, trusted, and reachable even when Rung 4 is severed.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / SAFETY INVARIANT VERIFICATION
+// =============================================================================
+
+== Live Safety Invariant Verification Checks
+
+Every Field Kit 01 host script exposes built-in Block 4 self-audits and
+zero-brick emergency recovery commands:
+
+[source,bash]
+----
+# 1. Verify Go core 22/22 Block 4 safety gates (includes Airlock & Ladder):
+go run ./cmd/faithnet-node --audit
+
+# 2. Audit persistent host services without mutating system state:
+systemctl --user status faithnet-home --no-pager
+sudo systemctl status faithnet-ap --no-pager
+
+# 3. Verify zero-brick emergency off-switch leaves upstream Wi-Fi untouched:
+sudo systemctl stop faithnet-ap
+nmcli device status
+----
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / COVENANT OF NON-DESTRUCTIVE RESILIENCE
+// =============================================================================
+
+== Closing Covenant
+
+A system that breaks the user's computer during an experiment loses trust; a
+system that **contains faults, yields cleanly to physics, degrades gracefully
+down the ladder, and always keeps a clean path back home** earns the right to
+become critical infrastructure.
+
+// End of docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc

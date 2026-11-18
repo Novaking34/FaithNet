@@ -1,23 +1,70 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# BLOCK 1: METADATA BLOCK — FaithNet Simultaneous STA+AP Wi-Fi Router Launcher
-# @project FaithNet
-# @file    tests/playtester/field_kits/01_two_device_room_well/run_wifi_ap_router.sh
-# @role    Create real simultaneous AP (ap0: FaithNet-HomeRoom) while keeping
-#          upstream Wi-Fi (wlp3s0) connected; NATs traffic + serves The Well.
-# @safety  Zero-brick: never modifies wlp3s0; trap EXIT tears down ap0 cleanly.
+# BLOCK 1: METADATA BLOCK
+# ( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+# ==============================================================================
+# @project       FaithNet
+# @file          tests/playtester/field_kits/01_two_device_room_well/run_wifi_ap_router.sh
+# @id            playtest.field_kit.01.linux.wifi_ap_router
+# @layer         Layer 4: Proving Ground (Field Kit 01 — Interactive Linux AP)
+# @archetype     field_script | operational
+# @version       0.1.0-dev
+# @interface_rev Rev 5
+# @date          2026-11-17
+# @updated       2026-11-17
+# @author        CreativeWorkzStudio LLC / ProfessorSeanEX
+# @repository    https://github.com/CreativeWorkzStudio/FaithNet
+# @system        FaithNet Interactive Simultaneous STA+AP Wi-Fi Router (Linux)
+# @role          Foreground Virtual AP Launcher With Auto-Channel & Clean Trap
+# @maturity      Rev 5 Baseline | Wave 14 5-Block Cross-Platform Parity
+# @chassis       ephemeral-ap | Zero permanent host network config mutations
+# @scale         Single-radio simultaneous STA+AP (or Ch 6 offline island)
+# @seams         in: wlp3s0, hostapd, dnsmasq, iptables | exports: ap0 10.77.77.1
+# @invariants    1. Universal 5-Block Lifecycle Protocol (Rev 5).
+#                2. Zero-brick safety: never modifies upstream wlp3s0 config.
+#                3. `trap cleanup EXIT` guarantees full teardown on Ctrl-C.
+#                4. Uses RFC 8375 `faithnet.home.arpa` + `faithnet.lan` unicast DNS.
+#
+# PURPOSE & ARCHITECTURAL ROLE:
+#   Foreground interactive launcher for testing simultaneous STA+AP Wi-Fi
+#   routing on Linux (`ap0` broadcasting `FaithNet-HomeRoom` at `10.77.77.1/24`
+#   while upstream `wlp3s0` stays connected—or Channel 6 offline island mode).
+#   For persistent reboot-surviving Micro-ISP service, see
+#   `install_persistent_ap_router.sh` and `faithnet-ap-daemon.sh`.
+#
+#   ### For Architects, Operators & Non-Programmers:
+#   Lets an operator test turning a Linux laptop into a live FaithNet Wi-Fi
+#   router directly in a terminal window with automatic cleanup on Ctrl-C.
+#
+#   ### For Systems Programmers & Engine Architects:
+#   Follows the empirically verified Realtek `rtw89` bring-up sequence: create
+#   `__ap` interface DOWN -> `nmcli managed no` -> `hostapd` nl80211 enable ->
+#   assign `10.77.77.1/24` -> isolated `dnsmasq` -> NAT forwarding.
 # ==============================================================================
 set -euo pipefail
 
-STA_IF="${STA_IF:-wlp3s0}"
-AP_IF="${AP_IF:-ap0}"
-SSID="${SSID:-FaithNet-HomeRoom}"
-PASS="${PASS:-FaithNet2026}"
-AP_IP="${AP_IP:-10.77.77.1}"
-AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
-TMP_DIR="$(mktemp -d /tmp/faithnet-ap-XXXXXX)"
+# ==============================================================================
+# BLOCK 2: OPENING BLOCK
+# ( Operational Constants, Mutable PID State & Signal Cleanup Guard )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux)
+# Module:        playtest.field_kit.01.linux.wifi_ap_router
+# Mission:       Declare interface bounds, SSID/subnet config, and teardown.
+# ==============================================================================
+
+readonly STA_IF="${STA_IF:-wlp3s0}"
+readonly AP_IF="${AP_IF:-ap0}"
+readonly SSID="${SSID:-FaithNet-HomeRoom}"
+readonly PASS="${PASS:-FaithNet2026}"
+readonly AP_IP="${AP_IP:-10.77.77.1}"
+readonly AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
+readonly TMP_DIR="$(mktemp -d /tmp/faithnet-ap-XXXXXX)"
+
 DNSMASQ_PID=""
 HOSTAPD_PID=""
+CHAN=""
+UPSTREAM_MODE="CONNECTED"
 
 cleanup() {
   echo ""
@@ -34,41 +81,35 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1. Read active STA channel (RTL8852CE requires STA + AP on same channel).
-#    If no upstream Wi-Fi is connected (true offline blackout!), default cleanly
-#    to 2.4 GHz Channel 6 so FaithNet-HomeRoom still broadcasts as a local island!
-CHAN="$(iw dev "${STA_IF}" info | awk '/channel / {print $2; exit}')"
-UPSTREAM_MODE="CONNECTED"
-if [[ -z "${CHAN}" ]]; then
-  CHAN="6"
-  UPSTREAM_MODE="OFFLINE_ISLAND (no upstream Wi-Fi)"
-fi
-HW_MODE="g"
-if (( CHAN > 14 )); then
-  HW_MODE="a"
-fi
+# ==============================================================================
+# BLOCK 3: BODY BLOCK
+# ( Radio Channel Sync, hostapd Bring-Up, Isolated dnsmasq & NAT Forwarding )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux)
+# Module:        playtest.field_kit.01.linux.wifi_ap_router
+# Mission:       Project FaithNet-HomeRoom on matching live channel + NAT.
+# ==============================================================================
 
-# 2. Derive distinct locally-administered MAC for virtual AP interface.
-BASE_MAC="$(cat "/sys/class/net/${STA_IF}/address")"
-FIRST_OCTET_HEX="${BASE_MAC%%:*}"
-NEW_FIRST="$(printf '%02x' $(( (0x${FIRST_OCTET_HEX} | 0x02) ^ 0x04 )))"
-AP_MAC="${NEW_FIRST}:${BASE_MAC#*:}"
+detect_live_channel() {
+  local ch
+  ch="$(iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2; exit}')"
+  if [[ -z "${ch}" ]]; then
+    UPSTREAM_MODE="OFFLINE_ISLAND (no upstream Wi-Fi)"
+    echo "6"
+  else
+    UPSTREAM_MODE="CONNECTED"
+    echo "${ch}"
+  fi
+}
 
-echo "=== FAITHNET REAL WI-FI AP ROUTER (SIMULTANEOUS STA + AP) ==="
-echo "Upstream STA : ${STA_IF} (${UPSTREAM_MODE} | Channel ${CHAN}, mode ${HW_MODE}) — UNTOUCHED"
-echo "Virtual AP   : ${AP_IF} (${AP_MAC}) -> SSID '${SSID}'"
-echo "Router IP    : ${AP_IP}/24 | The Well: https://faithnet.lan:8077/ | https://${AP_IP}:8077/"
-echo "WPA2 Pass    : ${PASS}"
-echo ""
-
-# 3. Clean any stale prior AP processes & create virtual AP interface (keep DOWN
-#    so hostapd brings it up via nl80211 on rtw89/RTL8852CE without EBUSY!).
-sudo pkill -f "/tmp/faithnet-ap-" 2>/dev/null || true
-sleep 0.3
-sudo iw dev "${AP_IF}" del 2>/dev/null || true
-sudo iw dev "${STA_IF}" interface add "${AP_IF}" type __ap
-sudo nmcli dev set "${AP_IF}" managed no 2>/dev/null || true
-sudo ip link set dev "${AP_IF}" address "${AP_MAC}"
+derive_ap_mac() {
+  local base_mac first new_first
+  base_mac="$(cat "/sys/class/net/${STA_IF}/address")"
+  first="${base_mac%%:*}"
+  new_first="$(printf '%02x' $(( (0x${first} | 0x02) ^ 0x04 )))"
+  echo "${new_first}:${base_mac#*:}"
+}
 
 start_hostapd_on_channel() {
   local ch="$1"
@@ -97,17 +138,8 @@ EOF
   sudo ip addr add "${AP_IP}/24" dev "${AP_IF}"
 }
 
-# 4. Launch hostapd first so nl80211 initializes the AP radio on Channel ${CHAN}.
-start_hostapd_on_channel "${CHAN}"
-
-# 6. Restart persistent faithnet-home.service so Tier 2 CA signs 10.77.77.1 SAN!
-if systemctl --user is-active --quiet faithnet-home.service 2>/dev/null; then
-  echo "[SYNC] Restarting faithnet-home.service to include ${AP_IP} in Tier 2 TLS cert SANs..."
-  systemctl --user restart faithnet-home.service
-fi
-
-# 7. Start isolated dnsmasq DHCP + local faithnet.local DNS bound ONLY to ap0.
-cat > "${TMP_DIR}/dnsmasq.conf" <<EOF
+start_isolated_dnsmasq_and_nat() {
+  cat > "${TMP_DIR}/dnsmasq.conf" <<EOF
 interface=${AP_IF}
 bind-interfaces
 port=53
@@ -122,35 +154,96 @@ server=8.8.8.8
 no-resolv
 log-dhcp
 EOF
-sudo dnsmasq -C "${TMP_DIR}/dnsmasq.conf" --pid-file="${TMP_DIR}/dnsmasq.pid"
-DNSMASQ_PID="$(cat "${TMP_DIR}/dnsmasq.pid")"
+  sudo dnsmasq -C "${TMP_DIR}/dnsmasq.conf" --pid-file="${TMP_DIR}/dnsmasq.pid"
+  DNSMASQ_PID="$(cat "${TMP_DIR}/dnsmasq.pid")"
 
-# 8. Enable NAT router forwarding so connected clients stay online via STA_IF.
-sudo sysctl -w net.ipv4.ip_forward=1 >/dev/null
-sudo iptables -t nat -C POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || \
-  sudo iptables -t nat -A POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE
-sudo iptables -C FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || \
-  sudo iptables -A FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT
-sudo iptables -C FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
-  sudo iptables -A FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT
+  sudo sysctl -w net.ipv4.ip_forward=1 >/dev/null
+  sudo iptables -t nat -C POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || \
+    sudo iptables -t nat -A POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE
+  sudo iptables -C FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || \
+    sudo iptables -A FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT
+  sudo iptables -C FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+    sudo iptables -A FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT
+}
 
-echo "[LIVE] Wi-Fi SSID '${SSID}' is LIVE on ${AP_IF} (${AP_IP}/24, Channel ${CHAN})!"
-echo "[LIVE] Connect phone or Laptop #2 now -> https://faithnet.lan:8077/ or https://${AP_IP}:8077/"
-echo "[LIVE] Also resolves: http://faithnet.home.arpa:8077/ (RFC 8375 unicast DNS)"
-echo "[LIVE] Tier 2 Sovereign Root CA: http://${AP_IP}:8077/faithnet-root-ca.crt"
-echo "[LIVE] Auto-channel follower active (tracks ${STA_IF} across Wi-Fi/hotspot switches & offline island mode)..."
-while sudo kill -0 "${HOSTAPD_PID}" 2>/dev/null; do
-  sleep 5
-  NEW_CHAN="$(iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2; exit}')"
-  if [[ -z "${NEW_CHAN}" ]]; then
-    NEW_CHAN="6"
+# ==============================================================================
+# BLOCK 4: AUDIT PROCEDURES BLOCK
+# ( Pre-Flight Dependency & Radio Interface Verification )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux)
+# Module:        playtest.field_kit.01.linux.wifi_ap_router
+# Mission:       Confirm iw, hostapd, dnsmasq, iptables, and STA_IF exist.
+# ==============================================================================
+
+preflight_ap_router() {
+  for tool in iw ip hostapd dnsmasq iptables nmcli; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      echo "[PREFLIGHT FAIL] Missing required wireless tool: ${tool}" >&2
+      return 1
+    fi
+  done
+  if ! ip link show "${STA_IF}" >/dev/null 2>&1; then
+    echo "[PREFLIGHT FAIL] Upstream Wi-Fi interface ${STA_IF} not found." >&2
+    return 1
   fi
-  if [[ "${NEW_CHAN}" != "${CHAN}" ]]; then
-    echo "[AUTO-CHANNEL] Upstream ${STA_IF} shifted Channel ${CHAN} -> ${NEW_CHAN}; retuning ${AP_IF} cleanly..."
-    sudo kill "${HOSTAPD_PID}" 2>/dev/null || true
-    sleep 0.5
-    CHAN="${NEW_CHAN}"
-    start_hostapd_on_channel "${CHAN}"
-    echo "[AUTO-CHANNEL] '${SSID}' back live on Channel ${CHAN} (${AP_IP}/24)!"
+  return 0
+}
+
+# ==============================================================================
+# BLOCK 5: CLOSING BLOCK
+# ( Lifecycle Entrypoint & Auto-Channel Monitor Loop )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux)
+# Module:        playtest.field_kit.01.linux.wifi_ap_router
+# Mission:       Bring up FaithNet-HomeRoom and monitor channel shifts cleanly.
+# ==============================================================================
+
+main() {
+  preflight_ap_router
+  CHAN="$(detect_live_channel)"
+  local ap_mac
+  ap_mac="$(derive_ap_mac)"
+
+  echo "=== FAITHNET REAL WI-FI AP ROUTER (SIMULTANEOUS STA + AP) ==="
+  echo "Upstream STA : ${STA_IF} (${UPSTREAM_MODE} | Channel ${CHAN}) — UNTOUCHED"
+  echo "Virtual AP   : ${AP_IF} (${ap_mac}) -> SSID '${SSID}'"
+  echo "Router IP    : ${AP_IP}/24 | The Well: https://faithnet.lan:8077/ | https://${AP_IP}:8077/"
+  echo "WPA2 Pass    : ${PASS}"
+  echo ""
+
+  sudo pkill -f "/tmp/faithnet-ap-" 2>/dev/null || true
+  sleep 0.3
+  sudo iw dev "${AP_IF}" del 2>/dev/null || true
+  sudo iw dev "${STA_IF}" interface add "${AP_IF}" type __ap
+  sudo nmcli dev set "${AP_IF}" managed no 2>/dev/null || true
+  sudo ip link set dev "${AP_IF}" address "${ap_mac}"
+
+  start_hostapd_on_channel "${CHAN}"
+  if systemctl --user is-active --quiet faithnet-home.service 2>/dev/null; then
+    echo "[SYNC] Restarting faithnet-home.service to confirm ${AP_IP} in Tier 2 SANs..."
+    systemctl --user restart faithnet-home.service
   fi
-done
+  start_isolated_dnsmasq_and_nat
+
+  echo "[LIVE] Wi-Fi SSID '${SSID}' is LIVE on ${AP_IF} (${AP_IP}/24, Channel ${CHAN})!"
+  echo "[LIVE] Auto-channel follower active (Ctrl-C tears down cleanly)..."
+  while sudo kill -0 "${HOSTAPD_PID}" 2>/dev/null; do
+    sleep 5
+    local new_ch
+    new_ch="$(detect_live_channel)"
+    if [[ "${new_ch}" != "${CHAN}" ]]; then
+      echo "[AUTO-CHANNEL] Upstream shifted Channel ${CHAN} -> ${new_ch}; retuning ${AP_IF}..."
+      sudo kill "${HOSTAPD_PID}" 2>/dev/null || true
+      sleep 0.5
+      CHAN="${new_ch}"
+      start_hostapd_on_channel "${CHAN}"
+      echo "[AUTO-CHANNEL] '${SSID}' live on Channel ${CHAN} (${AP_IP}/24)!"
+    fi
+  done
+}
+
+main "$@"
+
+# End of tests/playtester/field_kits/01_two_device_room_well/run_wifi_ap_router.sh

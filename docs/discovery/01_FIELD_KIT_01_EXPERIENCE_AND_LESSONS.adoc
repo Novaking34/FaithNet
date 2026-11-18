@@ -1,0 +1,256 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc
+@id            docs.discovery.01_field_kit_01_experience
+@layer         Layer 5: Discovery Documentation Series (Volume D1)
+@archetype     discovery | engineering_retrospective_and_edge_cases
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Field Kit 01 Engineering Retrospective
+@role          Documents Lived Field Experience, 9 Real-World Edge Cases & Parity
+@maturity      Rev 5 Baseline | Wave 14 Discovery Series & Cross-Platform Parity
+@seams         in: tests/playtester/reports/SESSION_003..006.adoc | exports: field lessons
+@invariants    1. Every claim maps 1:1 to an observed physical hardware test.
+               2. Honest reporting of failures, firmware limits & OS differences.
+               3. Zero revisionism: real bugs are logged as architectural teachers.
+
+PURPOSE & ARCHITECTURAL ROLE:
+  Captures the lived engineering experience of taking FaithNet out of a 100%
+  passing 4x4 laboratory matrix and running Field Kit 01 across four real
+  physical devices (two Dell Inspiron laptops, an iOS iPhone, and a PlayStation
+  console). Explains what a game-systems engineer calls an "edge case" — bugs
+  that only emerge at the seams between independently healthy moving parts —
+  and how deep layered testing enabled rapid, non-destructive root-cause fixes.
+================================================================================
+////
+= Discovery 01: Field Kit 01 Lived Experience, Moving-Part Edge Cases & Cross-Platform Lessons
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / WHY LAB GREEN IS ONLY HALF THE TRUTH
+// =============================================================================
+
+toc::[]
+
+== Leaving the Laboratory: Four Real Devices, Zero Simulation
+
+Before Wave 9 touched real Wi-Fi silicon, FaithNet already had a pristine
+laboratory record:
+
+* **46 dedicated 5-Block test files** across the 4x4 Matrix (`Functional`,
+  `Unit`, `Integrated`, `System`) passing with `-race` and zero data races.
+* **22/22 live Block 4 pre-flight gates** passing inside `faithnet-node --audit`.
+* **5 local OS playtester harnesses** proving cross-process UDP/TCP, chaos
+  packet corruption, silent blackhole auto-cascade, kernel FIFO SLIP serial,
+  `+3.93 dB` SNR acoustic AFSK with leading mic silence, and `6,126 req/s` Well
+  load under `120/120` blocked attacks.
+
+Then we stepped into physical reality with **Field Kit 01** across four real
+consumer devices on real RF spectrum:
+
+1. **Laptop #1 (Home Anchor & Micro-ISP):** `professorseanex-Inspiron-16-5640`
+   (Ubuntu Linux `7.0.0-43-generic`, Realtek `RTL8852CE` Wi-Fi 6E chip running
+   the kernel `rtw89` driver).
+2. **Laptop #2 (Peer & Visitor):** `seanje-lenox-wise-Inspiron-5579` (Ubuntu
+   Linux, standard browser + `curl`, zero Go toolchain installed).
+3. **Mobile Client:** Consumer iOS iPhone (Safari + iOS Trust Store).
+4. **Unexpected Stress Device:** Sony PlayStation console joining
+   `FaithNet-HomeRoom` and streaming live YouTube through our userspace NAT!
+
+The moment real consumer browsers, operating systems, RFC standards, and Wi-Fi
+radio firmware interacted with FaithNet in real time, **six brand-new physical
+edge cases surfaced immediately** — not because the lab tests failed, but
+precisely because **no single unit test contains Firefox's HTTPS-Only heuristics,
+Apple's RFC 6762 mDNS resolver, NetworkManager's D-Bus state machine, and
+Realtek's single-channel firmware lock running simultaneously.**
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / WHAT A GAME DEVELOPER CALLS AN "EDGE CASE"
+// =============================================================================
+
+== Understanding Game-Systems Edge Cases (Bugs Between Moving Parts)
+
+In game engine engineering (and sovereign OS/network design), the hardest bugs
+rarely live *inside* one isolated function. Every individual subsystem can pass
+100% of its unit tests and still collide when five independent state machines
+move at the same time:
+
+* **System A** (`hostapd`) is healthy and legitimately holding `ap0` on 2.4 GHz
+  Channel 11.
+* **System B** (`NetworkManager`) is healthy and legitimately trying to roam
+  `wlp3s0` onto a phone hotspot on a different channel.
+* **System C** (`rtw89` kernel driver + `RTL8852CE` silicon) is faithfully
+  enforcing its hardware physics limit (`#channels <= 1`).
+* **System D** (`systemd`) is booting user-space `faithnet-home.service` while
+  an ephemeral foreground terminal script died with the reboot.
+* **System E** (a human user) simply clicks a phone hotspot in the system tray
+  and reboots expecting paired devices to rejoin automatically.
+
+**None of Systems A–E had a "syntax error."** Yet their live temporal
+intersection created a PCI radio lockup and a silent post-reboot disconnect.
+Watching that unfold in real time taught a lesson that synthetic mocks can never
+simulate: **an edge case is a collision of valid assumptions across system
+boundaries.**
+
+=== Complete Ledger of All 9 Field & Playtester Gaps Caught & Closed
+
+[cols="1,2,3,2", options="header"]
+|===
+| Gap # | Where It Emerged | Root Cause Across Moving Parts | Verified Fix & Wave
+
+| **#1**
+| Wave 6 Lab Architecture
+| Single slot per rung in `AdaptiveLadder` let sibling mediums overwrite each
+  other (e.g., AFSK vs. Morse on Rung 1).
+| `[5][4]` bounded multi-sibling chassis (`MaxTotalTransceivers = 16`).
+
+| **#2**
+| Session 001 Chaos Harness
+| Silent UDP blackhole dropped packets without returning an OS `Write()` error;
+  `ReflectPingInto` could reply on wrong rung.
+| Passive cooldown quarantine (`MarkRungDegraded`) + `SendOnRung(in.Rung)`
+  (Wave 8).
+
+| **#3**
+| Session 001 Acoustic Lab
+| Leading mic silence (`>= 16` samples) shifted fixed-grid Goertzel bit
+  boundaries by half a symbol.
+| Energy-gated 4-sample sliding preamble correlator + fine peak lock
+  (`0..4,000` samples `6/6` PASS, Wave 8).
+
+| **#4**
+| Session 003 Live Browser (`Inspiron-5579`)
+| Firefox HTTPS-Only Mode upgraded `192.168.1.217:8077` to TLS against plain
+  HTTP, producing `SSL_ERROR_RX_RECORD_TOO_LONG`.
+| Pure-stdlib `0x16` dual-mode TLS/HTTP peek listener + **3-Tier Adaptive TLS
+  Trust Ladder** (Wave 9).
+
+| **#5**
+| Session 004 Live iOS + Ubuntu (`ap0`)
+| **RFC 6762** reserves `.local` strictly for multicast DNS; both iPhone and
+  Ubuntu bypassed unicast `dnsmasq` and timed out on `faithnet.local`.
+| Added unicast **`faithnet.lan`** and **`faithnet.home.arpa`** (RFC 8375) to
+  `dnsmasq` + Tier 2 Root CA SANs (Wave 10).
+
+| **#6**
+| Session 005 Live 2-Laptop Mesh
+| Every 3-second `OpBeacon` printed `[BEACON RX]` directly over active typing
+  in the `faithnet>` interactive REPL.
+| One-time `[PEER DISCOVERED]` per `NodeID` + clean `faithnet> ` prompt redraw
+  (Wave 12).
+
+| **#7**
+| Session 005 Live 2-Laptop Mesh
+| `UDPTransceiver.Send(Broadcast)` transmitted both to learned `10.77.77.1` AND
+  subnet broadcast `10.77.77.255`, double-posting `hello`.
+| `coveredByBroadcast()` `/24` dedup in `transport/rung3_local/udp.go` (Wave 12).
+
+| **#8**
+| Session 006 Live Hotspot Switch
+| Switching `wlp3s0` from `TheTribe` to a mobile hotspot while `hostapd` pinned
+  `ap0` on Ch 11 triggered `RTL8852CE` `#channels <= 1` PCI safety lock.
+| Event-driven `nmcli device monitor wlp3s0` pre-switch `ap0` release in
+  `faithnet-ap-daemon.sh` — **verified live on hotspot switch!** (Wave 13).
+
+| **#9**
+| Session 006 Post-Reboot Test
+| `faithnet-home.service` reboot-persisted, but the Wi-Fi AP was an ephemeral
+  foreground script so paired devices had no SSID on startup.
+| Installed `/etc/systemd/system/faithnet-ap.service` boot-time Micro-ISP
+  daemon + pinned `10.77.77.1` in TLS SANs (Wave 13).
+|===
+
+== Why Deep Layered Testing Accelerated Every Single Fix
+
+A tempting mistake after seeing live hardware bugs is to wonder whether the
+4x4 Lab Matrix was "wasted effort." **Field Kit 01 proved the exact opposite.**
+
+Every time a live failure occurred in Sessions 003–006, our diagnosis time was
+**under 60 seconds** *because* the 4x4 Matrix had already mathematically proven
+the lower layers:
+
+* When `faithnet.local` timed out on iPhone (Gap #5), we *immediately* knew
+  the Go HTTP server, TLS handshake, and DHCP lease were 100% healthy — because
+  `https://10.77.77.1:8077/` showed a green padlock. That instantly isolated the
+  bug to OS DNS resolution (RFC 6762).
+* When `hello` appeared twice on The Well (Gap #7), we *immediately* knew
+  Layer 0/1 codec and Layer 2 router weren't corrupting sequence IDs — because
+  both frames had identical `seq=2`, pointing straight to `UDPTransceiver.Send`.
+* When switching to a phone hotspot dropped `wlp3s0` (Gap #8), we *immediately*
+  knew Go `faithnet-home.service` was blameless — isolating the exact conflict
+  between `hostapd` channel lock and `rtw89` single-channel silicon.
+
+**Layered testing does not prevent real-world edge cases — it turns multi-day
+mystery crashes into 60-second surgical diagnoses.**
+
+== Cross-Platform Field Kit Parity (Wave 14)
+
+Field Kit 01 began on Ubuntu Linux, where kernel `nl80211` allows true
+simultaneous `STA + AP` on a single Realtek card. Wave 14 audited the entire Go
+codebase and expanded Field Kit 01 to **Linux, Windows (PowerShell), and macOS**
+with complete Rev 5 5-Block symmetry:
+
+1. **Go Core Cross-Compilation Verified (`0` changes needed in Layers 0–3A):**
+   `GOOS=windows GOARCH=amd64`, `GOOS=darwin GOARCH=arm64`, and
+   `GOOS=darwin GOARCH=amd64` all compiled cleanly on the very first pass.
+2. **One Real Code Upgrade Found by Audit (`GET /pair.ps1`):**
+   The Well (`interpreter/captive_web.go`) previously only generated POSIX
+   `GET /pair.sh`. Wave 14 added native **`GET /pair.ps1`** and OS-aware card
+   rendering (`irm http://<host>/pair.ps1 | iex` for Windows browsers;
+   `curl -fsSL http://<host>/pair.sh | sh` for Linux/macOS).
+3. **Live PowerShell 7.7.0 Parity Verification:**
+   All 3 Windows `.ps1` Field Kit scripts were executed live via
+   `/snap/bin/pwsh -NoProfile -File ... -AuditOnly`, verifying real PowerShell
+   syntax, Block 4 pre-flight diagnostics, and zero-mutation safety guards.
+4. **Honest OS Radio Reality Documented Upfront:**
+   * **Linux (`nl80211`):** Full single-radio simultaneous `STA + AP` via
+     `hostapd` + `dnsmasq` + `faithnet-ap.service` (**verified live**).
+   * **Windows (`WinRT` / `netsh`):** Modern Wi-Fi Direct **Mobile Hotspot**
+     supports single-radio STA+AP sharing cleanly through Windows Settings /
+     WinRT (`NetworkOperatorTetheringManager`), while legacy `netsh wlan
+     set hostednetwork` is deprecated on Windows 10/11 drivers.
+   * **macOS (`CoreWLAN` / `InternetSharing`):** Apple's built-in Wi-Fi driver
+     blocks simultaneous STA+AP on a single Wi-Fi interface; sharing upstream
+     internet over macOS Wi-Fi AP requires Ethernet/USB/tethered upstream plus
+     Wi-Fi AP, or running `faithnet-node` directly on the shared LAN.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / VERIFYING DISCOVERY CLAIMS
+// =============================================================================
+
+== Verification & Provenance Trail
+
+Every lesson recorded in this document is auditable directly against committed
+Field Kit 01 session logs and executable scripts:
+
+* `tests/playtester/reports/SESSION_003_LIVE_TWO_DEVICE.adoc` (Gap #4 & 3-Tier TLS)
+* `tests/playtester/reports/SESSION_004_LIVE_AP_ROUTER_AND_TIER2_CA.adoc` (3-Device AP, PlayStation YouTube & Gap #5)
+* `tests/playtester/reports/SESSION_005_SOVEREIGN_TWO_NODE_MESH.adoc` (First 2-Laptop Mesh `peer_count=1` & Gaps #6–#7)
+* `tests/playtester/reports/SESSION_006_PERSISTENT_BOOT_AP_AND_HOTSPOT_GUARD.adoc` (Gaps #8–#9 & Persistent Micro-ISP)
+* `tests/playtester/field_kits/01_two_device_room_well/` (`*.sh`, `windows/*.ps1`, `macos/*.sh`)
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / KEY ARCHITECTURAL TAKEAWAY
+// =============================================================================
+
+== Closing Takeaway
+
+Field Kit 01 transformed FaithNet from a verified protocol engine into a
+**living, self-booting, self-replicating Sovereign Micro-ISP**. The real world
+did not break FaithNet's architecture — it stress-tested its seams, revealed
+nine concrete boundary truths, and forged the defensive resilience patterns
+documented in `docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc`.
+
+// End of docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc

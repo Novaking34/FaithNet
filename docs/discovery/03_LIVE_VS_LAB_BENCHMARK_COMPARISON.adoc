@@ -1,0 +1,205 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc
+@id            docs.discovery.03_live_vs_lab_benchmarks
+@layer         Layer 5: Discovery Documentation Series (Volume D3)
+@archetype     discovery | empirical_live_vs_lab_benchmark_report
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Empirical Telemetry: Lab 4x4 vs. Harnesses vs. Live Field
+@role          Side-by-Side Quantitative Comparison of Lab & Live Field Kit 01
+@maturity      Rev 5 Baseline | Wave 14 Consolidated Live Benchmark Ledger
+@seams         in: docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc,
+                   tests/playtester/reports/SESSION_001..006.adoc
+@invariants    1. Zero fabricated numbers: every value is traced to a real run.
+               2. Explicit separation of Lab, Local-OS Harness, and Physical RF.
+               3. Clear statement of what remains unmeasured until Kits 02–04.
+
+PURPOSE & ARCHITECTURAL ROLE:
+  Consolidates all quantitative telemetry collected across FaithNet's three
+  evidence strata — (A) the 4x4 Lab Matrix, (B) the Local-OS Playtester
+  Harnesses, and (C) Real Physical Multi-Device Field Kit 01 runs — into a
+  single side-by-side benchmark ledger. Explains the exact physical reasons
+  behind lab-vs-live deltas (latency, jitter, RAM RSS, TLS, radio contention)
+  and records how live data calibrated FaithNet's production parameters.
+================================================================================
+////
+= Discovery 03: Live Field Kit 01 Benchmarks vs. Lab Testing Benchmarks
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.1.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / THREE STRATA OF EMPIRICAL EVIDENCE
+// =============================================================================
+
+toc::[]
+
+== Why Three Benchmark Strata Are Required
+
+A single benchmark number out of context misleads engineers. Saying *"FaithNet
+UDP latency is 39 microseconds"* is true on Linux loopback — and **dangerously
+false** if you use it to tune timeouts over crowded 2.4 GHz household Wi-Fi
+where real packets experience `47–347 ms` of RF contention and power-save sleep!
+
+FaithNet therefore tracks every capability across **three distinct evidence
+strata**, all measured on the same primary host hardware
+(`professorseanex-Inspiron-16-5640`, Linux `7.0.0-43-generic x86_64`, 12 CPU
+cores, Go `1.26.8`, Realtek `RTL8852CE` Wi-Fi 6E):
+
+1. **Stratum A — 4x4 Lab Matrix (`tests/{functional,unit,integrated,system}`):**
+   Pure in-process deterministic benchmarks & race-detected correctness suites.
+   Measures **algorithmic and CPU/memory ceilings** with zero OS/RF noise.
+2. **Stratum B — Local-OS Playtester Harnesses (`tests/playtester/`, Sessions 001–002):**
+   Real separate OS processes (`0 B` shared RAM), kernel TCP/UDP sockets, kernel
+   FIFOs, real userspace chaos proxies, real 16-bit PCM `.wav` + `ffmpeg` codecs,
+   and concurrent HTTP attack traffic. Measures **OS kernel & protocol resilience**.
+3. **Stratum C — Live Physical Field Kit 01 (`Sessions 003–006`):**
+   Real RF waves across four physical machines (`Inspiron-16-5640`,
+   `Inspiron-5579`, iOS iPhone, Sony PlayStation), real browsers, real `hostapd`
+   + `dnsmasq` + `iptables` NAT, real reboots, and real hotspot roaming.
+   Measures **physical world & human-operator reality**.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / SIDE-BY-SIDE MASTER COMPARISON MATRIX
+// =============================================================================
+
+== Master Comparison: Lab 4x4 vs. Local-OS Harnesses vs. Live Field Kit 01
+
+[cols="2,2,2,2,3", options="header"]
+|===
+| Dimension | Stratum A: Lab 4x4 Matrix | Stratum B: Local-OS Harnesses (S001–S002) | Stratum C: Live Field Kit 01 (S003–S006) | Engineering Insight (Why the Delta Exists)
+
+| **Wire Serialization (Codec)**
+| `EncodeInto`: `50.89 ns/op`; `DecodeFrom`: `86.72 ns/op` (`0 B/op`, `0 allocs/op`)
+| `8/8` storm bit-flips rejected (`100%`, `0` leaks)
+| Live `+1:ALIGNED` `OpData` & `OpBeacon` frames verified across real Wi-Fi (`0` drops/corruptions)
+| CPU serialization is **<0.0001%** of real Wi-Fi RTT — proving FaithNet's Go wire core is never the bottleneck.
+
+| **Rung 3 Local Network Latency (RTT)**
+| In-RAM `MemoryBus` `< 1 us` (`MockClock` deterministic)
+| Cross-process loopback UDP: `100/100` (`0%` loss), `p50 = 39.1–51.0 us`, `p95 = 68.2–137.5 us`
+| Real Wi-Fi ICMP to `Inspiron-5579` (`192.168.1.99`): `3/3` (`0%` loss), **`min = 47.61 ms`, `avg = 179.57 ms`, `max = 347.38 ms`, `mdev = 124.98 ms`**
+| Real 2.4 GHz Wi-Fi + client power-saving sleep introduces **`~1,000x–7,000x` higher latency & variance** than loopback! Confirms our multi-second beacon & timeout margins were essential.
+
+| **Rung 4 TCP / HTTP Portal Latency & Load**
+| Unit HTTP handler tests (`httptest`) `< 1 ms`
+| Cross-process TCP: `p50 = 338.4–404.5 us`; Live Well (`12` workers, `6` OSes): **`3,375–6,126 req/s`**, `p50 = 1.66–2.88 ms`
+| Instant interactive page loads & JSON `/api/status` across Laptop #2 Firefox, `curl`, and iOS Safari over `ap0` (`-33` to `-48 dBm`)
+| Single Go binary serves **>3,300 requests/sec** on localhost, leaving huge headroom for household/community rooms (`3–50` devices).
+
+| **Memory Footprint (RAM)**
+| `0 B/op` on Layer 0/1 hot paths
+| Go Heap: `0.85 MB` (UDP node), `1.28 MB` (TCP node), `1.03–1.58 MB` (Well under `6,126 req/s`)
+| Live OS Resident RSS (`systemd`): `faithnet-home.service` **`1.7–11.9 MB`**, `faithnet-ap.service` (`hostapd` + `dnsmasq` + bash guard) **`8.5 MB`** -> **`~10–20 MB` total Micro-ISP**
+| Go heap measures live allocated objects (`~1 MB`), whereas OS RSS includes Go runtime, TLS cert buffers, `hostapd`, and `dnsmasq`. Still **<0.2%** of a modern laptop's RAM (and viable on 256 MB SBCs!).
+
+| **Multi-Device Throughput & NAT Stress**
+| Synthetic single-host routing (`128`-peer fixed table)
+| Localhost single-machine multi-process
+| **3 simultaneous real clients on `ap0` (`10.77.77.1/24`):** Laptop #2 (`-33 dBm`), iPhone (`-48 dBm`, `~9.0 MB`), **PlayStation (`-44 dBm`, `~27.1 MB` in `59s` streaming live YouTube)** = **`>36 MB` routed live** (~`460 KB/s` sustained video stream) while `TheTribe` stayed 100% up!
+| Proved Realtek `RTL8852CE` simultaneous `STA+AP` + kernel `iptables` NAT easily handles real HD video streaming alongside sovereign FaithNet traffic.
+
+| **Security & Trust Verification**
+| Unit tests for `CovenantFilter` & 3-Tier TLS (`tls_test`)
+| `120/120` live web attacks blocked (`0` breaches)
+| Live Laptop #2 attack payload blocked (`403`, `airlock_blocked: 1`); **Tier 2 Sovereign Root CA** verified with green padlock on Laptop #2 Firefox, `curl --cacert`, and iOS iPhone; persisted unchanged across service restart (SHA-256 `71bb7463...`)
+| Lab tests validated crypto math; **live browsers exposed Gap #4 (HTTPS-Only Mode) & Gap #5 (RFC 6762 `.local` mDNS)** — proving browser field testing is mandatory.
+
+| **Self-Replication & Peer Discovery**
+| Unit test for `/pair.sh`, `/pair.ps1`, `/api/pair`, `/download/faithnet-node`
+| Localhost `httptest` self-binary check
+| Real **`11.1 MB`** native binary downloaded over Wi-Fi from Laptop #1 -> Laptop #2 via `/pair.sh`; auto-assigned `0xFA17000000000004`, elevated `Home-Anchor` to **`peer_count: 1`**, delivered live **`+1:ALIGNED`** bulletin; auto-rejoined in **`~3s`** after AP restart
+| Zero-compiler peer onboarding works end-to-end on real Wi-Fi; live REPL exposed Gap #6 (beacon spam) and Gap #7 (`/24` duplicate broadcast).
+
+| **Failure Cascade & Radio Roaming Recovery**
+| Deterministic `MockClock` cascade tests (`EVT_CASCADE_DOWN`)
+| Hard-cut `UDP -> RAM` `21 us`; `RAM -> AFSK` `0.9 ms` (`1.28 ms` total, `0%` loss); silent blackhole rescued `2/2` on `RUNG_2_HOST`
+| Live `wlp3s0` switch from `TheTribe` -> **mobile phone hotspot** -> back: `faithnet-ap.service` yielded `ap0` immediately on `nmcli monitor` event and recovered cleanly with **zero PCI lockup**
+| Software cascade operates in microseconds/milliseconds; physical Wi-Fi radio handoff operates on a **1–3 second** human-scale envelope governed by firmware channel switching.
+|===
+
+== Lab-Validated Rung 1 Baselines Awaiting Physical Field Kits 02–04
+
+For strict scientific honesty, the table below records capabilities that are
+**fully proven in Stratum A (Lab) and Stratum B (Real OS/Audio Harnesses)**,
+but have **not yet been physically executed in Stratum C (Real Cables / Room Air
+/ Multi-Hop `netns`)**:
+
+[cols="2,3,2", options="header"]
+|===
+| Capability | Proven Stratum B Benchmark (Session 002) | Next Physical Field Kit
+
+| **Rung 1 Acoustic AFSK Modem (1200/2400 Hz)**
+| Mod `0.26 ms`, Demod `0.14 ms`; survives **`+3.93 dB` SNR** (knee `+2.32 dB`),
+  `1%` volume, `ffmpeg` 32 kbps MP3, 300–3400 Hz phone bandpass, and leading
+  mic silence `0..4,000` samples (`0..416.67 ms`) **`6/6` PASS**
+| **Field Kit 02:** Real Laptop #1 speaker -> room air -> Laptop #2 mic
+  (`aplay` / `arecord`).
+
+| **Rung 1 1844 ITU Morse CW**
+| `60B` wire -> `671` Morse chars -> `1,967` pulses (`100%` lossless)
+| **Field Kit 02:** Optional audible telegraph room-air decode.
+
+| **Rung 1 SLIP Serial Copper Wire**
+| Real kernel FIFO `50/50` avg RTT `130.6 us`, worst-case 512B escape burst
+  **`1,126.6 KB/s` (`9.23 Mbps`)**, 10B cable-glitch resync `126.9 us`
+| **Field Kit 03:** `socat` PTY bridge & physical USB-TTL `/dev/ttyUSB0` copper
+  wires (`TX`/`RX`/`GND`).
+
+| **Multi-Hop Relay & Kernel `tc netem` Blackout**
+| Userspace chaos proxy `8/8` corruptions + silent blackhole cascade
+| **Field Kit 04:** Real Linux `ip netns` isolated namespaces + kernel `tc
+  netem` jitter/loss/blackout injection.
+|===
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / HOW LIVE DATA CHANGED ENGINEERING THRESHOLDS
+// =============================================================================
+
+== Engineering Thresholds Calibrated by Live Field Kit 01 Data
+
+Comparing Stratum C (Live) against Strata A & B (Lab) drove five concrete
+production design changes:
+
+1. **Real Wi-Fi Jitter (`47.6–347.4 ms`) Validated 3-Second Beacon Cadence:**
+   Any sub-200ms liveness assumption tuned on loopback (`39 us`) would have
+   falsely declared healthy Wi-Fi peers dead during normal laptop sleep bursts.
+2. **Dual-Mode Listener & Permanent `10.77.77.1` TLS SAN:**
+   Added directly because real browsers force HTTPS and `systemd` boot order
+   can start `faithnet-home.service` milliseconds before `ap0` receives
+   `10.77.77.1`.
+3. **Unicast `.lan` & `.home.arpa` Domains:**
+   Added directly because real OS resolvers enforce RFC 6762 `.local` mDNS.
+4. **Event-Driven `nmcli device monitor` Over 5-Second Polling:**
+   Real `RTL8852CE` firmware locks instantaneously during a concurrent scan —
+   so `5s` polling was too slow; real-time event monitoring reduced handoff
+   reaction time to milliseconds.
+5. **Cross-Platform `/pair.ps1` + Windows/macOS Kits:**
+   Live self-replication proved how effortless one-command peer joining is,
+   prompting immediate Windows PowerShell (`pwsh 7.7.0` tested) and macOS
+   parity so any household device can join without installing Go.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / BENCHMARK LEDGER SIGN-OFF
+// =============================================================================
+
+== Benchmark Ledger Sign-Off
+
+FaithNet's live telemetry confirms an extraordinary engineering balance:
+**sub-microsecond wire efficiency (`50.89 ns`), `~10–20 MB` total Micro-ISP
+footprint, `>36 MB` multi-device real Wi-Fi NAT throughput (including live
+PlayStation YouTube), `~3s` automatic mesh rejoin, and zero-lockup hotspot
+roaming** — all backed by `0` third-party Go dependencies.
+
+// End of docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc

@@ -16,7 +16,7 @@ BLOCK 1: METADATA BLOCK
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
 @system        FaithNet Sovereign Adaptive Networking Substrate
 @role          Root Orientation, Architectural Specification & Verification Index
-@maturity      Rev 5 Baseline | Wave 12 Complete (Live 2-Node Mesh & Micro-ISP AP)
+@maturity      Rev 5 Baseline | Wave 14 Complete (5-Block Cross-Platform Kit 01 & Discovery Series)
 @chassis       zero-external-deps | Pure Go 1.26.8 Standard Library Substrate
 @scale         O(1) orientation across 5 layers, 4 adaptive rungs & 4 test tiers
 @seams         in: docs/ROADMAP.adoc | exports: operator & engineer entrypoint
@@ -58,9 +58,9 @@ PURPOSE & ARCHITECTURAL ROLE:
 | **Frame Invariant** | 32-Byte Fixed Header + 480-Byte Floor MTU = **512-Byte Floppy Sector Invariant** |
 | **Memory Discipline** | `ALLOC_ZERO_HEAP` (0.00 allocs/op) on Layer 0/1 wire & heartbeat hot paths |
 | **Adaptive Resilience** | 4-Rung Bidirectional Ladder (`Rung 1 Floor` $\leftrightarrow$ `Rung 4 Global`) |
-| **Verification Matrix** | **4x4 Lab Matrix** (46 test files, 329 tests) + **`tests/playtester/`** (5 live harnesses, 4 field kits) |
-| **Current Milestone** | **Wave 12 Complete** (Live 2-Node Sovereign Mesh `peer_count=1`, 3-Device STA+AP Micro-ISP, Tier 2 CA & Self-Replicating `/pair.sh`) |
-| **Documentation Series** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc) & [`docs/01..05`](docs/01_WHAT_IS_FAITHNET.adoc) |
+| **Verification Matrix** | **4x4 Lab Matrix** (46 test files, 333 tests) + **`tests/playtester/`** (5 live harnesses, 4 field kits, 6 session reports) |
+| **Current Milestone** | **Wave 14 Complete** (Persistent Boot Micro-ISP, Live Hotspot Switch, Cross-Platform Linux/Windows/macOS Kit 01, `/pair.ps1` & Discovery Docs) |
+| **Documentation Series** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc), [`docs/01..05`](docs/01_WHAT_IS_FAITHNET.adoc) & [`docs/discovery/01..03`](docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc) |
 
 ---
 
@@ -152,20 +152,24 @@ FaithNet/
 ├── cmd/                        # Layer 4: Thin Imperative CLI Entrypoints
 │   ├── faithnet-ping/          #   Standalone offline 5-Cog ping & --audit (9 gates) CLI
 │   └── faithnet-node/          #   Full orchestrated node, --audit (22 gates) & The Well CLI
-├── docs/                       # Layer 5: Canonical Roadmap & 5-Volume AsciiDoc Series
+├── docs/                       # Layer 5: Canonical Roadmap, 5-Volume Core Series & Discovery Series
 │   ├── ROADMAP.adoc            #   Master 5-Block Architecture & Wave Plan
 │   ├── 01_WHAT_IS_FAITHNET.adoc                # Vol 01: Philosophy, CPI-SI & The 5 Cogs
 │   ├── 02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc # Vol 02: Layer-by-Layer Code & 5-Block Guide
 │   ├── 03_FAITHNET_VS_MODERN_INTERNET.adoc     # Vol 03: Comparison vs Commercial Internet Stack
 │   ├── 04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc # Vol 04: Empirical Benchmarks & Honest Gaps
-│   └── 05_FIELD_PLAYTEST_RUNBOOKS.adoc         # Vol 05: Physical Field Playtest Runbooks
+│   ├── 05_FIELD_PLAYTEST_RUNBOOKS.adoc         # Vol 05: Physical Field Playtest Runbooks
+│   └── discovery/              #   Discovery Series: Lived Field Kit 01 Engineering Retrospectives
+│       ├── 01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc # D1: 9 Moving-Part Edge Cases & OS Parity
+│       ├── 02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc     # D2: Safety Locks vs. Hard Aborts
+│       └── 03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc    # D3: Lab 4x4 vs. Harnesses vs. Live RF
 └── tests/                      # Layer 4: 4x4 Lab Matrix + Playtester Proving Ground
     ├── common/fixtures.go      #   Shared identities, forensic AuditResult asserts & anchors
     ├── functional/             #   Tier 1: 7 per-subsystem public API suites + benchmarks
     ├── unit/                   #   Tier 2: 28 strict 1:1 per-cog unit suites (all 28 prod files)
     ├── integrated/             #   Tier 3: 6 cross-subsystem multi-combination suites
     ├── system/                 #   Tier 4: 5 full-stack E2E, blackout, hostility, CLI & stress suites
-    └── playtester/             #   Proving Ground: 5 live OS/chaos/audio harnesses, 4 field kits & reports
+    └── playtester/             #   Proving Ground: 5 live harnesses, cross-platform Field Kits (Linux/Win/macOS) & 6 reports
 ```
 
 ### Universal 5-Block Lifecycle Protocol (Rev 5) & Go Block 4 Standard
@@ -216,28 +220,31 @@ go run ./cmd/faithnet-ping --mode=ipc --count=4
 go run ./cmd/faithnet-node --probe-only --beacon --well
 ```
 
-### Verified Baseline Telemetry & Reality Matrix (Wave 8 / Session 002)
+### Verified Baseline Telemetry & Reality Matrix (Wave 14 / Sessions 001–006)
 
-* **External Dependencies:** `0` (`go list -m all` reports only `github.com/CreativeWorkzStudio/FaithNet`).
+* **External Dependencies:** `0` (`go list -m all` reports only `github.com/CreativeWorkzStudio/FaithNet`); cross-compiles cleanly for `linux/amd64`, `windows/amd64`, `darwin/arm64`, and `darwin/amd64`.
 * **Wire Codec Throughput:** `BenchmarkEncodeInto` `50.89 ns/op` (`0 B/op, 0 allocs/op`), `BenchmarkDecodeFrom` `86.72 ns/op` (`0 B/op, 0 allocs/op`).
-* **4x4 Lab Matrix (`tests/{functional,unit,integrated,system}`):** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 unit, `6` integrated, `5` system) + `1` shared harness = **330 verified `Test*` functions** (`go test -count=1 -race ./tests/...` PASS) + **22/22 live Block 4 pre-flight gates**.
-* **Playtester Proving Ground ([`SESSION_002_WAVE8_HARDENED.adoc`](tests/playtester/reports/SESSION_002_WAVE8_HARDENED.adoc)):**
+* **4x4 Lab Matrix (`tests/{functional,unit,integrated,system}`):** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 unit, `6` integrated, `5` system) + `1` shared harness = **333 verified `Test*` functions** (`go test -count=1 -race ./tests/...` PASS) + **22/22 live Block 4 pre-flight gates**.
+* **Playtester Proving Ground & Live Field Reality ([`docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc`](docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc)):**
 
-| Capability | Lab Verified (4x4) | Live Playtested (Session 002 — Real OS/Audio/HTTP) | Physical Field Status |
+| Capability | Lab Verified (4x4) | Local-OS Harnesses (S002) | Physical Field Status (S003–S006) |
 | :--- | :--- | :--- | :--- |
-| **Cross-Process UDP / TCP** | PASS (`-race`) | **PASS:** UDP `p50=39.1 us` (`0.85 MB`), TCP `p50=338.4 us` (`1.28 MB`), `0%` loss | LAN broadcast `OpBeacon` + `--interactive` REPL ready for Laptop #2 (`192.168.1.99`) |
-| **Chaos Weather & Cascade** | PASS (`-race`) | **PASS:** `8/8` bit-flips caught; `UDP->RAM` hard-cut `21 us`; **Silent Blackhole auto-cascade rescued `2/2` on `RUNG_2_HOST`!** | Field Kit 04 (`ip netns` + `tc netem`) staged |
-| **Rung 1 SLIP Serial** | PASS (`-race`) | **PASS:** Real kernel FIFO `1,126.6 KB/s` (`9.23 Mbps`), glitch resync `126.9 us` | Field Kit 03 (`socat` installed + `/dev/ttyUSB0` copper checklist) |
-| **Rung 1 AFSK & Morse** | PASS (`-race`) | **PASS:** Survives `+3.93 dB` SNR, `1%` vol, `ffmpeg` 32k MP3 & phone bandpass; **mic leading silence `0..4,000` samples `6/6` PASS!** | Field Kit 02 (`aplay`/`arecord`) ready for live room-air test |
-| **The Well & Airlock** | PASS (`-race`) | **PASS:** `6,126 req/s`, `p50=1.66 ms`, `120/120` attacks blocked (`0` breaches) | **LIVE FIELD VERIFIED (Session 003):** `4/4` PASS from `Inspiron-5579` (`192.168.1.99`) + 3-Tier Adaptive TLS (`--tls-cert`/`--tls-ca-dir`/ephemeral) |
+| **Cross-Process UDP / TCP & Mesh** | PASS (`-race`) | **PASS:** UDP `p50=39.1 us` (`0.85 MB`), TCP `p50=338.4 us` (`1.28 MB`), `0%` loss | **LIVE VERIFIED (S005):** 2-laptop mesh (`peer_count=1`, `+1:ALIGNED` bulletin via self-replicating `11.1 MB` `/pair.sh`, `~3s` auto-rejoin); `/pair.ps1` + Windows `pwsh 7.7.0` parity verified! |
+| **Wi-Fi Micro-ISP & Roaming Guard** | PASS (`-race`) | **PASS:** `8/8` bit-flips caught; hard-cut `1.28 ms`; silent blackhole auto-rescued `2/2` | **LIVE VERIFIED (S004 & S006):** Persistent `faithnet-ap.service` + `faithnet-home.service` (`~10–20 MB` RSS), `>36 MB` routed across Laptop #2, iPhone & PlayStation YouTube; live mobile hotspot switch **PASS** (zero PCI lockup)! |
+| **Rung 1 SLIP Serial** | PASS (`-race`) | **PASS:** Real kernel FIFO `1,126.6 KB/s` (`9.23 Mbps`), glitch resync `126.9 us` | Field Kit 03 (`socat` installed + `/dev/ttyUSB0` copper checklist) ready |
+| **Rung 1 AFSK & Morse** | PASS (`-race`) | **PASS:** `+3.93 dB` SNR, `1%` vol, `ffmpeg` 32k MP3, phone bandpass, mic leading silence `0..4,000` samples `6/6` PASS | Field Kit 02 (`aplay`/`arecord`) ready for live room-air test |
+| **The Well, TLS & Airlock** | PASS (`-race`) | **PASS:** `6,126 req/s`, `p50=1.66 ms`, `120/120` attacks blocked (`0` breaches) | **LIVE VERIFIED (S003 & S004):** 3-Tier Adaptive TLS (`TIER_2_SOVEREIGN_CA` green padlock on Laptop #2 & iOS), `.lan`/`.home.arpa` unicast DNS, reboot-persistent CA |
 
-### Documentation Series (`docs/`)
+### Documentation Series (`docs/` & `docs/discovery/`)
 
 1. [`docs/01_WHAT_IS_FAITHNET.adoc`](docs/01_WHAT_IS_FAITHNET.adoc) — Philosophy, first principles, CPI-SI communication & the 5 Irreducible Cogs.
 2. [`docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc`](docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc) — Layer-by-layer code walkthrough, wire format, `[5][4]` ladder & Rev 5 5-Block standard.
 3. [`docs/03_FAITHNET_VS_MODERN_INTERNET.adoc`](docs/03_FAITHNET_VS_MODERN_INTERNET.adoc) — Direct architectural comparison vs. the commercial internet & why the compiled C/Rust/Go trinity matters.
 4. [`docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc`](docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc) — Consolidated empirical benchmarks & honest gaps exposed by Playtest Session 001.
 5. [`docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc`](docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc) — Ready-to-execute operator runbooks for all 4 staged physical Field Kits.
+6. [`docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc`](docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc) — **Discovery 01:** Field Kit 01 lived engineering experience, 9 real-world moving-part edge cases & cross-platform OS parity.
+7. [`docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc`](docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc) — **Discovery 02:** Why hardware/software safety locks & graceful degradation beat hard aborts across all 5 strata.
+8. [`docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc`](docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc) — **Discovery 03:** Consolidated side-by-side empirical ledger comparing Lab 4x4 vs. Local-OS Harnesses vs. Live Physical Field Kit 01.
 
 ---
 

@@ -1,29 +1,71 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# BLOCK 1: METADATA BLOCK — FaithNet Persistent Event-Driven Micro-ISP AP Daemon
-# @project FaithNet
-# @file    tests/playtester/field_kits/01_two_device_room_well/faithnet-ap-daemon.sh
-# @role    Persistent boot-time systemd daemon managing simultaneous STA+AP
-#          (FaithNet-HomeRoom on ap0) with immediate radio release whenever
-#          wlp3s0 switches Wi-Fi/hotspot so Realtek rtw89 NEVER locks up!
-# @safety  Zero-brick: never modifies wlp3s0; releases ap0 immediately on
-#          connecting/disconnected events; clean trap EXIT teardown.
+# BLOCK 1: METADATA BLOCK
+# ( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+# ==============================================================================
+# @project       FaithNet
+# @file          tests/playtester/field_kits/01_two_device_room_well/faithnet-ap-daemon.sh
+# @id            playtest.field_kit.01.linux.ap_daemon
+# @layer         Layer 4: Proving Ground (Field Kit 01 — Persistent AP Daemon)
+# @archetype     field_daemon | operational
+# @version       0.1.0-dev
+# @interface_rev Rev 5
+# @date          2026-11-17
+# @updated       2026-11-17
+# @author        CreativeWorkzStudio LLC / ProfessorSeanEX
+# @repository    https://github.com/CreativeWorkzStudio/FaithNet
+# @system        FaithNet Persistent Event-Driven Micro-ISP AP Daemon (Linux)
+# @role          Boot-Persistent Simultaneous STA+AP With Real-Time Radio Guard
+# @maturity      Rev 5 Baseline | Wave 14 5-Block Cross-Platform Parity
+# @chassis       systemd-daemon | Non-blocking nmcli monitor + zero-brick safety
+# @scale         Single-radio Realtek rtw89/mac80211 safe STA+AP + Ch 6 island
+# @seams         in: nmcli, iw, hostapd, dnsmasq, iptables | exports: ap0
+# @invariants    1. Universal 5-Block Lifecycle Protocol (Rev 5).
+#                2. Zero-brick guarantee: releases ap0 IMMEDIATELY on upstream
+#                   connecting/disconnected events so rtw89 never locks PCI.
+#                3. Graceful degradation: logs warning and preserves upstream
+#                   Wi-Fi if a 5 GHz DFS channel forbids simultaneous AP mode.
+#                4. Automatic offline island fallback (Ch 6) after 10s blackout.
+#
+# PURPOSE & ARCHITECTURAL ROLE:
+#   System-level persistent daemon backing `/etc/systemd/system/faithnet-ap.service`.
+#   Ensures Laptop #1 auto-boots into a FaithNet-HomeRoom micro-ISP router so
+#   previously paired phones, laptops, and consoles auto-reconnect on startup,
+#   while safely releasing `ap0` during upstream Wi-Fi/hotspot switches.
+#
+#   ### For Architects, Operators & Non-Programmers:
+#   Keeps FaithNet Wi-Fi automatically running whenever the laptop turns on and
+#   safely steps aside for 2 seconds whenever you switch to a phone hotspot.
+#
+#   ### For Systems Programmers & Engine Architects:
+#   Uses process substitution (`exec 3< <(nmcli device monitor ...)`) so traps
+#   and PID variables remain in the main shell, with non-blocking `read -t 10`
+#   blackout detection and idempotent iptables/iw teardown.
 # ==============================================================================
 set -euo pipefail
 
-STA_IF="${STA_IF:-wlp3s0}"
-AP_IF="${AP_IF:-ap0}"
-SSID="${SSID:-FaithNet-HomeRoom}"
-PASS="${PASS:-FaithNet2026}"
-AP_IP="${AP_IP:-10.77.77.1}"
-AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
-RUN_DIR="/run/faithnet-ap"
+# ==============================================================================
+# BLOCK 2: OPENING BLOCK
+# ( Operational Constants, Mutable Daemon State & Safe Teardown Trap )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
+# Module:        playtest.field_kit.01.linux.ap_daemon
+# Mission:       Define runtime paths, state flags, logging, and trap cleanup.
+# ==============================================================================
+
+readonly STA_IF="${STA_IF:-wlp3s0}"
+readonly AP_IF="${AP_IF:-ap0}"
+readonly SSID="${SSID:-FaithNet-HomeRoom}"
+readonly PASS="${PASS:-FaithNet2026}"
+readonly AP_IP="${AP_IP:-10.77.77.1}"
+readonly AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
+readonly RUN_DIR="/run/faithnet-ap"
+
 HOSTAPD_PID=""
 DNSMASQ_PID=""
 CURRENT_CHAN=""
 AP_ACTIVE=0
-
-mkdir -p "${RUN_DIR}"
 
 log() {
   echo "[faithnet-ap $(date '+%H:%M:%S')] $*"
@@ -58,12 +100,30 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# ==============================================================================
+# BLOCK 3: BODY BLOCK
+# ( Radio Query Helpers, Safe AP Bring-Up & Event-Driven Switch Loop )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
+# Module:        playtest.field_kit.01.linux.ap_daemon
+# Mission:       Manage ap0 lifecycle across boot, hotspot switch & blackout.
+# ==============================================================================
+
 derive_ap_mac() {
   local base_mac first new_first
   base_mac="$(cat "/sys/class/net/${STA_IF}/address" 2>/dev/null || echo "44:fa:66:89:f6:f5")"
   first="${base_mac%%:*}"
   new_first="$(printf '%02x' $(( (0x${first} | 0x02) ^ 0x04 )))"
   echo "${new_first}:${base_mac#*:}"
+}
+
+get_sta_state() {
+  nmcli -t -f DEVICE,STATE dev status 2>/dev/null | awk -F: -v dev="${STA_IF}" '$1==dev {print $2; exit}'
+}
+
+get_sta_channel() {
+  iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2; exit}'
 }
 
 start_ap() {
@@ -103,7 +163,7 @@ rsn_pairwise=CCMP
 EOF
 
   if ! hostapd -B -P "${RUN_DIR}/hostapd.pid" "${RUN_DIR}/hostapd.conf" >/dev/null 2>&1; then
-    log "WARN: hostapd refused Channel ${chan} (e.g. 5GHz DFS/LAR restriction on ${STA_IF}); tearing down ${AP_IF} cleanly so upstream Wi-Fi stays 100% healthy."
+    log "WARN: hostapd refused Channel ${chan} (e.g. 5GHz DFS/LAR); releasing ${AP_IF} cleanly."
     stop_ap
     return 1
   fi
@@ -149,80 +209,113 @@ EOF
   return 0
 }
 
-get_sta_state() {
-  nmcli -t -f DEVICE,STATE dev status 2>/dev/null | awk -F: -v dev="${STA_IF}" '$1==dev {print $2; exit}'
-}
+run_event_monitor_loop() {
+  exec 3< <(nmcli device monitor "${STA_IF}" 2>/dev/null)
+  local offline_wait=0
+  local line=""
 
-get_sta_channel() {
-  iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2; exit}'
-}
-
-# 1. Boot settle: give NetworkManager up to 15s to associate wlp3s0 cleanly
-#    before creating ap0 so boot-time Wi-Fi never collides on rtw89.
-log "Starting FaithNet persistent Micro-ISP AP daemon on ${STA_IF}..."
-for _ in $(seq 1 15); do
-  st="$(get_sta_state)"
-  ch="$(get_sta_channel)"
-  if [[ "${st}" == "connected" && -n "${ch}" ]]; then
-    break
-  fi
-  sleep 1
-done
-
-init_ch="$(get_sta_channel)"
-if [[ -n "${init_ch}" ]]; then
-  start_ap "${init_ch}" || true
-else
-  log "No upstream Wi-Fi after boot settle; launching offline island on Channel 6..."
-  start_ap 6 || true
-fi
-
-# 2. Event-driven monitor (process substitution keeps main shell PID/traps!).
-#    Releases ap0 IMMEDIATELY on any connecting/disconnected event so Realtek
-#    rtw89 never locks up during Wi-Fi or mobile-hotspot channel switches!
-exec 3< <(nmcli device monitor "${STA_IF}" 2>/dev/null)
-OFFLINE_WAIT=0
-
-while true; do
-  if [[ "${OFFLINE_WAIT}" -eq 1 ]]; then
-    if ! IFS= read -r -t 10 -u 3 line; then
-      # 10s elapsed with no new NM event: check if still disconnected (blackout).
-      OFFLINE_WAIT=0
-      if [[ "$(get_sta_state)" == "disconnected" && "${AP_ACTIVE}" -eq 0 ]]; then
-        log "Upstream still offline after 10s -> booting standalone offline island on Channel 6!"
-        start_ap 6 || true
+  while true; do
+    if [[ "${offline_wait}" -eq 1 ]]; then
+      if ! IFS= read -r -t 10 -u 3 line; then
+        offline_wait=0
+        if [[ "$(get_sta_state)" == "disconnected" && "${AP_ACTIVE}" -eq 0 ]]; then
+          log "Upstream offline >10s -> booting standalone offline island on Channel 6!"
+          start_ap 6 || true
+        fi
+        continue
       fi
-      continue
+    else
+      if ! IFS= read -r -u 3 line; then
+        break
+      fi
     fi
-  else
-    if ! IFS= read -r -u 3 line; then
+
+    case "${line}" in
+      *"connecting"*|*"configuring"*|*"deactivating"*|*"unavailable"*)
+        offline_wait=0
+        if [[ "${AP_ACTIVE}" -eq 1 ]]; then
+          log "Upstream event (${line}) -> immediately releasing ${AP_IF} for clean handoff!"
+          stop_ap
+        fi
+        ;;
+      *"disconnected"*)
+        if [[ "${AP_ACTIVE}" -eq 1 ]]; then
+          log "Upstream disconnected -> releasing ${AP_IF} so NetworkManager scans freely..."
+          stop_ap
+        fi
+        offline_wait=1
+        ;;
+      *": connected"*)
+        offline_wait=0
+        sleep 2
+        local new_ch
+        new_ch="$(get_sta_channel)"
+        if [[ -n "${new_ch}" && ( "${AP_ACTIVE}" -eq 0 || "${new_ch}" != "${CURRENT_CHAN}" ) ]]; then
+          log "Upstream connected on Channel ${new_ch} -> bringing '${SSID}' online!"
+          start_ap "${new_ch}" || true
+        fi
+        ;;
+    esac
+  done
+}
+
+# ==============================================================================
+# BLOCK 4: AUDIT PROCEDURES BLOCK
+# ( Pre-Flight Privilege, Runtime Directory & Wireless Tool Audit )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
+# Module:        playtest.field_kit.01.linux.ap_daemon
+# Mission:       Verify root capability and required Linux wireless toolchain.
+# ==============================================================================
+
+preflight_ap_daemon() {
+  if [[ "${EUID}" -ne 0 ]]; then
+    log "PREFLIGHT FAIL: faithnet-ap-daemon.sh requires root (run via systemd)."
+    return 1
+  fi
+  for tool in iw ip hostapd dnsmasq iptables nmcli; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      log "PREFLIGHT FAIL: missing required wireless dependency '${tool}'."
+      return 1
+    fi
+  done
+  mkdir -p "${RUN_DIR}"
+  return 0
+}
+
+# ==============================================================================
+# BLOCK 5: CLOSING BLOCK
+# ( Boot Settle Sequence & Event-Loop Lifecycle Entrypoint )
+# ==============================================================================
+# Engine:        FaithNet Adaptive Networking Substrate
+# Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
+# Module:        playtest.field_kit.01.linux.ap_daemon
+# Mission:       Settle upstream Wi-Fi cleanly on boot, then run monitor loop.
+# ==============================================================================
+
+main() {
+  preflight_ap_daemon
+  log "Starting FaithNet persistent Micro-ISP AP daemon on ${STA_IF}..."
+  for _ in $(seq 1 15); do
+    if [[ "$(get_sta_state)" == "connected" && -n "$(get_sta_channel)" ]]; then
       break
     fi
+    sleep 1
+  done
+
+  local init_ch
+  init_ch="$(get_sta_channel)"
+  if [[ -n "${init_ch}" ]]; then
+    start_ap "${init_ch}" || true
+  else
+    log "No upstream Wi-Fi after boot settle; launching offline island on Channel 6..."
+    start_ap 6 || true
   fi
 
-  case "${line}" in
-    *"connecting"*|*"configuring"*|*"deactivating"*|*"unavailable"*)
-      OFFLINE_WAIT=0
-      if [[ "${AP_ACTIVE}" -eq 1 ]]; then
-        log "Upstream event (${line}) -> immediately releasing ${AP_IF} for clean radio handoff!"
-        stop_ap
-      fi
-      ;;
-    *"disconnected"*)
-      if [[ "${AP_ACTIVE}" -eq 1 ]]; then
-        log "Upstream disconnected -> releasing ${AP_IF} so NetworkManager can scan freely..."
-        stop_ap
-      fi
-      OFFLINE_WAIT=1
-      ;;
-    *": connected"*)
-      OFFLINE_WAIT=0
-      sleep 2
-      new_ch="$(get_sta_channel)"
-      if [[ -n "${new_ch}" && ( "${AP_ACTIVE}" -eq 0 || "${new_ch}" != "${CURRENT_CHAN}" ) ]]; then
-        log "Upstream connected on Channel ${new_ch} -> bringing '${SSID}' online!"
-        start_ap "${new_ch}" || true
-      fi
-      ;;
-  esac
-done
+  run_event_monitor_loop
+}
+
+main "$@"
+
+# End of tests/playtester/field_kits/01_two_device_room_well/faithnet-ap-daemon.sh

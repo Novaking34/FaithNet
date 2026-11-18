@@ -355,7 +355,16 @@ func TestCaptiveWebUnit_Sec4_ZeroConfigPeerPairingAndBinarySelfReplication(t *te
 		t.Fatalf("[SEC 4] /pair.sh missing auto-join anchor: code=%d body=%s", r2.Code, r2.Body.String())
 	}
 
-	// 3. /download/faithnet-node streams the self-replicating binary cleanly.
+	// 3. /pair.ps1 generates native Windows PowerShell pairing script.
+	rPS := httptest.NewRecorder()
+	reqPS := httptest.NewRequest(http.MethodGet, "http://10.77.77.1:8077/pair.ps1", nil)
+	reqPS.Host = "10.77.77.1:8077"
+	well.Handler().ServeHTTP(rPS, reqPS)
+	if rPS.Code != http.StatusOK || !strings.Contains(rPS.Body.String(), `--join="10.77.77.1:7777"`) {
+		t.Fatalf("[SEC 4] /pair.ps1 missing auto-join anchor: code=%d body=%s", rPS.Code, rPS.Body.String())
+	}
+
+	// 4. /download/faithnet-node streams the self-replicating binary cleanly.
 	r3 := httptest.NewRecorder()
 	well.Handler().ServeHTTP(r3, httptest.NewRequest(http.MethodGet, "/download/faithnet-node", nil))
 	if r3.Code != http.StatusOK || r3.Body.String() != "ELF-FAITHNET-BIN" {

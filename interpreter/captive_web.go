@@ -509,6 +509,33 @@ fi
 	_, _ = rw.Write([]byte(script))
 }
 
+func (w *WellServer) handlePairPowerShell(rw http.ResponseWriter, r *http.Request) {
+	p := w.buildPairPayload(r)
+	script := fmt.Sprintf(`# FaithNet Zero-Config Sovereign Node Pairing (Windows PowerShell)
+$ErrorActionPreference = "Stop"
+Write-Host "=== FaithNet Zero-Config Sovereign Node Pairing (Windows) ==="
+Write-Host "Anchor : %s (%s) at %s"
+Write-Host "NodeID : %s"
+$Dest = Join-Path $env:TEMP "faithnet-node.exe"
+if (-not (Test-Path $Dest)) {
+  Write-Host "[1/2] Build or place Windows faithnet-node.exe at $Dest (from FaithNet repo: go build -o $Dest ./cmd/faithnet-node)"
+}
+$Label = $env:COMPUTERNAME
+if ([string]::IsNullOrWhiteSpace($Label)) { $Label = "FaithNet-Windows-Peer" }
+Write-Host "[2/2] Run to pair '$Label' (%s) with Anchor %s:"
+Write-Host ("& '" + $Dest + "' --id=%s --label='" + $Label + "' --udp=0.0.0.0:7777 --join='%s' --join-id=%s --beacon --interactive")
+if (Test-Path $Dest) {
+  & $Dest --id=%s --label="$Label" --udp=0.0.0.0:7777 --join="%s" --join-id=%s --beacon --interactive
+}
+`, p.AnchorLabel, p.AnchorID, p.AnchorUDP, p.AssignedNodeID,
+		p.AssignedNodeID, p.AnchorUDP,
+		p.AssignedNodeID, p.AnchorUDP, p.AnchorID,
+		p.AssignedNodeID, p.AnchorUDP, p.AnchorID)
+
+	rw.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = rw.Write([]byte(script))
+}
+
 func (w *WellServer) handleDownloadBinary(rw http.ResponseWriter, r *http.Request) {
 	w.srvMu.Lock()
 	binPath := w.pairOpts.BinaryPath
@@ -603,9 +630,15 @@ func (w *WellServer) handleHomeHTML(rw http.ResponseWriter, r *http.Request) {
 		if hostPort == "" {
 			hostPort = w.ListenAddr()
 		}
-		sb.WriteString(`<hr><h3>Pair Another Linux Device (Zero-Config Auto-Join)</h3><pre>curl -fsSL http://`)
-		sb.WriteString(html.EscapeString(hostPort))
-		sb.WriteString(`/pair.sh | sh</pre>`)
+		if DetectLegacyClient(r.UserAgent()).Family == ClientWindows {
+			sb.WriteString(`<hr><h3>Pair This Windows Device (Zero-Config Auto-Join)</h3><pre>irm http://`)
+			sb.WriteString(html.EscapeString(hostPort))
+			sb.WriteString(`/pair.ps1 | iex</pre>`)
+		} else {
+			sb.WriteString(`<hr><h3>Pair Another Linux/macOS Device (Zero-Config Auto-Join)</h3><pre>curl -fsSL http://`)
+			sb.WriteString(html.EscapeString(hostPort))
+			sb.WriteString(`/pair.sh | sh</pre>`)
+		}
 	}
 	if hasCA {
 		sb.WriteString(`<hr><p><small>TLS Trust: `)
@@ -838,6 +871,7 @@ func NewWellServer(disp *orchestrator.Dispatcher, listenAddr string) *WellServer
 	w.mux.HandleFunc("/api/message", w.handlePostMessage)
 	w.mux.HandleFunc("/api/pair", w.handlePairJSON)
 	w.mux.HandleFunc("/pair.sh", w.handlePairScript)
+	w.mux.HandleFunc("/pair.ps1", w.handlePairPowerShell)
 	w.mux.HandleFunc("/download/faithnet-node", w.handleDownloadBinary)
 	w.mux.HandleFunc("/faithnet-root-ca.crt", w.handleRootCADownload)
 	w.mux.HandleFunc("/generate_204", w.handleCaptiveRedirect)
