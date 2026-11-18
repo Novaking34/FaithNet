@@ -8,25 +8,26 @@
 # @id            playtest.field_kit.01.linux.ap_daemon
 # @layer         Layer 4: Proving Ground (Field Kit 01 — Sovereign Micro-ISP Daemon)
 # @archetype     field_daemon | operational
-# @version       0.2.0-dev
+# @version       0.3.0-dev
 # @interface_rev Rev 5
 # @date          2026-11-17
 # @updated       2026-11-17
 # @author        CreativeWorkzStudio LLC / ProfessorSeanEX
-# @repository    https://github.com/CreativeWorkzStudio/FaithNet
+# @repository    https://github.com/Novaking34/FaithNet
 # @system        FaithNet Persistent Sovereign Micro-ISP & Firewalled WAN Daemon
-# @role          Boot-Persistent AP + Dedicated Adapter Auto-Detect + Split-DNS + WAN Guard
-# @maturity      Rev 5 Baseline | Wave 15 Sovereign Host Profile
-# @chassis       systemd-daemon | Non-blocking nmcli monitor + scoped iptables chains
+# @role          Boot-Persistent AP + Multi-Channel Switch Handoff + Split-DNS + WAN Guard
+# @maturity      Rev 5 Baseline | Wave 21 Seamless Upstream Switch & Multi-Channel Support
+# @chassis       systemd-daemon | Non-blocking FIFO nmcli monitor + USR1/USR2 switch handoff
 # @scale         Auto-selects DEDICATED_RADIO (2nd USB Wi-Fi) or SHARED_RADIO (STA+AP)
 # @seams         in: nmcli, iw, hostapd, dnsmasq, iptables, resolvectl | exports: ap0
 # @invariants    1. Universal 5-Block Lifecycle Protocol (Rev 5).
-#                2. Zero-brick guarantee: releases shared ap0 IMMEDIATELY on upstream
-#                   connecting/disconnected events so rtw89 never locks PCI.
-#                3. Scoped Rung 4 WAN firewall (`FAITHNET_WAN_GUARD`): blocks
+#                2. Zero-brick guarantee: releases shared ap0 IMMEDIATELY on USR1 or
+#                   upstream switching events so rtw89 never hits queue-flush timeouts.
+#                3. Valid US non-DFS channel support across 2.4GHz (1-11) & 5GHz
+#                   (36-48, 149-165) with explicit country_code=US & roam tracking.
+#                4. Scoped Rung 4 WAN firewall (`FAITHNET_WAN_GUARD`): blocks
 #                   unsolicited inbound traffic on wlp3s0 while keeping ap0 & lo open.
-#                4. Host split-DNS (`~faithnet.lan`, `~faithnet.home.arpa`) routed
-#                   locally via systemd-resolved; 100% cleaned on teardown.
+#                5. Clean <1s SIGTERM shutdown killing nmcli monitor (zero SIGKILL).
 #
 # PURPOSE & ARCHITECTURAL ROLE:
 #   System-level persistent daemon backing `/etc/systemd/system/faithnet-ap.service`.
@@ -74,17 +75,25 @@ PASS="${PASS:-FaithNet2026}"
 AP_IP="${AP_IP:-10.77.77.1}"
 AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
 EGRESS_MODE="${EGRESS_MODE:-bridge}"
+COUNTRY_CODE="${COUNTRY_CODE:-US}"
 readonly RUN_DIR="/run/faithnet-ap"
+readonly SWITCH_HOLD_FILE="${RUN_DIR}/switch.hold"
+readonly DAEMON_PID_FILE="${RUN_DIR}/daemon.pid"
+readonly NM_FIFO="${RUN_DIR}/nm_events.fifo"
 readonly WAN_GUARD_CHAIN="FAITHNET_WAN_GUARD"
 readonly WAN_EGRESS_CHAIN="FAITHNET_WAN_EGRESS"
 
 HOSTAPD_PID=""
 DNSMASQ_PID=""
+NM_MON_PID=""
 CURRENT_CHAN=""
 AP_ACTIVE=0
 RADIO_MODE="SHARED_RADIO"
 ACTIVE_AP_IF="${AP_IF}"
 CREATED_VIRTUAL_AP=0
+SWITCH_HOLD=0
+NEED_REBIND=0
+SHUTTING_DOWN=0
 
 log() {
   echo "[faithnet-ap $(date '+%H:%M:%S')] $*"
@@ -135,7 +144,7 @@ stop_ap() {
   iptables -t nat -D POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || true
   iptables -D FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || true
   iptables -D FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
-  if [[ "${CREATED_VIRTUAL_AP}" -eq 1 ]]; then
+  if [[ "${CREATED_VIRTUAL_AP}" -eq 1 ]] || [[ "${RADIO_MODE}" == "SHARED_RADIO" && "${ACTIVE_AP_IF}" == "${AP_IF}" ]]; then
     ip link set "${ACTIVE_AP_IF}" down 2>/dev/null || true
     iw dev "${ACTIVE_AP_IF}" del 2>/dev/null || true
     CREATED_VIRTUAL_AP=0
@@ -146,12 +155,38 @@ stop_ap() {
   CURRENT_CHAN=""
 }
 
+handle_switch_yield() {
+  SWITCH_HOLD=1
+  NEED_REBIND=0
+  log "SIGUSR1 received -> yielding ${ACTIVE_AP_IF} cleanly for upstream Wi-Fi switch (FaithNet stays live)..."
+  stop_ap
+  write_runtime_state 2>/dev/null || true
+}
+
+handle_switch_resume() {
+  SWITCH_HOLD=0
+  NEED_REBIND=1
+  log "SIGUSR2 received -> resuming FaithNet-HomeRoom on active upstream channel..."
+}
+
+handle_shutdown() {
+  SHUTTING_DOWN=1
+  exit 0
+}
+
 cleanup() {
+  if [[ -n "${NM_MON_PID}" ]]; then
+    kill "${NM_MON_PID}" 2>/dev/null || true
+    NM_MON_PID=""
+  fi
   stop_ap
   clear_wan_firewall
   rm -rf "${RUN_DIR}"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap handle_shutdown INT TERM
+trap handle_switch_yield USR1
+trap handle_switch_resume USR2
 
 # ==============================================================================
 # BLOCK 3: BODY BLOCK
@@ -206,6 +241,7 @@ apply_wan_firewall() {
   iptables -A "${WAN_GUARD_CHAIN}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   iptables -A "${WAN_GUARD_CHAIN}" -p icmp -j ACCEPT
   iptables -A "${WAN_GUARD_CHAIN}" -p udp --sport 67 --dport 68 -j ACCEPT
+  iptables -A "${WAN_GUARD_CHAIN}" -p udp --dport 68 -j ACCEPT
   iptables -A "${WAN_GUARD_CHAIN}" -j DROP
   iptables -C INPUT -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}" 2>/dev/null || \
     iptables -I INPUT 1 -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}"
@@ -295,6 +331,30 @@ get_sta_channel() {
   iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2; exit}'
 }
 
+get_sta_freq() {
+  iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {gsub(/[()]/, "", $3); print $3; exit}'
+}
+
+is_valid_ap_channel() {
+  local chan="${1:-}"
+  local freq="${2:-0}"
+  [[ "${chan}" =~ ^[0-9]+$ ]] || return 1
+  if [[ "${freq}" =~ ^[0-9]+$ ]] && (( freq >= 5900 )); then
+    return 1
+  fi
+  if (( chan >= 1 && chan <= 11 )); then
+    return 0
+  fi
+  case "${chan}" in
+    36|40|44|48|149|153|157|161|165) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_switch_held() {
+  [[ "${SWITCH_HOLD}" -eq 1 || -f "${SWITCH_HOLD_FILE}" ]]
+}
+
 write_runtime_state() {
   cat > "${RUN_DIR}/state.env" <<EOF
 RADIO_MODE=${RADIO_MODE}
@@ -304,11 +364,18 @@ SSID=${SSID}
 AP_IP=${AP_IP}
 CURRENT_CHAN=${CURRENT_CHAN}
 AP_ACTIVE=${AP_ACTIVE}
+SWITCH_HOLD=${SWITCH_HOLD}
 EOF
 }
 
 start_ap() {
   local chan="$1"
+  local freq="${2:-0}"
+  if ! is_valid_ap_channel "${chan}" "${freq}"; then
+    log "INFO: Upstream Channel ${chan} (${freq} MHz) is DFS/6GHz/unsupported for shared AP; keeping ${STA_IF} free & undisturbed."
+    return 1
+  fi
+
   local mode="g"
   if (( chan > 14 )); then
     mode="a"
@@ -324,7 +391,7 @@ start_ap() {
   else
     local ap_mac
     ap_mac="$(derive_ap_mac)"
-    log "Bringing up '${SSID}' on SHARED radio ${ACTIVE_AP_IF} (${ap_mac}) matching Channel ${chan} (mode ${mode})..."
+    log "Bringing up '${SSID}' on SHARED radio ${ACTIVE_AP_IF} (${ap_mac}) matching Channel ${chan} (mode ${mode}, country ${COUNTRY_CODE})..."
     if ! iw dev "${STA_IF}" interface add "${ACTIVE_AP_IF}" type __ap 2>/dev/null; then
       log "WARN: Could not add virtual ${ACTIVE_AP_IF} right now; keeping ${STA_IF} untouched."
       return 1
@@ -337,6 +404,8 @@ start_ap() {
   cat > "${RUN_DIR}/hostapd.conf" <<EOF
 interface=${ACTIVE_AP_IF}
 driver=nl80211
+country_code=${COUNTRY_CODE}
+ieee80211d=1
 ssid=${SSID}
 hw_mode=${mode}
 channel=${chan}
@@ -387,6 +456,7 @@ EOF
 
   CURRENT_CHAN="${chan}"
   AP_ACTIVE=1
+  NEED_REBIND=0
   write_runtime_state
   log "LIVE [${RADIO_MODE}]: '${SSID}' broadcasting on ${ACTIVE_AP_IF} (${AP_IP}/24, Channel ${chan})!"
   return 0
@@ -395,8 +465,9 @@ EOF
 run_dedicated_radio_loop() {
   log "Dedicated 2nd Wi-Fi adapter (${ACTIVE_AP_IF}) active -> FaithNet-HomeRoom stays permanently up even while ${STA_IF} roams!"
   start_ap "${DEDICATED_CHANNEL}" || true
-  while true; do
-    sleep 15
+  while [[ "${SHUTTING_DOWN}" -eq 0 ]]; do
+    sleep 5 &
+    wait $! 2>/dev/null || true
     if [[ -n "${HOSTAPD_PID}" ]] && ! kill -0 "${HOSTAPD_PID}" 2>/dev/null; then
       log "Dedicated hostapd exited unexpectedly; recovering on Channel ${DEDICATED_CHANNEL}..."
       start_ap "${DEDICATED_CHANNEL}" || true
@@ -404,55 +475,109 @@ run_dedicated_radio_loop() {
   done
 }
 
-run_shared_event_monitor_loop() {
-  exec 3< <(nmcli device monitor "${STA_IF}" 2>/dev/null)
-  local offline_wait=0
-  local line=""
+sync_shared_ap_to_upstream() {
+  if is_switch_held; then
+    if [[ "${AP_ACTIVE}" -eq 1 ]]; then
+      stop_ap
+      write_runtime_state
+    fi
+    return 0
+  fi
 
-  while true; do
-    if [[ "${offline_wait}" -eq 1 ]]; then
-      if ! IFS= read -r -t 10 -u 3 line; then
-        offline_wait=0
-        if [[ "$(get_sta_state)" == "disconnected" && "${AP_ACTIVE}" -eq 0 ]]; then
-          log "Upstream offline >10s -> booting standalone offline island on Channel 6!"
-          start_ap 6 || true
-        fi
-        continue
-      fi
+  local state new_ch new_freq
+  state="$(get_sta_state)"
+  if [[ "${state}" != "connected" ]]; then
+    return 0
+  fi
+
+  new_ch="$(get_sta_channel)"
+  new_freq="$(get_sta_freq)"
+  if [[ -n "${new_ch}" && ( "${AP_ACTIVE}" -eq 0 || "${NEED_REBIND}" -eq 1 || "${new_ch}" != "${CURRENT_CHAN}" ) ]]; then
+    if is_valid_ap_channel "${new_ch}" "${new_freq}"; then
+      log "Upstream connected on Channel ${new_ch} (${new_freq} MHz) -> syncing '${SSID}'!"
+      start_ap "${new_ch}" "${new_freq}" || true
     else
-      if ! IFS= read -r -u 3 line; then
-        break
+      if [[ "${AP_ACTIVE}" -eq 1 ]]; then
+        log "Upstream roamed to unsupported/DFS Channel ${new_ch} (${new_freq} MHz) -> yielding ${ACTIVE_AP_IF} cleanly."
+        stop_ap
+        write_runtime_state
       fi
+      NEED_REBIND=0
+    fi
+  fi
+}
+
+run_shared_event_monitor_loop() {
+  rm -f "${NM_FIFO}"
+  mkfifo "${NM_FIFO}"
+  nmcli device monitor "${STA_IF}" > "${NM_FIFO}" 2>/dev/null &
+  NM_MON_PID=$!
+  exec 3<>"${NM_FIFO}"
+
+  local offline_ticks=0
+  local line=""
+  local rc=0
+
+  while [[ "${SHUTTING_DOWN}" -eq 0 ]]; do
+    rc=0
+    line=""
+    IFS= read -r -t 2 -u 3 line || rc=$?
+
+    if is_switch_held; then
+      offline_ticks=0
+      if [[ "${AP_ACTIVE}" -eq 1 ]]; then
+        stop_ap
+        write_runtime_state
+      fi
+      continue
     fi
 
-    case "${line}" in
-      *"connecting"*|*"configuring"*|*"deactivating"*|*"unavailable"*)
-        offline_wait=0
-        if [[ "${AP_ACTIVE}" -eq 1 ]]; then
-          log "Upstream event (${line}) -> immediately releasing ${ACTIVE_AP_IF} for clean handoff!"
-          stop_ap
-          write_runtime_state
+    if [[ "${rc}" -eq 0 && -n "${line}" ]]; then
+      case "${line}" in
+        *"connecting"*|*"configuring"*|*"deactivating"*|*"unavailable"*)
+          offline_ticks=0
+          if [[ "${AP_ACTIVE}" -eq 1 ]]; then
+            log "Upstream event (${line}) -> immediately releasing ${ACTIVE_AP_IF} for clean handoff!"
+            stop_ap
+            write_runtime_state
+          fi
+          ;;
+        *"disconnected"*)
+          if [[ "${AP_ACTIVE}" -eq 1 ]]; then
+            log "Upstream disconnected -> releasing ${ACTIVE_AP_IF} so NetworkManager scans freely..."
+            stop_ap
+            write_runtime_state
+          fi
+          offline_ticks=1
+          ;;
+        *": connected"*)
+          offline_ticks=0
+          sleep 1
+          if ! is_switch_held && [[ "$(get_sta_state)" == "connected" ]]; then
+            sync_shared_ap_to_upstream
+          fi
+          ;;
+      esac
+    else
+      # Periodic 2s health / roam / post-switch rebind check
+      local cur_state
+      cur_state="$(get_sta_state)"
+      if [[ "${cur_state}" == "connected" ]]; then
+        offline_ticks=0
+        sync_shared_ap_to_upstream
+      elif [[ "${cur_state}" == "disconnected" ]]; then
+        if [[ "${AP_ACTIVE}" -eq 0 ]]; then
+          offline_ticks=$(( offline_ticks + 1 ))
+          if (( offline_ticks >= 5 )); then
+            offline_ticks=0
+            log "Upstream offline >10s -> booting standalone offline island on Channel 6!"
+            start_ap 6 2437 || true
+          fi
         fi
-        ;;
-      *"disconnected"*)
-        if [[ "${AP_ACTIVE}" -eq 1 ]]; then
-          log "Upstream disconnected -> releasing ${ACTIVE_AP_IF} so NetworkManager scans freely..."
-          stop_ap
-          write_runtime_state
-        fi
-        offline_wait=1
-        ;;
-      *": connected"*)
-        offline_wait=0
-        sleep 2
-        local new_ch
-        new_ch="$(get_sta_channel)"
-        if [[ -n "${new_ch}" && ( "${AP_ACTIVE}" -eq 0 || "${new_ch}" != "${CURRENT_CHAN}" ) ]]; then
-          log "Upstream connected on Channel ${new_ch} -> bringing '${SSID}' online!"
-          start_ap "${new_ch}" || true
-        fi
-        ;;
-    esac
+      else
+        offline_ticks=0
+      fi
+    fi
   done
 }
 
@@ -493,8 +618,10 @@ preflight_daemon() {
 main() {
   preflight_daemon
   mkdir -p "${RUN_DIR}"
+  rm -f "${SWITCH_HOLD_FILE}"
+  echo "$$" > "${DAEMON_PID_FILE}"
   echo "${EGRESS_MODE}" > "${RUN_DIR}/egress_mode"
-  log "FaithNet Persistent Sovereign Micro-ISP Daemon starting (WAN=${STA_IF}, Egress=${EGRESS_MODE})..."
+  log "FaithNet Persistent Sovereign Micro-ISP Daemon starting (PID=$$, WAN=${STA_IF}, Egress=${EGRESS_MODE}, Country=${COUNTRY_CODE})..."
 
   apply_wan_firewall
 
@@ -503,10 +630,11 @@ main() {
     return 0
   fi
 
-  local init_state="" init_ch=""
+  local init_state="" init_ch="" init_freq=""
   for _ in $(seq 1 15); do
     init_state="$(get_sta_state)"
     init_ch="$(get_sta_channel)"
+    init_freq="$(get_sta_freq)"
     if [[ "${init_state}" == "connected" && -n "${init_ch}" ]]; then
       break
     fi
@@ -514,10 +642,10 @@ main() {
   done
 
   if [[ "${init_state}" == "connected" && -n "${init_ch}" ]]; then
-    start_ap "${init_ch}" || true
+    start_ap "${init_ch}" "${init_freq}" || true
   else
     log "No upstream Wi-Fi connected on boot -> starting standalone offline island on Channel 6!"
-    start_ap 6 || true
+    start_ap 6 2437 || true
   fi
 
   run_shared_event_monitor_loop

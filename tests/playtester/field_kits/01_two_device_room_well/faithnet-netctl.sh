@@ -8,21 +8,23 @@
 # @id            playtest.field_kit.01.linux.netctl
 # @layer         Layer 4: Proving Ground (Field Kit 01 — Sovereign Host Control)
 # @archetype     field_cli | operational
-# @version       0.1.0-dev
+# @version       0.2.0-dev
 # @interface_rev Rev 5
 # @date          2026-11-17
 # @updated       2026-11-17
 # @author        CreativeWorkzStudio LLC / ProfessorSeanEX
-# @repository    https://github.com/CreativeWorkzStudio/FaithNet
+# @repository    https://github.com/Novaking34/FaithNet
 # @system        FaithNet Sovereign Host Profile Operator Control CLI
-# @role          Inspect Radio Mode, Toggle Bridge/Island Egress, Trust CA & Scan USB Radios
-# @maturity      Rev 5 Baseline | Wave 15 Sovereign Host Profile
-# @chassis       zero-brick-cli | Scoped iptables + resolvectl + system CA trust
-# @scale         O(1) instant operator toggle with zero reboot required
-# @seams         in: /run/faithnet-ap, iptables, resolvectl, iw | exports: faithnet-netctl
+# @role          Inspect Radio Mode, Switch Upstream Wi-Fi Cleanly, Toggle Egress & Trust CA
+# @maturity      Rev 5 Baseline | Wave 21 Seamless Upstream Switch & Multi-Channel Support
+# @chassis       zero-brick-cli | USR1/USR2 AP handoff + scoped iptables + resolvectl + CA trust
+# @scale         O(1) instant operator toggle & zero-queue-flush Wi-Fi/hotspot switch
+# @seams         in: /run/faithnet-ap, nmcli, iptables, resolvectl, iw | exports: faithnet-netctl
 # @invariants    1. Universal 5-Block Lifecycle Protocol (Rev 5).
 #                2. `mode bridge` always restores outbound commercial WAN immediately.
-#                3. `adapters` is 100% read-only; `trust-host-ca` is idempotent.
+#                3. `switch` yields ap0 BEFORE nmcli touches wlp3s0 and auto-rolls back
+#                   to the prior working connection on failure (Zero-Brick Guarantee).
+#                4. `adapters` and `wifi` are 100% read-only; `trust-host-ca` is idempotent.
 #
 # PURPOSE & ARCHITECTURAL ROLE:
 #   Operator control plane for Laptop #1's Wave 15 Sovereign Host Profile.
@@ -47,6 +49,8 @@ set -euo pipefail
 readonly RUN_DIR="/run/faithnet-ap"
 readonly STATE_FILE="${RUN_DIR}/state.env"
 readonly MODE_FILE="${RUN_DIR}/egress_mode"
+readonly SWITCH_HOLD_FILE="${RUN_DIR}/switch.hold"
+readonly DAEMON_PID_FILE="${RUN_DIR}/daemon.pid"
 readonly CONF_FILE="/etc/faithnet-ap.conf"
 readonly WAN_GUARD_CHAIN="FAITHNET_WAN_GUARD"
 readonly WAN_EGRESS_CHAIN="FAITHNET_WAN_EGRESS"
@@ -218,6 +222,142 @@ cmd_trust_host_ca() {
   echo "[PASS] Host PC now natively trusts https://faithnet.lan:8077/ with zero --cacert flag!"
 }
 
+resolve_wifi_profile() {
+  local want="$1"
+  local exact=""
+  local trimmed_match=""
+  local want_trim
+  want_trim="$(printf '%s' "${want}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+  while IFS=: read -r name ctype; do
+    [[ "${ctype}" == "802-11-wireless" ]] || continue
+    if [[ "${name}" == "${want}" ]]; then
+      exact="${name}"
+      break
+    fi
+    local name_trim
+    name_trim="$(printf '%s' "${name}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    if [[ "${name_trim,,}" == "${want_trim,,}" ]]; then
+      trimmed_match="${name}"
+    fi
+  done < <(nmcli -t -f NAME,TYPE connection show 2>/dev/null)
+
+  if [[ -n "${exact}" ]]; then
+    printf '%s' "${exact}"
+    return 0
+  fi
+  if [[ -n "${trimmed_match}" ]]; then
+    printf '%s' "${trimmed_match}"
+    return 0
+  fi
+  return 1
+}
+
+cmd_wifi() {
+  load_state
+  local cur_conn cur_chan cur_ip
+  cur_conn="$(nmcli -t -f DEVICE,CONNECTION dev status 2>/dev/null | awk -F: -v d="${STA_IF}" '$1==d {print $2; exit}')"
+  cur_chan="$(iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2, $3; exit}')"
+  cur_ip="$(ip -4 -o addr show dev "${STA_IF}" 2>/dev/null | awk '{print $4; exit}')"
+
+  echo "=== FaithNet Upstream Wi-Fi & Switchable Profiles (${STA_IF}) ==="
+  echo "  Active Uplink: ${cur_conn:-disconnected}  (Channel: ${cur_chan:-none}, IP: ${cur_ip:-none})"
+  echo "  HomeRoom AP:   ${SSID} on ${ACTIVE_AP_IF} (Radio: ${RADIO_MODE}, Ch: ${CURRENT_CHAN:-idle})"
+  echo ""
+  echo "[Saved Wi-Fi Profiles]"
+  nmcli -t -f NAME,TYPE,DEVICE connection show 2>/dev/null | awk -F: '$2=="802-11-wireless" {
+    active = ($3 != "" ? " [ACTIVE on " $3 "]" : "")
+    printf "  - \"%s\"%s\n", $1, active
+  }'
+  echo ""
+  echo "Switch cleanly while FaithNet stays live:"
+  echo "  sudo faithnet-netctl switch \"TheTribe\""
+  echo "  sudo faithnet-netctl switch \"Shein iPhone\""
+}
+
+cmd_switch() {
+  local target_arg="${1:-}"
+  if [[ -z "${target_arg}" ]]; then
+    echo "Usage: sudo faithnet-netctl switch \"<Wi-Fi Profile Name>\"" >&2
+    echo "Run 'faithnet-netctl wifi' to see saved profiles." >&2
+    return 1
+  fi
+  if [[ "$(id -u)" -ne 0 ]]; then
+    echo "Please run with sudo: sudo faithnet-netctl switch \"${target_arg}\"" >&2
+    return 1
+  fi
+
+  load_state
+  local target_profile
+  if ! target_profile="$(resolve_wifi_profile "${target_arg}")"; then
+    echo "[ERROR] No saved Wi-Fi profile matching '${target_arg}'." >&2
+    echo "        Run 'faithnet-netctl wifi' to list available saved profiles." >&2
+    return 1
+  fi
+
+  local prev_conn
+  prev_conn="$(nmcli -t -f DEVICE,CONNECTION dev status 2>/dev/null | awk -F: -v d="${STA_IF}" '$1==d {print $2; exit}')"
+  local daemon_pid=""
+  [[ -f "${DAEMON_PID_FILE}" ]] && daemon_pid="$(cat "${DAEMON_PID_FILE}" 2>/dev/null || true)"
+
+  echo "[1/4] Yielding ${ACTIVE_AP_IF} cleanly so ${STA_IF} switches with zero radio conflict..."
+  mkdir -p "${RUN_DIR}"
+  echo "switching:${target_profile}" > "${SWITCH_HOLD_FILE}"
+  if [[ -n "${daemon_pid}" ]] && kill -0 "${daemon_pid}" 2>/dev/null; then
+    kill -USR1 "${daemon_pid}" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+      if ! ip link show "${ACTIVE_AP_IF}" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 0.2
+    done
+  fi
+  sleep 0.5
+
+  echo "[2/4] Switching ${STA_IF} cleanly -> '${target_profile}' (FaithNet services stay live)..."
+  nmcli device disconnect "${STA_IF}" >/dev/null 2>&1 || true
+  sleep 0.5
+
+  local switched=0
+  if nmcli --wait 30 connection up id "${target_profile}"; then
+    switched=1
+  else
+    echo "[WARN] Failed to activate '${target_profile}'!" >&2
+    if [[ -n "${prev_conn}" && "${prev_conn}" != "--" && "${prev_conn}" != "${target_profile}" ]]; then
+      echo "[ROLLBACK] Restoring previous working uplink '${prev_conn}' (Zero-Brick Guarantee)..." >&2
+      nmcli --wait 25 connection up id "${prev_conn}" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  echo "[3/4] Releasing switch hold -> re-syncing '${SSID}' onto active channel..."
+  rm -f "${SWITCH_HOLD_FILE}"
+  if [[ -n "${daemon_pid}" ]] && kill -0 "${daemon_pid}" 2>/dev/null; then
+    kill -USR2 "${daemon_pid}" 2>/dev/null || true
+    for _ in $(seq 1 32); do
+      load_state
+      if [[ "${AP_ACTIVE:-0}" -eq 1 ]] && ip link show "${ACTIVE_AP_IF}" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 0.25
+    done
+  fi
+
+  echo "[4/4] Verifying final uplink & HomeRoom state..."
+  local final_conn final_chan final_ip
+  final_conn="$(nmcli -t -f DEVICE,CONNECTION dev status 2>/dev/null | awk -F: -v d="${STA_IF}" '$1==d {print $2; exit}')"
+  final_chan="$(iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2, $3; exit}')"
+  final_ip="$(ip -4 -o addr show dev "${STA_IF}" 2>/dev/null | awk '{print $4; exit}')"
+  load_state
+  echo "  Active Uplink: ${final_conn:-disconnected} (Channel: ${final_chan:-none}, IP: ${final_ip:-none})"
+  echo "  HomeRoom AP:   ${SSID} on ${ACTIVE_AP_IF} (Ch: ${CURRENT_CHAN:-pending}, Active: ${AP_ACTIVE:-0})"
+
+  if [[ "${switched}" -eq 1 ]]; then
+    echo "[PASS] Switched cleanly to '${target_profile}' while FaithNet stayed live!"
+    return 0
+  fi
+  return 1
+}
+
 # ==============================================================================
 # BLOCK 4: AUDIT PROCEDURES BLOCK
 # ( Usage & Subcommand Validation )
@@ -229,6 +369,8 @@ Usage: faithnet-netctl <command>
 
 Commands:
   status            Show Sovereign Host Profile status, Split-DNS, WAN guard & clients
+  wifi              Show active Wi-Fi uplink, channel, and switchable saved profiles
+  switch <SSID>     Cleanly switch Wi-Fi/hotspot while FaithNet stays live (auto-rollback)
   mode bridge       Daily driver: inbound WAN firewalled, outbound internet + NAT active
   mode island       Air-gapped sovereign test: cut commercial WAN, keep HomeRoom 100% live
   adapters          Scan physical Wi-Fi PHYs for a dedicated 2nd USB Wi-Fi adapter
@@ -246,6 +388,8 @@ main() {
   shift || true
   case "${cmd}" in
     status)        cmd_status "$@" ;;
+    wifi)          cmd_wifi "$@" ;;
+    switch)        cmd_switch "$@" ;;
     mode)          cmd_mode "$@" ;;
     adapters)      cmd_adapters "$@" ;;
     trust-host-ca) cmd_trust_host_ca "$@" ;;
