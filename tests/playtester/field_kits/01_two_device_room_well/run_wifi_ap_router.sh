@@ -54,7 +54,7 @@ AP_MAC="${NEW_FIRST}:${BASE_MAC#*:}"
 echo "=== FAITHNET REAL WI-FI AP ROUTER (SIMULTANEOUS STA + AP) ==="
 echo "Upstream STA : ${STA_IF} (Channel ${CHAN}, mode ${HW_MODE}) — UNTOUCHED"
 echo "Virtual AP   : ${AP_IF} (${AP_MAC}) -> SSID '${SSID}'"
-echo "Router IP    : ${AP_IP}/24 | The Well: http://${AP_IP}:8077/ | http://faithnet.local:8077/"
+echo "Router IP    : ${AP_IP}/24 | The Well: https://faithnet.lan:8077/ | https://${AP_IP}:8077/"
 echo "WPA2 Pass    : ${PASS}"
 echo ""
 
@@ -102,6 +102,8 @@ port=53
 dhcp-range=10.77.77.10,10.77.77.100,255.255.255.0,12h
 dhcp-option=option:router,${AP_IP}
 dhcp-option=option:dns-server,${AP_IP}
+address=/faithnet.lan/${AP_IP}
+address=/faithnet.home.arpa/${AP_IP}
 address=/faithnet.local/${AP_IP}
 server=1.1.1.1
 server=8.8.8.8
@@ -121,7 +123,8 @@ sudo iptables -C FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,E
   sudo iptables -A FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT
 
 echo "[LIVE] Wi-Fi SSID '${SSID}' is LIVE on ${AP_IF} (${AP_IP}/24, Channel ${CHAN})!"
-echo "[LIVE] Connect phone or Laptop #2 now -> http://faithnet.local:8077/ or https://${AP_IP}:8077/"
+echo "[LIVE] Connect phone or Laptop #2 now -> https://faithnet.lan:8077/ or https://${AP_IP}:8077/"
+echo "[LIVE] Also resolves: http://faithnet.home.arpa:8077/ (RFC 8375 unicast DNS)"
 echo "[LIVE] Tier 2 Sovereign Root CA: http://${AP_IP}:8077/faithnet-root-ca.crt"
 echo "[LIVE] Waiting (Ctrl-C to stop cleanly)..."
 while sudo kill -0 "${HOSTAPD_PID}" 2>/dev/null; do

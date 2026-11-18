@@ -1,0 +1,125 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_004_LIVE_AP_ROUTER_AND_TIER2_CA.adoc
+@id            playtest.report.session_004
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 004 Report)
+@archetype     report | live_ap_router_and_tier2_ca
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Simultaneous STA+AP Router & Tier 2 Sovereign Root CA
+@role          3-Device Real Wi-Fi Router Test, Tier 2 CA Padlock & RFC 6762 Fix
+@maturity      Rev 5 Baseline | Wave 10 Real AP Router & .lan/.home.arpa DNS
+================================================================================
+////
+= Playtest Session 004: Live STA+AP Wi-Fi Router & Tier 2 Sovereign CA
+CreativeWorkzStudio LLC / ProfessorSeanEX
+2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / PHYSICAL MULTI-DEVICE TOPOLOGY
+// =============================================================================
+
+toc::[]
+
+== Real Physical Topology (`FaithNet-HomeRoom` on `RTL8852CE` `ap0`)
+
+* **Router / Home Anchor (Laptop #1):** `professorseanex-Inspiron-16-5640`
+  (`Realtek RTL8852CE` simultaneous `STA + AP` on 2.4 GHz Channel 11):
+  * Upstream `wlp3s0` (`TheTribe`): stayed 100% connected and untouched.
+  * Virtual AP `ap0` (`FaithNet-HomeRoom`, `10.77.77.1/24`, `hostapd v2.11` +
+    isolated `dnsmasq` + `iptables` NAT).
+  * Persistent user service: `faithnet-home.service` (`4.3 MB` RAM,
+    `TIER_2_SOVEREIGN_CA` in `~/.local/share/faithnet/ca`).
+* **Connected Real Physical Devices on `ap0` (`3` simultaneous clients, `>36 MB`
+  live traffic routed):**
+  1. **Laptop #2 (`seanje-lenox-wise-Inspiron-5579`):** `10.77.77.65` (`-33 dBm`).
+  2. **Mobile Phone (iOS):** `10.77.77.88` (`-48 dBm`, `~9.0 MB` routed).
+  3. **PlayStation (Unexpected Device Stress Test!):** `10.77.77.18` (`-44 dBm`,
+     `~27.1 MB` routed in 59s — **loaded and streamed YouTube live through
+     FaithNet Wi-Fi router!**).
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / LIVE TIER 2 CA & PERSISTENCE RESULTS
+// =============================================================================
+
+== Live Field Verification Matrix
+
+[cols="2,3,1", options="header"]
+|===
+| Live Field Check | Observed Physical Result | Verdict
+
+| **Simultaneous STA+AP Router**
+| Laptop #2, iOS phone, and PlayStation all received DHCP `10.77.77.x` leases;
+  PlayStation streamed YouTube cleanly through NAT while `TheTribe` stayed up.
+| **PASS**
+
+| **Test A — Laptop #2 Tier 2 CA**
+| Installed `faithnet-root-ca.crt` in Firefox & tested `curl --cacert`.
+  `https://10.77.77.1:8077/` showed verified padlock with zero warning;
+  negative check without `--cacert` properly failed TLS verification.
+| **PASS**
+
+| **Test B — iOS Phone Tier 2 CA**
+| Installed Sovereign Root CA on iPhone; `https://10.77.77.1:8077/` resolved
+  cleanly with verified trust. *(No Android device on hand.)*
+| **PASS**
+
+| **Test C — Persistence Across Service Restart**
+| Restarted `faithnet-home.service`. Root CA SHA-256 stayed identical
+  (`71bb7463276a3f326d0fd2571bfbf923930e00f44d8aa03b11a5e41f6d999ae9`) and
+  strict `curl --cacert https://10.77.77.1:8077/api/status` succeeded without
+  re-importing CA.
+| **PASS**
+
+| **Domain Resolution (`faithnet.local`)**
+| Timed out on BOTH iOS and Ubuntu Linux while IP (`10.77.77.1`) worked
+  immediately -> **Exposed Gap #5 (RFC 6762 mDNS reservation)!**
+| **GAP #5 -> FIXED**
+|===
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / GAP #5 ROOT CAUSE & IMMEDIATE FIX
+// =============================================================================
+
+== Gap #5 Exposed & Fixed: Why `.local` Timed Out (RFC 6762)
+
+* **Root Cause:** Under **RFC 6762**, the `.local` TLD is reserved strictly for
+  multicast DNS (Apple Bonjour / Linux Avahi). Both iOS and Ubuntu bypassed our
+  unicast `dnsmasq` DNS server at `10.77.77.1:53` whenever resolving
+  `faithnet.local`, broadcasting mDNS queries to `224.0.0.251:5353` that timed
+  out.
+* **Immediate Fix (Wave 10):**
+  1. Added **`faithnet.lan`** and **`faithnet.home.arpa`** (RFC 8375 standard
+     unicast home-network domain) to `dnsmasq` in `run_wifi_ap_router.sh`.
+  2. Added **`faithnet.lan`** and **`faithnet.home.arpa`** to `collectLocalSANs()`
+     in `interpreter/captive_web.go` so the Tier 2 Sovereign Root CA signs
+     those domain names directly into the server certificate SANs.
+* **Bonus Observation Logged:** Restarting `faithnet-home.service` preserved
+  the Sovereign Root CA on disk while resetting the in-RAM 32-slot bulletin
+  ring (`bulletins: 1 -> 0`)—confirming expected stateless RAM behavior today
+  and flagging optional persistent bulletin storage for a future wave if wanted.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / NEXT MILESTONE
+// =============================================================================
+
+== Next Field Milestone
+
+With **Real Wi-Fi Router + Persistent Service + Tier 2 Offline Green Padlock**
+proven across 3 real physical devices, the next step is running a **second real
+`faithnet-node` binary on `Inspiron-5579`** (`peer_count: 1` over live Wi-Fi
+UDP `OpBeacon` auto-discovery + live sovereign `+1:ALIGNED` pings/chat) before
+stepping down to **Field Kit 02 (Acoustic Air-Gap Speaker -> Mic)**.
+
+// End of tests/playtester/reports/SESSION_004_LIVE_AP_ROUTER_AND_TIER2_CA.adoc

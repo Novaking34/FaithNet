@@ -770,7 +770,7 @@ func collectLocalSANs() ([]net.IP, []string) {
 			}
 		}
 	}
-	dnsNames := []string{"localhost", "faithnet.local"}
+	dnsNames := []string{"localhost", "faithnet.lan", "faithnet.home.arpa", "faithnet.local"}
 	if host, err := os.Hostname(); err == nil && host != "" {
 		dnsNames = append(dnsNames, host, host+".local")
 	}
@@ -926,7 +926,7 @@ func buildOfflineWellTLSConfig() (*tls.Config, error) {
 			}
 		}
 	}
-	dnsNames := []string{"localhost", "faithnet.local"}
+	dnsNames := []string{"localhost", "faithnet.lan", "faithnet.home.arpa", "faithnet.local"}
 	if host, err := os.Hostname(); err == nil && host != "" {
 		dnsNames = append(dnsNames, host, host+".local")
 	}

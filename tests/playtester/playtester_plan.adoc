@@ -129,6 +129,11 @@ field execution:
 * `reports/SESSION_003_LIVE_TWO_DEVICE.adoc` — First live two-device Wi-Fi
   field playtest (`192.168.1.217` <-> `seanje-lenox-wise-Inspiron-5579`
   `192.168.1.99`): 4/4 checks PASS + Wave 9 3-Tier Adaptive TLS Trust Ladder.
+* `reports/SESSION_004_LIVE_AP_ROUTER_AND_TIER2_CA.adoc` — Live simultaneous
+  `STA+AP` Wi-Fi router (`FaithNet-HomeRoom`) with 3 real devices (Laptop #2,
+  iOS phone, PlayStation streaming YouTube), Tier 2 Sovereign CA green padlock
+  + Test C persistence proof, and Gap #5 RFC 6762 `.local` -> `.lan`/`.home.arpa`
+  fix.
 
 // =============================================================================
 // BLOCK 5: CLOSING BLOCK / PLAYTEST DISCIPLINE
