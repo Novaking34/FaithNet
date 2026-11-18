@@ -43,6 +43,8 @@ readonly SRC_DAEMON="${SCRIPT_DIR}/faithnet-ap-daemon.sh"
 readonly DST_DAEMON="/usr/local/sbin/faithnet-ap-daemon.sh"
 readonly SRC_NETCTL="${SCRIPT_DIR}/faithnet-netctl.sh"
 readonly DST_NETCTL="/usr/local/bin/faithnet-netctl"
+readonly SRC_RTW89="${SCRIPT_DIR}/99-faithnet-rtw89-stability.conf"
+readonly DST_RTW89="/etc/modprobe.d/99-faithnet-rtw89-stability.conf"
 readonly UNIT_FILE="/etc/systemd/system/faithnet-ap.service"
 readonly SERVICE_NAME="faithnet-ap.service"
 
@@ -55,6 +57,10 @@ install_binaries() {
   echo "[1/3] Installing ${DST_DAEMON} and ${DST_NETCTL}..."
   sudo install -m 0755 "${SRC_DAEMON}" "${DST_DAEMON}"
   sudo install -m 0755 "${SRC_NETCTL}" "${DST_NETCTL}"
+  if lsmod 2>/dev/null | grep -q '^rtw89_core' && [[ -f "${SRC_RTW89}" ]]; then
+    echo "      Detected Realtek rtw89 Wi-Fi -> installing reversible stability drop-in (${DST_RTW89})..."
+    sudo install -m 0644 "${SRC_RTW89}" "${DST_RTW89}"
+  fi
 }
 
 write_systemd_unit() {

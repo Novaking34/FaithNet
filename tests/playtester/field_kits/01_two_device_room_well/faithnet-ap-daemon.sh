@@ -337,6 +337,10 @@ get_sta_freq() {
   iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {gsub(/[()]/, "", $3); print $3; exit}'
 }
 
+get_sta_signal_dbm() {
+  iw dev "${STA_IF}" link 2>/dev/null | awk '/signal:/ {print $2; exit}'
+}
+
 is_valid_ap_channel() {
   local chan="${1:-}"
   local freq="${2:-0}"
@@ -403,6 +407,17 @@ start_ap() {
     ip link set dev "${ACTIVE_AP_IF}" address "${ap_mac}" 2>/dev/null || true
   fi
 
+  local beacon_int=100
+  local dtim_period=2
+  local sig_dbm=""
+  sig_dbm="$(get_sta_signal_dbm || true)"
+  if [[ "${RADIO_MODE}" == "SHARED_RADIO" && "${sig_dbm}" =~ ^-?[0-9]+$ ]] && (( sig_dbm <= -70 )); then
+    # Distant / multi-floor upstream link (e.g. basement <-> 2nd floor):
+    # halve shared-radio AP beacon airtime so STA frames keep full margin.
+    beacon_int=200
+    log "Distant upstream signal (${sig_dbm} dBm) -> conserving shared airtime (beacon_int=${beacon_int}, dtim=${dtim_period})."
+  fi
+
   cat > "${RUN_DIR}/hostapd.conf" <<EOF
 interface=${ACTIVE_AP_IF}
 driver=nl80211
@@ -411,6 +426,8 @@ ieee80211d=1
 ssid=${SSID}
 hw_mode=${mode}
 channel=${chan}
+beacon_int=${beacon_int}
+dtim_period=${dtim_period}
 ieee80211n=1
 wmm_enabled=1
 auth_algs=1
@@ -554,7 +571,13 @@ run_shared_event_monitor_loop() {
           ;;
         *": connected"*)
           offline_ticks=0
-          sleep 1
+          local settle_sec=1
+          local conn_dbm=""
+          conn_dbm="$(get_sta_signal_dbm || true)"
+          if [[ "${conn_dbm}" =~ ^-?[0-9]+$ ]] && (( conn_dbm <= -70 )); then
+            settle_sec=3
+          fi
+          sleep "${settle_sec}"
           if ! is_switch_held && [[ "$(get_sta_state)" == "connected" ]]; then
             sync_shared_ap_to_upstream
           fi
