@@ -640,6 +640,8 @@ func runFullNodeAudits() bool {
 		PreflightNodeCLI(),
 		engine.AuditDataVocabulary(),
 		engine.PreflightCodec(),
+		engine.PreflightTritCodec(),
+		engine.PreflightFaithNetURI(),
 		engine.PreflightClock(),
 		engine.PreflightPingEngine(),
 		engine.PreflightRouter(),

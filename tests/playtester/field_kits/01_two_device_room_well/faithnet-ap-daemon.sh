@@ -6,75 +6,112 @@
 # @project       FaithNet
 # @file          tests/playtester/field_kits/01_two_device_room_well/faithnet-ap-daemon.sh
 # @id            playtest.field_kit.01.linux.ap_daemon
-# @layer         Layer 4: Proving Ground (Field Kit 01 — Persistent AP Daemon)
+# @layer         Layer 4: Proving Ground (Field Kit 01 — Sovereign Micro-ISP Daemon)
 # @archetype     field_daemon | operational
-# @version       0.1.0-dev
+# @version       0.2.0-dev
 # @interface_rev Rev 5
 # @date          2026-11-17
 # @updated       2026-11-17
 # @author        CreativeWorkzStudio LLC / ProfessorSeanEX
 # @repository    https://github.com/CreativeWorkzStudio/FaithNet
-# @system        FaithNet Persistent Event-Driven Micro-ISP AP Daemon (Linux)
-# @role          Boot-Persistent Simultaneous STA+AP With Real-Time Radio Guard
-# @maturity      Rev 5 Baseline | Wave 14 5-Block Cross-Platform Parity
-# @chassis       systemd-daemon | Non-blocking nmcli monitor + zero-brick safety
-# @scale         Single-radio Realtek rtw89/mac80211 safe STA+AP + Ch 6 island
-# @seams         in: nmcli, iw, hostapd, dnsmasq, iptables | exports: ap0
+# @system        FaithNet Persistent Sovereign Micro-ISP & Firewalled WAN Daemon
+# @role          Boot-Persistent AP + Dedicated Adapter Auto-Detect + Split-DNS + WAN Guard
+# @maturity      Rev 5 Baseline | Wave 15 Sovereign Host Profile
+# @chassis       systemd-daemon | Non-blocking nmcli monitor + scoped iptables chains
+# @scale         Auto-selects DEDICATED_RADIO (2nd USB Wi-Fi) or SHARED_RADIO (STA+AP)
+# @seams         in: nmcli, iw, hostapd, dnsmasq, iptables, resolvectl | exports: ap0
 # @invariants    1. Universal 5-Block Lifecycle Protocol (Rev 5).
-#                2. Zero-brick guarantee: releases ap0 IMMEDIATELY on upstream
+#                2. Zero-brick guarantee: releases shared ap0 IMMEDIATELY on upstream
 #                   connecting/disconnected events so rtw89 never locks PCI.
-#                3. Graceful degradation: logs warning and preserves upstream
-#                   Wi-Fi if a 5 GHz DFS channel forbids simultaneous AP mode.
-#                4. Automatic offline island fallback (Ch 6) after 10s blackout.
+#                3. Scoped Rung 4 WAN firewall (`FAITHNET_WAN_GUARD`): blocks
+#                   unsolicited inbound traffic on wlp3s0 while keeping ap0 & lo open.
+#                4. Host split-DNS (`~faithnet.lan`, `~faithnet.home.arpa`) routed
+#                   locally via systemd-resolved; 100% cleaned on teardown.
 #
 # PURPOSE & ARCHITECTURAL ROLE:
 #   System-level persistent daemon backing `/etc/systemd/system/faithnet-ap.service`.
-#   Ensures Laptop #1 auto-boots into a FaithNet-HomeRoom micro-ISP router so
-#   previously paired phones, laptops, and consoles auto-reconnect on startup,
-#   while safely releasing `ap0` during upstream Wi-Fi/hotspot switches.
+#   Makes `FaithNet-HomeRoom` this PC's primary sovereign room identity (with
+#   native local `.lan`/`.home.arpa` split-DNS and firewalled commercial WAN on
+#   `wlp3s0`), supports instant `bridge` vs. `island` egress switching, and
+#   auto-detects any dedicated 2nd USB Wi-Fi adapter for zero-blink AP radio.
 #
 #   ### For Architects, Operators & Non-Programmers:
-#   Keeps FaithNet Wi-Fi automatically running whenever the laptop turns on and
-#   safely steps aside for 2 seconds whenever you switch to a phone hotspot.
+#   Keeps FaithNet-HomeRoom automatically live on boot, shields this laptop from
+#   unsolicited commercial Wi-Fi probes, lets this laptop open `faithnet.lan`
+#   natively, and automatically upgrades to a dedicated USB Wi-Fi adapter the
+#   moment one is plugged in.
 #
 #   ### For Systems Programmers & Engine Architects:
-#   Uses process substitution (`exec 3< <(nmcli device monitor ...)`) so traps
-#   and PID variables remain in the main shell, with non-blocking `read -t 10`
-#   blackout detection and idempotent iptables/iw teardown.
+#   Loads optional `/etc/faithnet-ap.conf`, detects secondary `wiphy` radios via
+#   `iw dev`, applies isolated `FAITHNET_WAN_GUARD` / `FAITHNET_WAN_EGRESS`
+#   iptables chains, configures `resolvectl` routing-only domains, and tears down
+#   every rule idempotently on EXIT/INT/TERM.
 # ==============================================================================
 set -euo pipefail
 
 # ==============================================================================
 # BLOCK 2: OPENING BLOCK
-# ( Operational Constants, Mutable Daemon State & Safe Teardown Trap )
+# ( Operational Config, Mutable Daemon State & Zero-Brick Teardown Trap )
 # ==============================================================================
 # Engine:        FaithNet Adaptive Networking Substrate
 # Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
 # Module:        playtest.field_kit.01.linux.ap_daemon
-# Mission:       Define runtime paths, state flags, logging, and trap cleanup.
+# Mission:       Load config, define scoped firewall/DNS state & teardown trap.
 # ==============================================================================
 
-readonly STA_IF="${STA_IF:-wlp3s0}"
-readonly AP_IF="${AP_IF:-ap0}"
-readonly SSID="${SSID:-FaithNet-HomeRoom}"
-readonly PASS="${PASS:-FaithNet2026}"
-readonly AP_IP="${AP_IP:-10.77.77.1}"
-readonly AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
+readonly CONF_FILE="/etc/faithnet-ap.conf"
+if [[ -f "${CONF_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${CONF_FILE}"
+fi
+
+STA_IF="${STA_IF:-wlp3s0}"
+AP_IF="${AP_IF:-ap0}"
+DEDICATED_AP_IF="${DEDICATED_AP_IF:-}"
+DEDICATED_CHANNEL="${DEDICATED_CHANNEL:-6}"
+SSID="${SSID:-FaithNet-HomeRoom}"
+PASS="${PASS:-FaithNet2026}"
+AP_IP="${AP_IP:-10.77.77.1}"
+AP_SUBNET="${AP_SUBNET:-10.77.77.0/24}"
+EGRESS_MODE="${EGRESS_MODE:-bridge}"
 readonly RUN_DIR="/run/faithnet-ap"
+readonly WAN_GUARD_CHAIN="FAITHNET_WAN_GUARD"
+readonly WAN_EGRESS_CHAIN="FAITHNET_WAN_EGRESS"
 
 HOSTAPD_PID=""
 DNSMASQ_PID=""
 CURRENT_CHAN=""
 AP_ACTIVE=0
+RADIO_MODE="SHARED_RADIO"
+ACTIVE_AP_IF="${AP_IF}"
+CREATED_VIRTUAL_AP=0
 
 log() {
   echo "[faithnet-ap $(date '+%H:%M:%S')] $*"
 }
 
-stop_ap() {
-  if [[ "${AP_ACTIVE}" -eq 1 ]] || ip link show "${AP_IF}" >/dev/null 2>&1; then
-    log "Releasing ${AP_IF} cleanly (leaving ${STA_IF} free & untouched)..."
+clear_host_split_dns() {
+  local iface="${1:-${ACTIVE_AP_IF}}"
+  if command -v resolvectl >/dev/null 2>&1; then
+    resolvectl revert "${iface}" 2>/dev/null || true
   fi
+}
+
+clear_wan_firewall() {
+  iptables -D INPUT -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}" 2>/dev/null || true
+  iptables -F "${WAN_GUARD_CHAIN}" 2>/dev/null || true
+  iptables -X "${WAN_GUARD_CHAIN}" 2>/dev/null || true
+
+  iptables -D OUTPUT -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+  iptables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+  iptables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+}
+
+stop_ap() {
+  if [[ "${AP_ACTIVE}" -eq 1 ]] || ip link show "${ACTIVE_AP_IF}" >/dev/null 2>&1; then
+    log "Releasing ${ACTIVE_AP_IF} cleanly (leaving ${STA_IF} free & untouched)..."
+  fi
+  clear_host_split_dns "${ACTIVE_AP_IF}"
   if [[ -n "${HOSTAPD_PID}" ]]; then
     kill "${HOSTAPD_PID}" 2>/dev/null || true
     HOSTAPD_PID=""
@@ -86,29 +123,127 @@ stop_ap() {
   pkill -f "${RUN_DIR}/hostapd.conf" 2>/dev/null || true
   pkill -f "${RUN_DIR}/dnsmasq.conf" 2>/dev/null || true
   iptables -t nat -D POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || true
-  iptables -D FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || true
-  iptables -D FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
-  ip link set "${AP_IF}" down 2>/dev/null || true
-  iw dev "${AP_IF}" del 2>/dev/null || true
+  iptables -D FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || true
+  iptables -D FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+  if [[ "${CREATED_VIRTUAL_AP}" -eq 1 ]]; then
+    ip link set "${ACTIVE_AP_IF}" down 2>/dev/null || true
+    iw dev "${ACTIVE_AP_IF}" del 2>/dev/null || true
+    CREATED_VIRTUAL_AP=0
+  else
+    ip addr flush dev "${ACTIVE_AP_IF}" 2>/dev/null || true
+  fi
   AP_ACTIVE=0
   CURRENT_CHAN=""
 }
 
 cleanup() {
   stop_ap
+  clear_wan_firewall
   rm -rf "${RUN_DIR}"
 }
 trap cleanup EXIT INT TERM
 
 # ==============================================================================
 # BLOCK 3: BODY BLOCK
-# ( Radio Query Helpers, Safe AP Bring-Up & Event-Driven Switch Loop )
+# ( Adapter Auto-Detect, Scoped WAN Firewall, Split-DNS & AP Lifecycle )
 # ==============================================================================
 # Engine:        FaithNet Adaptive Networking Substrate
 # Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
 # Module:        playtest.field_kit.01.linux.ap_daemon
-# Mission:       Manage ap0 lifecycle across boot, hotspot switch & blackout.
+# Mission:       Manage DEDICATED_RADIO / SHARED_RADIO AP, WAN guard & DNS.
 # ==============================================================================
+
+detect_dedicated_adapter() {
+  if [[ -n "${DEDICATED_AP_IF}" ]] && ip link show "${DEDICATED_AP_IF}" >/dev/null 2>&1; then
+    RADIO_MODE="DEDICATED_RADIO"
+    ACTIVE_AP_IF="${DEDICATED_AP_IF}"
+    return 0
+  fi
+
+  local wan_phy
+  wan_phy="$(iw dev "${STA_IF}" info 2>/dev/null | awk '/wiphy/ {print $2; exit}')"
+  if [[ -z "${wan_phy}" ]]; then
+    RADIO_MODE="SHARED_RADIO"
+    ACTIVE_AP_IF="${AP_IF}"
+    return 1
+  fi
+
+  local cand
+  cand="$(iw dev 2>/dev/null | awk -v wphy="phy#${wan_phy}" '
+    /^phy#/ { cur=$1; next }
+    /Interface / {
+      if (cur != wphy && $2 != "") { print $2; exit }
+    }
+  ')"
+
+  if [[ -n "${cand}" ]] && ip link show "${cand}" >/dev/null 2>&1; then
+    RADIO_MODE="DEDICATED_RADIO"
+    ACTIVE_AP_IF="${cand}"
+    return 0
+  fi
+
+  RADIO_MODE="SHARED_RADIO"
+  ACTIVE_AP_IF="${AP_IF}"
+  return 1
+}
+
+apply_wan_firewall() {
+  # Scoped inbound firewall on commercial WAN (wlp3s0):
+  # Permits replies to outbound traffic, ICMP, and DHCP renewals; drops
+  # unsolicited inbound probes so only FaithNet-HomeRoom (ap0 + lo) reaches
+  # local services (:8077 The Well, :7777 FNP/1).
+  iptables -N "${WAN_GUARD_CHAIN}" 2>/dev/null || iptables -F "${WAN_GUARD_CHAIN}"
+  iptables -A "${WAN_GUARD_CHAIN}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  iptables -A "${WAN_GUARD_CHAIN}" -p icmp -j ACCEPT
+  iptables -A "${WAN_GUARD_CHAIN}" -p udp --sport 67 --dport 68 -j ACCEPT
+  iptables -A "${WAN_GUARD_CHAIN}" -j DROP
+  iptables -C INPUT -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}" 2>/dev/null || \
+    iptables -I INPUT 1 -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}"
+
+  apply_egress_policy
+}
+
+apply_egress_policy() {
+  local mode="${EGRESS_MODE}"
+  if [[ -f "${RUN_DIR}/egress_mode" ]]; then
+    mode="$(cat "${RUN_DIR}/egress_mode" 2>/dev/null || echo "${EGRESS_MODE}")"
+  fi
+
+  iptables -D OUTPUT -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+  iptables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+  iptables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+
+  if [[ "${mode}" == "island" ]]; then
+    log "Egress mode = ISLAND (commercial WAN ${STA_IF} firewalled off; FaithNet-HomeRoom stays 100% live)."
+    iptables -t nat -D POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || true
+    iptables -D FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || true
+    iptables -D FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+
+    iptables -N "${WAN_EGRESS_CHAIN}" 2>/dev/null || iptables -F "${WAN_EGRESS_CHAIN}"
+    iptables -A "${WAN_EGRESS_CHAIN}" -p udp --sport 68 --dport 67 -j ACCEPT
+    iptables -A "${WAN_EGRESS_CHAIN}" -j REJECT --reject-with icmp-net-prohibited
+    iptables -I OUTPUT 1 -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}"
+  else
+    log "Egress mode = BRIDGE (inbound ${STA_IF} firewalled; outbound WAN & HomeRoom NAT active)."
+    sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    iptables -t nat -C POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || \
+      iptables -t nat -A POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE
+    iptables -C FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || \
+      iptables -A FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT
+    iptables -C FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+      iptables -A FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT
+  fi
+  echo "${mode}" > "${RUN_DIR}/egress_mode"
+}
+
+apply_host_split_dns() {
+  if command -v resolvectl >/dev/null 2>&1; then
+    resolvectl dns "${ACTIVE_AP_IF}" "${AP_IP}" 2>/dev/null || true
+    resolvectl domain "${ACTIVE_AP_IF}" "~faithnet.lan" "~faithnet.home.arpa" 2>/dev/null || true
+    resolvectl default-route "${ACTIVE_AP_IF}" no 2>/dev/null || true
+    log "Host split-DNS active on ${ACTIVE_AP_IF}: ~faithnet.lan & ~faithnet.home.arpa -> ${AP_IP}"
+  fi
+}
 
 derive_ap_mac() {
   local base_mac first new_first
@@ -126,6 +261,18 @@ get_sta_channel() {
   iw dev "${STA_IF}" info 2>/dev/null | awk '/channel / {print $2; exit}'
 }
 
+write_runtime_state() {
+  cat > "${RUN_DIR}/state.env" <<EOF
+RADIO_MODE=${RADIO_MODE}
+STA_IF=${STA_IF}
+ACTIVE_AP_IF=${ACTIVE_AP_IF}
+SSID=${SSID}
+AP_IP=${AP_IP}
+CURRENT_CHAN=${CURRENT_CHAN}
+AP_ACTIVE=${AP_ACTIVE}
+EOF
+}
+
 start_ap() {
   local chan="$1"
   local mode="g"
@@ -136,19 +283,25 @@ start_ap() {
   stop_ap
   sleep 0.3
 
-  local ap_mac
-  ap_mac="$(derive_ap_mac)"
-
-  log "Bringing up '${SSID}' on ${AP_IF} (${ap_mac}) matching Channel ${chan} (mode ${mode})..."
-  if ! iw dev "${STA_IF}" interface add "${AP_IF}" type __ap 2>/dev/null; then
-    log "WARN: Could not add virtual ${AP_IF} right now; keeping ${STA_IF} untouched."
-    return 1
+  if [[ "${RADIO_MODE}" == "DEDICATED_RADIO" ]]; then
+    log "Bringing up '${SSID}' on DEDICATED radio ${ACTIVE_AP_IF} (Channel ${chan}, mode ${mode})..."
+    nmcli dev set "${ACTIVE_AP_IF}" managed no 2>/dev/null || true
+    CREATED_VIRTUAL_AP=0
+  else
+    local ap_mac
+    ap_mac="$(derive_ap_mac)"
+    log "Bringing up '${SSID}' on SHARED radio ${ACTIVE_AP_IF} (${ap_mac}) matching Channel ${chan} (mode ${mode})..."
+    if ! iw dev "${STA_IF}" interface add "${ACTIVE_AP_IF}" type __ap 2>/dev/null; then
+      log "WARN: Could not add virtual ${ACTIVE_AP_IF} right now; keeping ${STA_IF} untouched."
+      return 1
+    fi
+    CREATED_VIRTUAL_AP=1
+    nmcli dev set "${ACTIVE_AP_IF}" managed no 2>/dev/null || true
+    ip link set dev "${ACTIVE_AP_IF}" address "${ap_mac}" 2>/dev/null || true
   fi
-  nmcli dev set "${AP_IF}" managed no 2>/dev/null || true
-  ip link set dev "${AP_IF}" address "${ap_mac}" 2>/dev/null || true
 
   cat > "${RUN_DIR}/hostapd.conf" <<EOF
-interface=${AP_IF}
+interface=${ACTIVE_AP_IF}
 driver=nl80211
 ssid=${SSID}
 hw_mode=${mode}
@@ -163,23 +316,23 @@ rsn_pairwise=CCMP
 EOF
 
   if ! hostapd -B -P "${RUN_DIR}/hostapd.pid" "${RUN_DIR}/hostapd.conf" >/dev/null 2>&1; then
-    log "WARN: hostapd refused Channel ${chan} (e.g. 5GHz DFS/LAR); releasing ${AP_IF} cleanly."
+    log "WARN: hostapd refused Channel ${chan} (e.g. 5GHz DFS/LAR); releasing ${ACTIVE_AP_IF} cleanly."
     stop_ap
     return 1
   fi
   sleep 0.8
   HOSTAPD_PID="$(cat "${RUN_DIR}/hostapd.pid" 2>/dev/null || true)"
   if [[ -z "${HOSTAPD_PID}" ]] || ! kill -0 "${HOSTAPD_PID}" 2>/dev/null; then
-    log "WARN: hostapd did not stay active on Channel ${chan}; releasing ${AP_IF} safely."
+    log "WARN: hostapd did not stay active on Channel ${chan}; releasing ${ACTIVE_AP_IF} safely."
     stop_ap
     return 1
   fi
 
-  ip addr flush dev "${AP_IF}"
-  ip addr add "${AP_IP}/24" dev "${AP_IF}"
+  ip addr flush dev "${ACTIVE_AP_IF}"
+  ip addr add "${AP_IP}/24" dev "${ACTIVE_AP_IF}"
 
   cat > "${RUN_DIR}/dnsmasq.conf" <<EOF
-interface=${AP_IF}
+interface=${ACTIVE_AP_IF}
 bind-interfaces
 port=53
 dhcp-range=10.77.77.10,10.77.77.100,255.255.255.0,12h
@@ -195,21 +348,29 @@ EOF
   dnsmasq -C "${RUN_DIR}/dnsmasq.conf" --pid-file="${RUN_DIR}/dnsmasq.pid"
   DNSMASQ_PID="$(cat "${RUN_DIR}/dnsmasq.pid" 2>/dev/null || true)"
 
-  sysctl -w net.ipv4.ip_forward=1 >/dev/null
-  iptables -t nat -C POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || \
-    iptables -t nat -A POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE
-  iptables -C FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || \
-    iptables -A FORWARD -i "${AP_IF}" -o "${STA_IF}" -j ACCEPT
-  iptables -C FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
-    iptables -A FORWARD -i "${STA_IF}" -o "${AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT
+  apply_host_split_dns
+  apply_wan_firewall
 
   CURRENT_CHAN="${chan}"
   AP_ACTIVE=1
-  log "LIVE: '${SSID}' broadcasting on ${AP_IF} (${AP_IP}/24, Channel ${chan})!"
+  write_runtime_state
+  log "LIVE [${RADIO_MODE}]: '${SSID}' broadcasting on ${ACTIVE_AP_IF} (${AP_IP}/24, Channel ${chan})!"
   return 0
 }
 
-run_event_monitor_loop() {
+run_dedicated_radio_loop() {
+  log "Dedicated 2nd Wi-Fi adapter (${ACTIVE_AP_IF}) active -> FaithNet-HomeRoom stays permanently up even while ${STA_IF} roams!"
+  start_ap "${DEDICATED_CHANNEL}" || true
+  while true; do
+    sleep 15
+    if [[ -n "${HOSTAPD_PID}" ]] && ! kill -0 "${HOSTAPD_PID}" 2>/dev/null; then
+      log "Dedicated hostapd exited unexpectedly; recovering on Channel ${DEDICATED_CHANNEL}..."
+      start_ap "${DEDICATED_CHANNEL}" || true
+    fi
+  done
+}
+
+run_shared_event_monitor_loop() {
   exec 3< <(nmcli device monitor "${STA_IF}" 2>/dev/null)
   local offline_wait=0
   local line=""
@@ -234,14 +395,16 @@ run_event_monitor_loop() {
       *"connecting"*|*"configuring"*|*"deactivating"*|*"unavailable"*)
         offline_wait=0
         if [[ "${AP_ACTIVE}" -eq 1 ]]; then
-          log "Upstream event (${line}) -> immediately releasing ${AP_IF} for clean handoff!"
+          log "Upstream event (${line}) -> immediately releasing ${ACTIVE_AP_IF} for clean handoff!"
           stop_ap
+          write_runtime_state
         fi
         ;;
       *"disconnected"*)
         if [[ "${AP_ACTIVE}" -eq 1 ]]; then
-          log "Upstream disconnected -> releasing ${AP_IF} so NetworkManager scans freely..."
+          log "Upstream disconnected -> releasing ${ACTIVE_AP_IF} so NetworkManager scans freely..."
           stop_ap
+          write_runtime_state
         fi
         offline_wait=1
         ;;
@@ -261,59 +424,69 @@ run_event_monitor_loop() {
 
 # ==============================================================================
 # BLOCK 4: AUDIT PROCEDURES BLOCK
-# ( Pre-Flight Privilege, Runtime Directory & Wireless Tool Audit )
+# ( Root Privilege, Binary Presence & Upstream Interface Pre-Flight Checks )
 # ==============================================================================
 # Engine:        FaithNet Adaptive Networking Substrate
 # Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
 # Module:        playtest.field_kit.01.linux.ap_daemon
-# Mission:       Verify root capability and required Linux wireless toolchain.
+# Mission:       Verify dependencies before mutating any kernel netlink state.
 # ==============================================================================
 
-preflight_ap_daemon() {
-  if [[ "${EUID}" -ne 0 ]]; then
-    log "PREFLIGHT FAIL: faithnet-ap-daemon.sh requires root (run via systemd)."
+preflight_daemon() {
+  if [[ "$(id -u)" -ne 0 ]]; then
+    log "PREFLIGHT FAIL: faithnet-ap-daemon.sh must run as root (systemd unit)." >&2
     return 1
   fi
-  for tool in iw ip hostapd dnsmasq iptables nmcli; do
-    if ! command -v "${tool}" >/dev/null 2>&1; then
-      log "PREFLIGHT FAIL: missing required wireless dependency '${tool}'."
+  for bin in iw ip hostapd dnsmasq iptables nmcli; do
+    if ! command -v "${bin}" >/dev/null 2>&1; then
+      log "PREFLIGHT FAIL: required tool missing: ${bin}" >&2
       return 1
     fi
   done
-  mkdir -p "${RUN_DIR}"
   return 0
 }
 
 # ==============================================================================
 # BLOCK 5: CLOSING BLOCK
-# ( Boot Settle Sequence & Event-Loop Lifecycle Entrypoint )
+# ( Daemon Bootstrap, Radio Mode Selection & Continuous Sovereign Guard )
 # ==============================================================================
 # Engine:        FaithNet Adaptive Networking Substrate
 # Stratum:       Layer 4: Proving Ground (Field Kit 01 — Linux Daemon)
 # Module:        playtest.field_kit.01.linux.ap_daemon
-# Mission:       Settle upstream Wi-Fi cleanly on boot, then run monitor loop.
+# Mission:       Boot WAN guard, select dedicated vs. shared radio, and supervise.
 # ==============================================================================
 
 main() {
-  preflight_ap_daemon
-  log "Starting FaithNet persistent Micro-ISP AP daemon on ${STA_IF}..."
+  preflight_daemon
+  mkdir -p "${RUN_DIR}"
+  echo "${EGRESS_MODE}" > "${RUN_DIR}/egress_mode"
+  log "FaithNet Persistent Sovereign Micro-ISP Daemon starting (WAN=${STA_IF}, Egress=${EGRESS_MODE})..."
+
+  apply_wan_firewall
+
+  if detect_dedicated_adapter; then
+    run_dedicated_radio_loop
+    return 0
+  fi
+
+  local init_state="" init_ch=""
   for _ in $(seq 1 15); do
-    if [[ "$(get_sta_state)" == "connected" && -n "$(get_sta_channel)" ]]; then
+    init_state="$(get_sta_state)"
+    init_ch="$(get_sta_channel)"
+    if [[ "${init_state}" == "connected" && -n "${init_ch}" ]]; then
       break
     fi
     sleep 1
   done
 
-  local init_ch
-  init_ch="$(get_sta_channel)"
-  if [[ -n "${init_ch}" ]]; then
+  if [[ "${init_state}" == "connected" && -n "${init_ch}" ]]; then
     start_ap "${init_ch}" || true
   else
-    log "No upstream Wi-Fi after boot settle; launching offline island on Channel 6..."
+    log "No upstream Wi-Fi connected on boot -> starting standalone offline island on Channel 6!"
     start_ap 6 || true
   fi
 
-  run_event_monitor_loop
+  run_shared_event_monitor_loop
 }
 
 main "$@"

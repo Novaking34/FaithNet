@@ -7,244 +7,251 @@ BLOCK 1: METADATA BLOCK
 @file          README.md
 @id            docs.readme.faithnet
 @layer         Layer 5: Root Repository Orientation & Covenant Anchor
-@archetype     manifest | operational
-@version       0.1.0-dev
+@archetype     manifest | dual_audience_protocol_manual
+@version       0.2.0-dev
 @interface_rev Rev 5
 @date          2026-11-17
 @updated       2026-11-17
-@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX (Seanje Lenox-Wise)
 @repository    https://github.com/CreativeWorkzStudio/FaithNet
-@system        FaithNet Sovereign Adaptive Networking Substrate
-@role          Root Orientation, Architectural Specification & Verification Index
-@maturity      Rev 5 Baseline | Wave 14 Complete (5-Block Cross-Platform Kit 01 & Discovery Series)
+@system        FaithNet Sovereign Adaptive Networking Substrate (FNP/1)
+@role          Plain-English Orientation, Official FNP/1 Spec & Verification Index
+@maturity      Rev 5 Baseline | Wave 15 Complete (FNP/1 Port 7777, Bit<->Trit, Sovereign Host)
 @chassis       zero-external-deps | Pure Go 1.26.8 Standard Library Substrate
 @scale         O(1) orientation across 5 layers, 4 adaptive rungs & 4 test tiers
-@seams         in: docs/ROADMAP.adoc | exports: operator & engineer entrypoint
+@seams         in: docs/ROADMAP.adoc, docs/discovery/ | exports: human & engineer entrypoint
 @invariants    1. Universal 5-Block Lifecycle Protocol (Rev 5) across all files.
                2. Zero third-party dependencies (100% Go standard library).
-               3. 512-byte Floppy Sector Invariant (32B header + 480B Floor MTU).
-               4. Downward Dependency Law: Layer 0/1 never import net or os.
-               5. 4x4 Macro-Micro Verification Matrix with structured Block 4
-                  `data.AuditResult` preflight gates on every operational cog.
+               3. Official FNP/1 Wire Protocol on Port 7777 (UDP/TCP) & faithnet:// URI.
+               4. 512-byte Floppy Sector Invariant (32B header + 480B Floor MTU).
+               5. Bit <-> Balanced-Trit <-> Bit lossless OmniCode submodule bridge.
+               6. Downward Dependency Law: Layer 0/1 never import net or os.
 
 PURPOSE & ARCHITECTURAL ROLE:
-  Primary root orientation and architectural manual for FaithNet, the sovereign
-  offline-first adaptive networking substrate for OmniCode and MillenniumOS.
-
-  ### For Architects, Operators & Non-Programmers:
-  Explains what FaithNet is, why it can communicate over everything from analog
-  radio/Morse tones to local Wi-Fi without relying on commercial ISPs, how the
-  Genesis 3 Airlock protects local nodes, and how to run live offline ping
-  diagnostics right now.
-
-  ### For Systems Programmers & Engine Architects:
-  Documents the 5 Irreducible Cogs, the 32-byte wire header layout, the 4-Rung
-  Adaptive Ladder, layered package boundaries, Go Block 4 `data.AuditResult`
-  pre-flight standards, 4x4 Macro-Micro testing layout, and wave milestones.
+  Primary root orientation and dual-audience manual for FaithNet — written so
+  both everyday non-technical readers (neighbors, creatives, community hosts)
+  and deep systems programmers immediately understand WHY FaithNet exists, HOW
+  it works in plain English, and EVERY exact wire/protocol invariant underneath.
 ================================================================================
 -->
 
-# FaithNet
+# FaithNet (`FNP/1`)
 
-> **Sovereign, First-Principles, Data-Driven Networking Substrate for OmniCode & MillenniumOS.**  
-> *From a scrap of copper wire and analog radio tones to a federated local mesh — compatibility with the modern world without dependency on it.*
-
-| Attribute | Specification |
-| :--- | :--- |
-| **Organization** | CreativeWorkzStudio LLC |
-| **Lead Architect** | ProfessorSeanEX (Seanje Lenox-Wise) |
-| **Runtime Language** | Go 1.26.8 (**100% Standard Library**, Zero Third-Party Dependencies) |
-| **Truth Space** | Balanced Ternary Quad-State ($\mathbb{T}_4 = \{-1, 0, +1, \text{NULL}\}$) |
-| **Frame Invariant** | 32-Byte Fixed Header + 480-Byte Floor MTU = **512-Byte Floppy Sector Invariant** |
-| **Memory Discipline** | `ALLOC_ZERO_HEAP` (0.00 allocs/op) on Layer 0/1 wire & heartbeat hot paths |
-| **Adaptive Resilience** | 4-Rung Bidirectional Ladder (`Rung 1 Floor` $\leftrightarrow$ `Rung 4 Global`) |
-| **Verification Matrix** | **4x4 Lab Matrix** (46 test files, 333 tests) + **`tests/playtester/`** (5 live harnesses, 4 field kits, 6 session reports) |
-| **Current Milestone** | **Wave 14 Complete** (Persistent Boot Micro-ISP, Live Hotspot Switch, Cross-Platform Linux/Windows/macOS Kit 01, `/pair.ps1` & Discovery Docs) |
-| **Documentation Series** | [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc), [`docs/01..05`](docs/01_WHAT_IS_FAITHNET.adoc) & [`docs/discovery/01..03`](docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc) |
+> **A sovereign, offline-first networking protocol and micro-ISP substrate built for real people, creative studios, and local communities.**  
+> *Compatibility with the modern internet—without ever being held hostage by it.*
 
 ---
 
 <!-- =========================================================================
-BLOCK 2: OPENING BLOCK / FIRST PRINCIPLES: 5 COGS & 4-RUNG ADAPTIVE LADDER
+BLOCK 2: OPENING BLOCK / FOR EVERYONE (PLAIN-ENGLISH GUIDE — ZERO JARGON)
 Stratum: Root Orientation | Machine: docs.readme.faithnet
 ========================================================================== -->
 
-## First-Principles Architecture
+## Part 1: What Is FaithNet? *(Plain-English Guide for Everyone)*
 
-### The 5 Irreducible Cogs of Sovereign Communication
+Look around at the news right now: wave after wave of cloud and internet outages—AWS, Microsoft, Apple, airlines, banks, local ISPs—knocking whole regions offline from one bad update or router glitch. That happens because the modern internet puts everybody's communication on a handful of distant, centralized corporate towers. When one tower hiccups, two people sitting in the **same house or the same neighborhood** suddenly can't even send each other a message.
 
-Built on OmniCode's first-principles discipline, FaithNet decomposes networking into five self-contained, portable cogs:
+**FaithNet flips that upside down—one piece at a time.**
 
-1. **Cog 1 — Sovereign Identity (`data/types.go`):** 64-bit `NodeID` independent of DHCP, DNS, IPv4/IPv6, or ISP registries (`0x0` null sentinel, `0xFFFFFFFFFFFFFFFF` broadcast).
-2. **Cog 2 — Canonical Envelope & Codec (`data/frame.go`, `engine/codec.go`):** Bit-exact 32-byte fixed header + up to 480-byte inline payload = **512-Byte Floppy Sector Invariant**, sealed with inline zero-heap FNV-1a 32-bit checksums.
-3. **Cog 3 — Polymorphic Transceiver (`transport/transceiver.go`):** Medium-agnostic `Send` / `Receive(ctx)` / `Healthy` / `Close` wall-plug decoupling upper layers from RAM, IPC, UDP, TCP, serial wire, AFSK audio, or Morse CW.
-4. **Cog 4 — Offline Monotonic Clock (`engine/clock.go`):** NTP-independent hardware monotonic stopwatch (`MonotonicClock`) paired with an atomic lock-free `MockClock` for deterministic zero-flake laboratory testing.
-5. **Cog 5 — Heartbeat & Echo Engine (`engine/ping.go`):** Fixed 64-slot power-of-two in-flight ring (`PingEngine`) + stateless zero-alloc `ReflectPingInto` mirror computing exact min/avg/max RTT and packet loss.
+### Who Built This & Why?
+**CreativeWorkzStudio LLC** isn't a typical software vendor chasing subscriptions. We are building a **sovereign publishing house**—stories, games (*Tenebris and Lux*), art, and creative works meant to serve people directly. To protect a studio's creative lifeblood and serve a local community during shaky times, you need an in-house foundation you actually own from the ground up:
 
-### 32-Byte Canonical Wire Frame Layout (`0xFA17`)
+* **MillenniumOS** — the sovereign operating system ground.
+* **OmniCode** — our language, design discipline, and full vertical stack (built around balanced three-way truth: `-1` Contradict, `0` Await/Verify, `+1` Aligned).
+* **FaithNet** — the nervous system and networking protocol (`FNP/1`) that lets machines, studios, and local rooms talk **whether the commercial internet is working or completely dead.**
+
+### How FaithNet Actually Works (No Tech Degree Needed)
+
+Think of networking the way normal human communication works:
+
+1. **The 4-Rung Ladder (Never Stranded in Silence):**
+   Imagine you need to get a message to your neighbor across the street:
+   * **Rung 4 — Global Highway (Internet / TCP):** If the commercial internet is up and you *choose* to bridge through it, FaithNet speaks smoothly across it—while keeping a firewall wall up so strangers can't walk into your house.
+   * **Rung 3 — The Room & Neighborhood Street (Local Wi-Fi / `FaithNet-HomeRoom`):** Your laptop acts as its **own built-in local Wi-Fi micro-ISP**. Your phone, a second laptop, or even a PlayStation connects straight to `FaithNet-HomeRoom`—even if the commercial ISP goes dark!
+   * **Rung 2 — Next Door (Direct Host Memory / Local IPC):** Programs on the same computer talk directly inside RAM with zero network card required.
+   * **Rung 1 — Civilizational Floor (Copper Wire, Radio Tones & 1844 Morse Code):** If Wi-Fi and the power grid fail, FaithNet steps all the way down to a plain copper serial wire, audible walkie-talkie/speaker-to-mic radio tones, or classic Morse code—carrying the **exact same message format**.
+
+2. **The Well (Zero-Install Local Gathering Place):**
+   You shouldn't have to install special software just to walk into a local room. When any everyday device (iPhone, Android, Windows, Mac, Linux, or console) connects to `FaithNet-HomeRoom` and opens `https://faithnet.lan:8077` (or clicks `faithnet://faithnet.lan/well`), it lands in **The Well**—a fast, offline local bulletin board, trust-certificate desk, and one-command node pairing station.
+
+3. **The Genesis 3 Airlock (Safety Without Paranoia):**
+   Every message coming from an outside browser or untrusted wire passes through our **Genesis 3 Airlock** before touching core data:
+   * Trusted, paired FaithNet nodes speak at **`+1:ALIGNED`**.
+   * Clean messages from visiting browsers enter safely in **`0:AWAIT`** quarantine so everyone can see where they came from.
+   * Hostile web attacks, corrupted wires, or bad scripts are stopped cold (**`-1:CONTRADICT`** / `403 Forbidden`) without ever crashing the room.
+
+4. **Graceful Degradation Over Bricking:**
+   Real hardware has physical limits. FaithNet is engineered from day one to **yield safely, contain faults, and step down cleanly** rather than locking up your computer or destroying your existing Wi-Fi.
+
+---
+
+<!-- =========================================================================
+BLOCK 3: BODY BLOCK / FOR ENGINEERS & BUILDERS (OFFICIAL FNP/1 PROTOCOL SPEC)
+Stratum: Technical Specification | Machine: docs.readme.faithnet
+========================================================================== -->
+
+## Part 2: Under the Hood *(Official `FNP/1` Protocol & Architecture Spec)*
+
+| Attribute | Specification |
+| :--- | :--- |
+| **Organization / Studio** | CreativeWorkzStudio LLC (Sovereign Publishing House & In-House Stack) |
+| **Lead Architect** | ProfessorSeanEX (Seanje Lenox-Wise) |
+| **Wire Protocol** | **`FNP/1`** (FaithNet Protocol v1 — `0xFA17` canonical 512-byte sector frames) |
+| **Canonical Port & URI** | **Port `7777`** (`7777/udp` Rung 3, `7777/tcp` Rung 4), **`8077/tcp`** (The Well), **`faithnet://`** URI scheme |
+| **Runtime Language** | Go 1.26.8 (**100% Standard Library**, Zero Third-Party Dependencies) |
+| **Truth Space & OmniCode Seam** | Balanced Ternary $\mathbb{T}_4 = \{-1, 0, +1, \text{NULL}\}$ + **Zero-Heap Bit $\leftrightarrow$ Trit $\leftrightarrow$ Bit Codec** (`engine/trit.go`) |
+| **Frame Invariant** | 32-Byte Fixed Header + 480-Byte Floor MTU = **512-Byte Floppy Sector Invariant** |
+| **Memory Discipline** | `ALLOC_ZERO_HEAP` (`0.00 allocs/op`) on Layer 0/1 wire, heartbeat & trit hot paths |
+| **Verification Matrix** | **4x4 Lab Matrix** (`48` test files, `30:30` strict 1:1 unit pairing) + **24/24 live Block 4 gates** + **6 live playtest reports** |
+| **Current Milestone** | **Wave 15 Complete** (`FNP/1` Port `7777` & `faithnet://` URI, Bit$\leftrightarrow$Trit$\leftrightarrow$Bit bridge, Sovereign Host Split-DNS, Firewalled WAN Guard, Dedicated USB Radio Auto-Detect) |
+
+### The Official FaithNet Protocol (`FNP/1`), Port `7777` & `faithnet://` URI
+
+FaithNet introduces a self-contained, medium-independent networking protocol—**`FNP/1`**—decoupled from commercial IP ownership, DHCP authorities, and centralized DNS:
+
+* **Canonical Wire Port:** **`7777/udp`** (Rung 3 LAN mesh & beacons) and **`7777/tcp`** (Rung 4 global stream bridge).
+* **Legacy Web Bridge Port:** **`8077/tcp`** (dual-mode `0x16` HTTP/HTTPS peek listener for The Well + 3-Tier Adaptive TLS Trust Ladder).
+* **Canonical URI Scheme (`engine/uri.go`):**
+  ```text
+  faithnet://<host-or-64bit-NodeID>[:7777][/action[/target]]
+
+  Examples:
+    faithnet://faithnet.lan/well             -> Opens local The Well portal
+    faithnet://home-anchor/status            -> Queries live Sovereign Anchor telemetry
+    faithnet://0xFA17000000000001:7777/ping  -> Targets sovereign 64-bit NodeID directly
+    faithnet://10.77.77.1/ca                 -> Downloads Tier 2 Sovereign Root CA (.crt)
+  ```
+
+### 32-Byte Canonical `FNP/1` Wire Frame Layout (`0xFA17`)
 
 ```text
 Offset   Size   Field         Description
 ------------------------------------------------------------------------------
 [0..1]   2 B    Magic         0xFA, 0x17 ("FAIT[H]")
 [2]      1 B    Ver | Rung    High nibble = ProtocolVersion (1); Low = Rung (1..4)
-[3]      1 B    Opcode        PING(1), PONG(2), BEACON(3), CPI_SYNC(4), ...
-[4]      1 B    Flags         CovenantVerified, ExternalOrigin, LegacyTranslated, ...
+[3]      1 B    Opcode        PING(1), PONG(2), BEACON(3), CPI_SYNC(4), DATA(5)...
+[4]      1 B    Flags         CovenantVerified, ExternalOrigin, LegacyTranslated...
 [5]      1 B    QuadState     T4 Truth Space: NULL(0), -1(1), 0:AWAIT(2), +1(3)
 [6..7]   2 B    PayloadLen    Big-endian uint16 (0..480 bytes)
 [8..15]  8 B    SourceID      Big-endian uint64 sovereign originator NodeID
 [16..23] 8 B    TargetID      Big-endian uint64 sovereign destination NodeID
 [24..27] 4 B    SeqID         Big-endian uint32 monotonic per-origin sequence
-[28..31] 4 B    Checksum      Big-endian uint32 FNV-1a seal (over header[0..27]+payload)
+[28..31] 4 B    Checksum      Big-endian uint32 FNV-1a seal (header[0..27]+payload)
 [32..N] <=480B  Payload       Inline zero-heap payload (total wire frame <= 512 bytes)
 ```
 
-### The 4-Rung Adaptive Networking Ladder
+### Bit $\leftrightarrow$ Balanced-Trit $\leftrightarrow$ Bit OmniCode Submodule Bridge (`engine/trit.go`)
 
-Mirroring Track 0 of **MillenniumOS** (Legacy BIOS $\leftrightarrow$ Stage 2 $\leftrightarrow$ Multiboot $\leftrightarrow$ UEFI), FaithNet dynamically probes whatever host machine it boots onto, **Rises Up** when richer hardware is available, and executes a **Defensive Cascade (`EVT_CASCADE_DOWN`)** when links fail:
+When FaithNet mounts inside **OmniCode** as a native submodule, binary physical wires (Wi-Fi, Ethernet, UART, PCM audio) must translate cleanly to and from OmniCode's balanced ternary world ($\{-1, 0, +1\}$) without heap churn or data loss:
 
-| Rung | Medium | Purpose | Wave Status |
-| :--- | :--- | :--- | :--- |
-| **Rung 1 — Civilizational Floor** | `transport/rung1_floor/` (`serial` SLIP, `audio` 1200/2400 Hz AFSK + Goertzel, `morse` ITU CW) | Copper wire, dial-up tones, analog walkie-talkie/radio, 1844 telegraph floor | **Implemented & Verified (Wave 5)** |
-| **Rung 2 — Host Substrate** | `transport/rung2_host/` (`memory`, `ipc` unixgram) | Zero-NIC in-RAM channels & local cross-process IPC | **Implemented & Verified (Wave 2)** |
-| **Rung 3 — The Room & The Well** | `transport/rung3_local/` (`udp`, `beacon`) + `interpreter/` | Peer-to-peer LAN UDP, Wi-Fi AP switch, zero-install HTML portal | **Implemented & Verified (Wave 4)** |
-| **Rung 4 — Global Compatibility** | `transport/rung4_global/` (`tcp`, `egress`) + `engine/covenant/` | Optional TCP federation & Airlock-gated outbound egress | **Implemented & Verified (Wave 5)** |
+* **Compact Ternary Packing (`Tryte5`):** `5` balanced trits = $3^5 = 243$ signed states (`-121..+121`) packed cleanly into 1 binary byte (`0x00..0xF2`), leaving `13` reserved hardware/control sentinels (`0xF3..0xFF`, with `0xFF = NULL:HALT`).
+* **Lossless Binary Bridge (`BytesToBalancedTrits` / `BalancedTritsToBytes`):** Any arbitrary 8-bit binary byte (`0..255`) maps bijectively onto `6` balanced trits ($3^6 = 729 > 256$) and back bit-for-bit with **`0.00 allocs/op`**.
+* **$\mathbb{T}_4$ Isolation:** `QuadStateToTrit` explicitly preserves `StateNull` isolation so missing/halted state is never confused with neutral `0:AWAIT`.
 
----
+### The 5 Irreducible Cogs & 4-Rung Adaptive Ladder
 
-<!-- =========================================================================
-BLOCK 3: BODY BLOCK / LAYERED REPOSITORY MAP & PROTOCOL GOVERNANCE
-Stratum: Root Orientation | Machine: docs.readme.faithnet
-========================================================================== -->
+1. **Cog 1 — Sovereign Identity (`data/types.go`):** 64-bit `NodeID` independent of DHCP, DNS, IPv4/IPv6, or ISP registries.
+2. **Cog 2 — Canonical Envelope & Codecs (`data/frame.go`, `engine/codec.go`, `engine/trit.go`, `engine/uri.go`):** 512-byte sector wire frames + FNV-1a seal + Bit$\leftrightarrow$Trit$\leftrightarrow$Bit bridge + `faithnet://` URI parser.
+3. **Cog 3 — Polymorphic Transceiver (`transport/transceiver.go`):** Medium-agnostic `Send` / `Receive(ctx)` / `Healthy` / `Close` wall-plug across all 4 rungs (`[5][4]` multi-sibling bounded chassis).
+4. **Cog 4 — Offline Monotonic Clock (`engine/clock.go`):** NTP-independent hardware stopwatch + deterministic lock-free `MockClock`.
+5. **Cog 5 — Heartbeat & Echo Engine (`engine/ping.go`):** 64-slot power-of-two in-flight ring + zero-alloc `ReflectPingInto` mirror.
 
-## Layered Repository Map (Downward Dependency Law)
+### Sovereign Host Profile (Wave 15 — Laptop as Primary Micro-ISP, Commercial Internet Firewalled)
+
+* **Inside-Out Host Design:** `FaithNet-HomeRoom` (`10.77.77.1/24`) is this PC's primary sovereign room identity with local `systemd-resolved` split-DNS (`~faithnet.lan`, `~faithnet.home.arpa`) and host-trusted Tier 2 Sovereign Root CA.
+* **Firewalled Rung 4 WAN (`FAITHNET_WAN_GUARD`):** Unsolicited inbound probes arriving on commercial Wi-Fi (`wlp3s0`) are dropped at the kernel boundary while `ap0` and `lo` stay open for authenticated HomeRoom peers.
+* **Instant `bridge` / `island` Egress Switch (`faithnet-netctl`):** Daily-driver `bridge` mode allows outbound internet/NAT while keeping inbound firewalled; `island` mode severs commercial WAN egress cleanly on command to verify 100% offline local operation.
+* **Dedicated 2nd USB Wi-Fi Adapter Auto-Detect:** Plugging in any Linux AP-capable USB Wi-Fi adapter (`MT7612U`, `MT7921AU`, `AR9271`) automatically switches `faithnet-ap.service` from `SHARED_RADIO` (`STA+AP`) to **`DEDICATED_RADIO`** mode—zero blink even while `wlp3s0` switches hotspots!
+
+### Layered Repository Map (Downward Dependency Law)
 
 Imports flow strictly downward (`Layer 4 -> 3 -> 2 -> 1 -> 0`). **Layer 0 (`data/`) and Layer 1 (`engine/`) NEVER import `net`, `os`, or external packages.**
 
 ```text
 FaithNet/
-├── data/                       # Layer 0: Pure Invariant Vocabulary (pure_types)
-│   ├── types.go                #   NodeID, RungLevel (StepUp/StepDown), QuadState (T4)
-│   ├── opcodes.go              #   Opcode verbs (0x01..0x08) & orthogonal FrameFlags
-│   ├── frame.go                #   32B Header + 480B inline Frame (512B Floppy Sector)
-│   ├── profile.go              #   HardwareProfile, NodeManifest, LinkHealth, CascadeEvent
-│   └── audit.go                #   Structured Block 4 AuditSeverity & AuditResult verdicts
-├── engine/                     # Layer 1: Pure Functional State Machines (ALLOC_ZERO_HEAP)
-│   ├── codec.go                #   Zero-alloc EncodeInto / DecodeFrom / FNV-1a seal
-│   ├── clock.go                #   MonotonicClock (NTP-free) & atomic MockClock
-│   ├── ping.go                 #   64-slot PingEngine + stateless ReflectPingInto
-│   ├── router.go               #   Fixed 128-peer Router (direct + multi-hop relays)
-│   └── covenant/filter.go      #   Genesis 3 Airlock (T4 screening: +1 / 0:AWAIT / -1 / NULL)
-├── orchestrator/               # Layer 2: Dynamic BodyProbe, AdaptiveLadder, Dispatcher
-│   ├── probe.go                #   Live OS/NIC/serial/audio hardware probe & policy ceiling
-│   ├── ladder.go               #   4-Rung Rising-Up & EVT_CASCADE_DOWN (64-slot ring)
-│   └── dispatcher.go           #   Central node loop: Codec -> Airlock -> Router -> Ping
-├── transport/                  # Layer 3A: Cog 3 Transceiver & 4-Rung Physical/Virtual Wires
-│   ├── transceiver.go          #   Universal Transceiver interface & WireEnvelope
-│   ├── rung1_floor/            #   SLIP Serial, 1200/2400Hz AFSK Goertzel Modem, ITU Morse CW
-│   ├── rung2_host/             #   MemoryBus + Unixgram IPCTransceiver
-│   ├── rung3_local/            #   Auto-learning LAN UDP & Wi-Fi AP Beacon Switch
-│   └── rung4_global/           #   Length-prefixed TCP Stream & Airlock EgressGateway
-├── interpreter/                # Layer 3B: "The Well" Universal OS/Web Portal Bridge
-│   ├── translator.go           #   Airlock-gated OpLegacyWrap translator (0:AWAIT only)
-│   ├── captive_web.go          #   Zero-install offline HTML portal & 32-bulletin ring
-│   └── legacy_bridge.go        #   Data-driven OS classifier (Win/Mac/Linux/iOS/Android/CLI)
-├── cmd/                        # Layer 4: Thin Imperative CLI Entrypoints
-│   ├── faithnet-ping/          #   Standalone offline 5-Cog ping & --audit (9 gates) CLI
-│   └── faithnet-node/          #   Full orchestrated node, --audit (22 gates) & The Well CLI
-├── docs/                       # Layer 5: Canonical Roadmap, 5-Volume Core Series & Discovery Series
-│   ├── ROADMAP.adoc            #   Master 5-Block Architecture & Wave Plan
-│   ├── 01_WHAT_IS_FAITHNET.adoc                # Vol 01: Philosophy, CPI-SI & The 5 Cogs
-│   ├── 02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc # Vol 02: Layer-by-Layer Code & 5-Block Guide
-│   ├── 03_FAITHNET_VS_MODERN_INTERNET.adoc     # Vol 03: Comparison vs Commercial Internet Stack
-│   ├── 04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc # Vol 04: Empirical Benchmarks & Honest Gaps
-│   ├── 05_FIELD_PLAYTEST_RUNBOOKS.adoc         # Vol 05: Physical Field Playtest Runbooks
-│   └── discovery/              #   Discovery Series: Lived Field Kit 01 Engineering Retrospectives
-│       ├── 01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc # D1: 9 Moving-Part Edge Cases & OS Parity
-│       ├── 02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc     # D2: Safety Locks vs. Hard Aborts
-│       └── 03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc    # D3: Lab 4x4 vs. Harnesses vs. Live RF
-└── tests/                      # Layer 4: 4x4 Lab Matrix + Playtester Proving Ground
-    ├── common/fixtures.go      #   Shared identities, forensic AuditResult asserts & anchors
-    ├── functional/             #   Tier 1: 7 per-subsystem public API suites + benchmarks
-    ├── unit/                   #   Tier 2: 28 strict 1:1 per-cog unit suites (all 28 prod files)
-    ├── integrated/             #   Tier 3: 6 cross-subsystem multi-combination suites
-    ├── system/                 #   Tier 4: 5 full-stack E2E, blackout, hostility, CLI & stress suites
-    └── playtester/             #   Proving Ground: 5 live harnesses, cross-platform Field Kits (Linux/Win/macOS) & 6 reports
+├── data/                       # Layer 0: Pure Invariant Vocabulary (5 files)
+├── engine/                     # Layer 1: Pure Engine Core — ALLOC_ZERO_HEAP (7 files)
+│   ├── codec.go                #   Zero-alloc FNP/1 32B Wire Codec & FNV-1a seal
+│   ├── trit.go                 #   Zero-alloc Bit <-> Balanced-Trit <-> Bit OmniCode bridge
+│   ├── uri.go                  #   Canonical FNP/1 Port 7777 & faithnet:// URI parser
+│   ├── clock.go, ping.go, router.go & covenant/filter.go (Genesis 3 Airlock)
+├── orchestrator/               # Layer 2: BodyProbe, [5][4] AdaptiveLadder, Dispatcher
+├── transport/                  # Layer 3A: Rung 1 (SLIP/AFSK/Morse), Rung 2 (RAM/IPC), Rung 3 (UDP/Beacon), Rung 4 (TCP/Egress)
+├── interpreter/                # Layer 3B: "The Well" Dual-Mode TLS Portal, /pair.sh, /pair.ps1, OS Classifier
+├── cmd/                        # Layer 4: faithnet-ping & faithnet-node CLIs (24 live Block 4 gates)
+├── docs/                       # Layer 5: Roadmap, 5-Volume Core Series & Discovery Series
+│   ├── ROADMAP.adoc & 01..05_*.adoc
+│   └── discovery/              #   D1: Field Kit 01 Lessons | D2: Safety & Degradation | D3: Live vs. Lab Benchmarks
+└── tests/                      # Layer 4: 4x4 Lab Matrix (48 files, 30:30 1:1 units) + Playtester Proving Ground
+    └── playtester/             #   5 live harnesses, cross-platform Field Kits (Linux/Win/macOS) & 6 live reports
 ```
-
-### Universal 5-Block Lifecycle Protocol (Rev 5) & Go Block 4 Standard
-
-Every source, test, build, and documentation file in FaithNet adheres to OmniCode Rev 5:
-
-* **Block 1 (`METADATA BLOCK`):** Movement-resilient `@id`, `@layer`, `@archetype`, `@chassis`, `@invariants`, and Dual-Audience `PURPOSE & ARCHITECTURAL ROLE`.
-* **Block 2 (`OPENING BLOCK`):** Tiered imports, constants/limits (`2.1`), logical anchor (`2.2`), public ontology (`2.3`), pure O(1) predicates (`2.4`), and monitored support infrastructure (`2.5`).
-* **Block 3 (`BODY BLOCK`):** Composable non-lifecycle business logic (or Statutory Pure-Types Notice in `data/`), with Dual-Audience docstrings on every exported symbol.
-* **Block 4 (`AUDIT PROCEDURES BLOCK`):**
-  * **Sub-Assembly 4.1:** Non-destructive live-instance & contract validators returning structured `data.AuditResult` (`Passed`, `Severity`, `Subsystem`, `CheckName`, `Details`).
-  * **Sub-Assembly 4.2:** `Preflight<Cog>() data.AuditResult` running all **4 Micro Checks** (1: Always Pass, 2: Never Fail, 3: Invariants/Limits, 4: Emergence/Reset), with `@triggers` linking to Layer 4 tests.
-* **Block 5 (`CLOSING BLOCK`):** `Is<Cog>Ready() bool` epilogue readiness handshake, 60-column `+---+` diagnostic dump cards (`5.1`), and lifecycle `New*` / `Reset` / `Close` (`5.2`).
 
 ---
 
 <!-- =========================================================================
-BLOCK 4: AUDIT PROCEDURES BLOCK / VERIFICATION SUITE & LIVE CLI USAGE
+BLOCK 4: AUDIT PROCEDURES BLOCK / QUICK START, CONTROLS & LIVE BENCHMARKS
 Stratum: Verification | Machine: docs.readme.faithnet
 ========================================================================== -->
 
-## Verification Suite & Live CLI Usage
+## Quick Start, Sovereign Controls & Verification Suite
+
+### Everyday Operator Controls (Linux Sovereign Host Profile)
 
 ```bash
-# 1. Confirm zero third-party dependencies
-go list -m all
+# Inspect Sovereign Host status (Radio mode, Split-DNS, WAN Firewall, connected devices)
+faithnet-netctl status
 
-# 2. Confirm Downward Dependency Law (zero net/os imports in Layer 0/1)
-go list -f '{{.ImportPath}} -> {{.Imports}}' ./data ./engine ./engine/covenant
+# Scan physical Wi-Fi radios (checks if a dedicated 2nd USB Wi-Fi adapter is plugged in)
+faithnet-netctl adapters
 
-# 3. Run static analysis across the entire repository
-go vet ./...
+# Toggle commercial internet egress cleanly (zero reboot, zero HomeRoom drop)
+sudo faithnet-netctl mode island   # True air-gapped sovereign room mode
+sudo faithnet-netctl mode bridge   # Daily-driver mode (inbound WAN still firewalled!)
 
-# 4. Execute ALL 4 verification tiers (Functional, Unit, Integrated, System) with -race
-go test -v -count=1 -race ./tests/...
-
-# 5. Verify ALLOC_ZERO_HEAP hot paths (0 B/op, 0 allocs/op)
-go test -bench=. -benchmem ./tests/functional/...
-
-# 6. Run ALL 22 live Block 4 Pre-Flight Audit gates across every subsystem & CLI
-go run ./cmd/faithnet-node --audit
-
-# 7. Run live offline 5-Cog loopback ping (Rung 2 RAM or local Unix IPC)
-go run ./cmd/faithnet-ping --mode=memory --count=4
-go run ./cmd/faithnet-ping --mode=ipc --count=4
-
-# 8. Inspect live host body, adaptive ladder, Room Beacon & The Well cards
-go run ./cmd/faithnet-node --probe-only --beacon --well
+# Open native faithnet:// protocol links on this machine
+faithnet-open faithnet://faithnet.lan/status
+faithnet-open faithnet://faithnet.lan/well
 ```
 
-### Verified Baseline Telemetry & Reality Matrix (Wave 14 / Sessions 001–006)
+### Full Developer Verification Battery
 
-* **External Dependencies:** `0` (`go list -m all` reports only `github.com/CreativeWorkzStudio/FaithNet`); cross-compiles cleanly for `linux/amd64`, `windows/amd64`, `darwin/arm64`, and `darwin/amd64`.
-* **Wire Codec Throughput:** `BenchmarkEncodeInto` `50.89 ns/op` (`0 B/op, 0 allocs/op`), `BenchmarkDecodeFrom` `86.72 ns/op` (`0 B/op, 0 allocs/op`).
-* **4x4 Lab Matrix (`tests/{functional,unit,integrated,system}`):** **46 dedicated 5-Block test files** (`7` functional, `28` strict 1:1 unit, `6` integrated, `5` system) + `1` shared harness = **333 verified `Test*` functions** (`go test -count=1 -race ./tests/...` PASS) + **22/22 live Block 4 pre-flight gates**.
-* **Playtester Proving Ground & Live Field Reality ([`docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc`](docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc)):**
+```bash
+# 1. Confirm zero external dependencies & strict Layer 0/1 Downward Dependency Law
+go list -m all
+go list -f '{{.ImportPath}} -> {{.Imports}}' ./data ./engine ./engine/covenant
 
-| Capability | Lab Verified (4x4) | Local-OS Harnesses (S002) | Physical Field Status (S003–S006) |
+# 2. Run static analysis & ALL 4 verification tiers with -race
+go vet ./...
+go test -v -count=1 -race ./tests/...
+
+# 3. Run ALL 24 live Block 4 Pre-Flight Audit gates across every subsystem & CLI
+go run ./cmd/faithnet-node --audit
+
+# 4. Run live offline 5-Cog loopback ping (Rung 2 RAM or Unix IPC)
+go run ./cmd/faithnet-ping --mode=memory --count=4
+go run ./cmd/faithnet-ping --mode=ipc --count=4
+```
+
+### Verified Reality Matrix (Lab 4x4 vs. Harnesses vs. Live Physical Field Kit 01)
+
+| Capability | Lab 4x4 Verified | Local-OS Harnesses (S002) | Physical Field Status (S003–S006 & Wave 15) |
 | :--- | :--- | :--- | :--- |
-| **Cross-Process UDP / TCP & Mesh** | PASS (`-race`) | **PASS:** UDP `p50=39.1 us` (`0.85 MB`), TCP `p50=338.4 us` (`1.28 MB`), `0%` loss | **LIVE VERIFIED (S005):** 2-laptop mesh (`peer_count=1`, `+1:ALIGNED` bulletin via self-replicating `11.1 MB` `/pair.sh`, `~3s` auto-rejoin); `/pair.ps1` + Windows `pwsh 7.7.0` parity verified! |
-| **Wi-Fi Micro-ISP & Roaming Guard** | PASS (`-race`) | **PASS:** `8/8` bit-flips caught; hard-cut `1.28 ms`; silent blackhole auto-rescued `2/2` | **LIVE VERIFIED (S004 & S006):** Persistent `faithnet-ap.service` + `faithnet-home.service` (`~10–20 MB` RSS), `>36 MB` routed across Laptop #2, iPhone & PlayStation YouTube; live mobile hotspot switch **PASS** (zero PCI lockup)! |
-| **Rung 1 SLIP Serial** | PASS (`-race`) | **PASS:** Real kernel FIFO `1,126.6 KB/s` (`9.23 Mbps`), glitch resync `126.9 us` | Field Kit 03 (`socat` installed + `/dev/ttyUSB0` copper checklist) ready |
-| **Rung 1 AFSK & Morse** | PASS (`-race`) | **PASS:** `+3.93 dB` SNR, `1%` vol, `ffmpeg` 32k MP3, phone bandpass, mic leading silence `0..4,000` samples `6/6` PASS | Field Kit 02 (`aplay`/`arecord`) ready for live room-air test |
-| **The Well, TLS & Airlock** | PASS (`-race`) | **PASS:** `6,126 req/s`, `p50=1.66 ms`, `120/120` attacks blocked (`0` breaches) | **LIVE VERIFIED (S003 & S004):** 3-Tier Adaptive TLS (`TIER_2_SOVEREIGN_CA` green padlock on Laptop #2 & iOS), `.lan`/`.home.arpa` unicast DNS, reboot-persistent CA |
+| **`FNP/1` Codec & Bit$\leftrightarrow$Trit** | `50.89 ns` (`0 B/op`), `243` trytes + `256` bytes (`0` allocs) | `8/8` storm bit-flips caught (`100%`) | Live `+1:ALIGNED` mesh frames across Wi-Fi; `faithnet://` & Port `7777` registered |
+| **Rung 3 Wi-Fi Mesh & Pairing** | PASS (`-race`) | UDP `p50=39.1 us`, TCP `p50=338.4 us` | **LIVE VERIFIED:** 2-laptop mesh (`peer_count=1`, `11.1 MB` `/pair.sh`, `~3s` rejoin) + `/pair.ps1` (`pwsh 7.7.0` tested) |
+| **Micro-ISP Router & WAN Guard** | PASS (`-race`) | Hard-cut `1.28 ms`; silent blackhole auto-rescued `2/2` | **LIVE VERIFIED:** `~10–20 MB` RSS, `>36 MB` routed across Laptop #2, iPhone & PlayStation YouTube; zero-lockup hotspot roaming; Split-DNS + `FAITHNET_WAN_GUARD` + USB radio auto-detect |
+| **The Well & 3-Tier TLS** | PASS (`-race`) | `6,126 req/s`, `120/120` attacks blocked (`0` breaches) | **LIVE VERIFIED:** Tier 2 Sovereign Root CA green padlock on Laptop #1, Laptop #2 & iPhone (`https://faithnet.lan:8077`) |
+| **Rung 1 Floor (AFSK/Morse/SLIP)** | PASS (`-race`) | AFSK `+3.93 dB` SNR & `0..4,000` mic silence `6/6` PASS; FIFO SLIP `9.23 Mbps` | Staged in Field Kits 02 (Acoustic Air-Gap) & 03 (Copper Serial) |
 
-### Documentation Series (`docs/` & `docs/discovery/`)
+### Documentation & Discovery Series (`docs/` & `docs/discovery/`)
 
-1. [`docs/01_WHAT_IS_FAITHNET.adoc`](docs/01_WHAT_IS_FAITHNET.adoc) — Philosophy, first principles, CPI-SI communication & the 5 Irreducible Cogs.
-2. [`docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc`](docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc) — Layer-by-layer code walkthrough, wire format, `[5][4]` ladder & Rev 5 5-Block standard.
-3. [`docs/03_FAITHNET_VS_MODERN_INTERNET.adoc`](docs/03_FAITHNET_VS_MODERN_INTERNET.adoc) — Direct architectural comparison vs. the commercial internet & why the compiled C/Rust/Go trinity matters.
-4. [`docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc`](docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc) — Consolidated empirical benchmarks & honest gaps exposed by Playtest Session 001.
-5. [`docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc`](docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc) — Ready-to-execute operator runbooks for all 4 staged physical Field Kits.
-6. [`docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc`](docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc) — **Discovery 01:** Field Kit 01 lived engineering experience, 9 real-world moving-part edge cases & cross-platform OS parity.
-7. [`docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc`](docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc) — **Discovery 02:** Why hardware/software safety locks & graceful degradation beat hard aborts across all 5 strata.
-8. [`docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc`](docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc) — **Discovery 03:** Consolidated side-by-side empirical ledger comparing Lab 4x4 vs. Local-OS Harnesses vs. Live Physical Field Kit 01.
+1. [Vol 01: What Is FaithNet](docs/01_WHAT_IS_FAITHNET.adoc) — Philosophy, CPI-SI & the 5 Irreducible Cogs.
+2. [Vol 02: Architecture & Code Walkthrough](docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc) — Layer-by-layer code guide & 5-Block standard.
+3. [Vol 03: FaithNet vs. Modern Internet](docs/03_FAITHNET_VS_MODERN_INTERNET.adoc) — Comparison vs. commercial internet stack.
+4. [Vol 04: Playtesting Benchmarks & Gaps](docs/04_PLAYTESTING_BENCHMARKS_AND_GAPS.adoc) — Empirical Session 001/002 harness baselines.
+5. [Vol 05: Field Playtest Runbooks](docs/05_FIELD_PLAYTEST_RUNBOOKS.adoc) — Operator runbooks for Field Kits 01–04.
+6. [Discovery 01: Field Kit 01 Experience & Lessons](docs/discovery/01_FIELD_KIT_01_EXPERIENCE_AND_LESSONS.adoc) — 9 real moving-part edge cases & cross-platform OS parity.
+7. [Discovery 02: Safety Locks & Graceful Degradation](docs/discovery/02_SAFETY_AND_GRACEFUL_DEGRADATION.adoc) — Why containment & graceful degradation beat hard aborts.
+8. [Discovery 03: Live vs. Lab Benchmark Comparison](docs/discovery/03_LIVE_VS_LAB_BENCHMARK_COMPARISON.adoc) — Side-by-side empirical ledger across Lab, Harnesses & Live RF.
 
 ---
 
@@ -255,9 +262,9 @@ Stratum: Governance | Machine: docs.readme.faithnet
 
 ## Covenant Invariants
 
-* **Constraint is Not Limitation:** Strict physical boundaries (512-byte floor frames, zero-alloc hot paths, zero third-party packages) yield eternal portability from bare metal to modern clusters.
-* **Compatibility Without Dependency:** FaithNet can speak with Windows, macOS, Linux, iOS, Android, and the legacy web without ever being enslaved to them.
-* **Genesis 3 Airlock:** Untrusted external data never enters sovereign core state as `+1:ALIGNED`; clean empirical facts enter strictly in `0:AWAIT` quarantine while hostile payloads are halted as `-1:REJECT` or `NULL:HALT`.
-* **Canonical Architecture Roadmap:** [`docs/ROADMAP.adoc`](docs/ROADMAP.adoc)
+* **Constraint Is Not Limitation:** Strict physical boundaries (512-byte floor frames, zero-alloc hot paths, zero third-party packages) yield eternal portability from bare metal to modern machines.
+* **Compatibility Without Dependency:** FaithNet speaks fluently with Windows, macOS, Linux, iOS, Android, consoles, and legacy browsers—without ever being enslaved to commercial clouds or ISPs.
+* **Genesis 3 Airlock:** Untrusted external data never enters sovereign core state as `+1:ALIGNED`; clean facts enter strictly in `0:AWAIT` quarantine while hostile payloads halt as `-1:CONTRADICT` or `NULL:HALT`.
+* **Canonical Roadmap:** [docs/ROADMAP.adoc](docs/ROADMAP.adoc)
 
 <!-- End of README.md -->
