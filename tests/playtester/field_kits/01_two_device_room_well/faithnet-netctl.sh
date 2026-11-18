@@ -96,16 +96,21 @@ cmd_status() {
   fi
 
   echo ""
-  echo "[2] Rung 4 WAN Firewall (${WAN_GUARD_CHAIN} on ${STA_IF}):"
+  echo "[2] Dual-Stack Rung 4 WAN Firewall (${WAN_GUARD_CHAIN} on ${STA_IF}):"
   if sudo -n iptables -L "${WAN_GUARD_CHAIN}" -n --line-numbers >/dev/null 2>&1; then
+    echo "  -- IPv4 --"
     sudo iptables -L "${WAN_GUARD_CHAIN}" -n --line-numbers
+    if command -v ip6tables >/dev/null 2>&1 && sudo -n ip6tables -L "${WAN_GUARD_CHAIN}" -n --line-numbers >/dev/null 2>&1; then
+      echo "  -- IPv6 --"
+      sudo ip6tables -L "${WAN_GUARD_CHAIN}" -n --line-numbers
+    fi
   else
-    echo "    (Run with sudo to inspect live iptables chains)"
+    echo "    (Run with sudo to inspect live iptables/ip6tables chains)"
   fi
 
   echo ""
   echo "[3] Connected FaithNet-HomeRoom Clients (${ACTIVE_AP_IF}):"
-  iw dev "${ACTIVE_AP_IF}" station dump 2>/dev/null | awk '/Station / {print "    Peer MAC:", $2} /signal:/ {print "      Signal:", $2, $3}' || echo "    (No clients attached right now)"
+  iw dev "${ACTIVE_AP_IF}" station dump 2>/dev/null | awk '/Station / {print "    Peer MAC:", $2} /signal:/ {sub(/^[ \t]+/, ""); print "     ", $0}' || echo "    (No clients attached right now)"
 }
 
 cmd_mode() {
@@ -134,6 +139,12 @@ cmd_mode() {
   iptables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
   iptables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
 
+  if command -v ip6tables >/dev/null 2>&1; then
+    ip6tables -D OUTPUT -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+    ip6tables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+    ip6tables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+  fi
+
   if [[ "${target}" == "island" ]]; then
     iptables -t nat -D POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || true
     iptables -D FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || true
@@ -143,7 +154,15 @@ cmd_mode() {
     iptables -A "${WAN_EGRESS_CHAIN}" -p udp --sport 68 --dport 67 -j ACCEPT
     iptables -A "${WAN_EGRESS_CHAIN}" -j REJECT --reject-with icmp-net-prohibited
     iptables -I OUTPUT 1 -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}"
-    echo "[ISLAND MODE ACTIVE] Commercial WAN (${STA_IF}) severed. FaithNet-HomeRoom (${ACTIVE_AP_IF}) stays 100% live!"
+
+    if command -v ip6tables >/dev/null 2>&1; then
+      ip6tables -N "${WAN_EGRESS_CHAIN}"
+      ip6tables -A "${WAN_EGRESS_CHAIN}" -p ipv6-icmp -j ACCEPT
+      ip6tables -A "${WAN_EGRESS_CHAIN}" -p udp --sport 546 --dport 547 -j ACCEPT
+      ip6tables -A "${WAN_EGRESS_CHAIN}" -j REJECT --reject-with icmp6-adm-prohibited
+      ip6tables -I OUTPUT 1 -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}"
+    fi
+    echo "[ISLAND MODE ACTIVE] Dual-stack IPv4+IPv6 commercial WAN (${STA_IF}) severed. FaithNet-HomeRoom (${ACTIVE_AP_IF}) stays 100% live!"
     echo "Restore internet anytime with: sudo faithnet-netctl mode bridge"
   else
     sysctl -w net.ipv4.ip_forward=1 >/dev/null
@@ -153,7 +172,7 @@ cmd_mode() {
       iptables -A FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT
     iptables -C FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
       iptables -A FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT
-    echo "[BRIDGE MODE ACTIVE] Inbound ${STA_IF} firewalled; outbound internet & HomeRoom NAT restored!"
+    echo "[BRIDGE MODE ACTIVE] Dual-stack inbound ${STA_IF} firewalled; outbound internet & HomeRoom NAT restored!"
   fi
 }
 

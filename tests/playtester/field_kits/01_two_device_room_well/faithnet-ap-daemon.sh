@@ -105,6 +105,16 @@ clear_wan_firewall() {
   iptables -D OUTPUT -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
   iptables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
   iptables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+
+  if command -v ip6tables >/dev/null 2>&1; then
+    ip6tables -D INPUT -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}" 2>/dev/null || true
+    ip6tables -F "${WAN_GUARD_CHAIN}" 2>/dev/null || true
+    ip6tables -X "${WAN_GUARD_CHAIN}" 2>/dev/null || true
+
+    ip6tables -D OUTPUT -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+    ip6tables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+    ip6tables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+  fi
 }
 
 stop_ap() {
@@ -188,10 +198,10 @@ detect_dedicated_adapter() {
 }
 
 apply_wan_firewall() {
-  # Scoped inbound firewall on commercial WAN (wlp3s0):
-  # Permits replies to outbound traffic, ICMP, and DHCP renewals; drops
-  # unsolicited inbound probes so only FaithNet-HomeRoom (ap0 + lo) reaches
-  # local services (:8077 The Well, :7777 FNP/1).
+  # Scoped dual-stack (IPv4 + IPv6) inbound firewall on commercial WAN (wlp3s0):
+  # Permits replies to outbound traffic, ICMP/ICMPv6, and DHCP/DHCPv6 renewals;
+  # drops unsolicited inbound probes so only FaithNet-HomeRoom (ap0 + lo)
+  # reaches local services (:8077 The Well, :7777 FNP/1).
   iptables -N "${WAN_GUARD_CHAIN}" 2>/dev/null || iptables -F "${WAN_GUARD_CHAIN}"
   iptables -A "${WAN_GUARD_CHAIN}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   iptables -A "${WAN_GUARD_CHAIN}" -p icmp -j ACCEPT
@@ -199,6 +209,16 @@ apply_wan_firewall() {
   iptables -A "${WAN_GUARD_CHAIN}" -j DROP
   iptables -C INPUT -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}" 2>/dev/null || \
     iptables -I INPUT 1 -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}"
+
+  if command -v ip6tables >/dev/null 2>&1; then
+    ip6tables -N "${WAN_GUARD_CHAIN}" 2>/dev/null || ip6tables -F "${WAN_GUARD_CHAIN}"
+    ip6tables -A "${WAN_GUARD_CHAIN}" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    ip6tables -A "${WAN_GUARD_CHAIN}" -p ipv6-icmp -j ACCEPT
+    ip6tables -A "${WAN_GUARD_CHAIN}" -p udp --sport 547 --dport 546 -j ACCEPT
+    ip6tables -A "${WAN_GUARD_CHAIN}" -j DROP
+    ip6tables -C INPUT -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}" 2>/dev/null || \
+      ip6tables -I INPUT 1 -i "${STA_IF}" -j "${WAN_GUARD_CHAIN}"
+  fi
 
   apply_egress_policy
 }
@@ -213,8 +233,14 @@ apply_egress_policy() {
   iptables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
   iptables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
 
+  if command -v ip6tables >/dev/null 2>&1; then
+    ip6tables -D OUTPUT -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+    ip6tables -F "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+    ip6tables -X "${WAN_EGRESS_CHAIN}" 2>/dev/null || true
+  fi
+
   if [[ "${mode}" == "island" ]]; then
-    log "Egress mode = ISLAND (commercial WAN ${STA_IF} firewalled off; FaithNet-HomeRoom stays 100% live)."
+    log "Egress mode = ISLAND (dual-stack IPv4+IPv6 WAN ${STA_IF} firewalled off; FaithNet-HomeRoom stays 100% live)."
     iptables -t nat -D POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || true
     iptables -D FORWARD -i "${ACTIVE_AP_IF}" -o "${STA_IF}" -j ACCEPT 2>/dev/null || true
     iptables -D FORWARD -i "${STA_IF}" -o "${ACTIVE_AP_IF}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
@@ -223,8 +249,16 @@ apply_egress_policy() {
     iptables -A "${WAN_EGRESS_CHAIN}" -p udp --sport 68 --dport 67 -j ACCEPT
     iptables -A "${WAN_EGRESS_CHAIN}" -j REJECT --reject-with icmp-net-prohibited
     iptables -I OUTPUT 1 -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}"
+
+    if command -v ip6tables >/dev/null 2>&1; then
+      ip6tables -N "${WAN_EGRESS_CHAIN}" 2>/dev/null || ip6tables -F "${WAN_EGRESS_CHAIN}"
+      ip6tables -A "${WAN_EGRESS_CHAIN}" -p ipv6-icmp -j ACCEPT
+      ip6tables -A "${WAN_EGRESS_CHAIN}" -p udp --sport 546 --dport 547 -j ACCEPT
+      ip6tables -A "${WAN_EGRESS_CHAIN}" -j REJECT --reject-with icmp6-adm-prohibited
+      ip6tables -I OUTPUT 1 -o "${STA_IF}" -j "${WAN_EGRESS_CHAIN}"
+    fi
   else
-    log "Egress mode = BRIDGE (inbound ${STA_IF} firewalled; outbound WAN & HomeRoom NAT active)."
+    log "Egress mode = BRIDGE (dual-stack inbound ${STA_IF} firewalled; outbound WAN & HomeRoom NAT active)."
     sysctl -w net.ipv4.ip_forward=1 >/dev/null
     iptables -t nat -C POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE 2>/dev/null || \
       iptables -t nat -A POSTROUTING -s "${AP_SUBNET}" -o "${STA_IF}" -j MASQUERADE
