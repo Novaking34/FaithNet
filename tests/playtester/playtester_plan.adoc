@@ -138,6 +138,10 @@ field execution:
   sovereign mesh peering via self-replicating `/pair.sh` (`peer_count: 1`,
   `+1:ALIGNED` live Well bulletin) + Wave 12 clean REPL, broadcast dedup &
   auto-channel micro-ISP follower.
+* `reports/SESSION_006_PERSISTENT_BOOT_AP_AND_HOTSPOT_GUARD.adoc` — Realtek
+  `rtw89` hotspot-switch edge-case diagnosis + Wave 13 persistent boot-time
+  `faithnet-ap.service` with real-time `nmcli device monitor` radio-release
+  guard.
 
 // =============================================================================
 // BLOCK 5: CLOSING BLOCK / PLAYTEST DISCIPLINE

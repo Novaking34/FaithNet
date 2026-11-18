@@ -921,7 +921,11 @@ func resolveAdaptiveWellTLS(opts WellTLSOptions) (*tls.Config, string, []byte, e
 }
 
 func collectLocalSANs() ([]net.IP, []string) {
-	ips := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+	ips := []net.IP{
+		net.ParseIP("127.0.0.1"),
+		net.ParseIP("::1"),
+		net.ParseIP("10.77.77.1"),
+	}
 	if addrs, err := net.InterfaceAddrs(); err == nil {
 		for _, a := range addrs {
 			if ipNet, ok := a.(*net.IPNet); ok && ipNet.IP != nil {

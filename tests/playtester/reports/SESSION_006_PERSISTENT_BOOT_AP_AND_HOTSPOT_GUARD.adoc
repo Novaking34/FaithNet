@@ -1,0 +1,110 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          tests/playtester/reports/SESSION_006_PERSISTENT_BOOT_AP_AND_HOTSPOT_GUARD.adoc
+@id            playtest.report.session_006
+@layer         Layer 4: Proving Ground (Empirical Playtest Session 006 Report)
+@archetype     report | persistent_ap_and_rtw89_guard
+@version       0.1.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet Persistent Boot Micro-ISP & rtw89 Radio-Release Guard
+@role          Documents Live Hotspot Edge-Case Lockup & Wave 13 Systemd Fix
+@maturity      Rev 5 Baseline | Wave 13 Persistent Auto-Boot Micro-ISP
+================================================================================
+////
+= Playtest Session 006: Hotspot Channel-Switch Edge Case & Persistent Boot AP
+CreativeWorkzStudio LLC / ProfessorSeanEX
+2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / REAL-WORLD EDGE CASE DISCOVERED LIVE
+// =============================================================================
+
+toc::[]
+
+== Real Hardware Edge Cases Exposed Live (Gaps #8 & #9)
+
+1. **Gap #8 — Realtek `rtw89` (`RTL8852CE`) Single-Channel Radio Lock During
+   Hotspot Switch:**
+   When attempting to switch upstream `wlp3s0` from `TheTribe` (Channel 11) to
+   a mobile phone hotspot while `hostapd` still held `ap0` pinned to Channel
+   11, `RTL8852CE` (`#channels <= 1`) refused the scan/channel shift, causing
+   the PCI Wi-Fi interface to drop and block reconnection until reboot.
+2. **Gap #9 — Ephemeral AP Script Did Not Auto-Boot on Startup:**
+   While `faithnet-home.service` (`faithnet-node`) properly auto-started on
+   reboot (`Active: active (running)`), the `FaithNet-HomeRoom` Wi-Fi AP itself
+   had been run as a temporary foreground task—so previously paired devices
+   (iPhone, PlayStation, Laptop #2) had no `FaithNet-HomeRoom` SSID to
+   auto-reconnect to after reboot.
+3. **Confirmed Wave 12 UX Win:** Clean `faithnet>` REPL verified live on
+   Laptop #2—periodic 3s `[BEACON RX]` spam is completely gone!
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / WAVE 13 PERSISTENT MICRO-ISP ARCHITECTURE
+// =============================================================================
+
+== Wave 13 Fixes Implemented & Installed
+
+1. **Persistent Boot-Time System Service (`/etc/systemd/system/faithnet-ap.service`):**
+   Installed via `install_persistent_ap_router.sh` wrapping
+   `/usr/local/sbin/faithnet-ap-daemon.sh`. Now whenever Laptop #1 boots, BOTH
+   `faithnet-home.service` (`faithnet-node` + The Well + Tier 2 CA) AND
+   `faithnet-ap.service` (`FaithNet-HomeRoom` Wi-Fi router on `10.77.77.1/24`)
+   auto-start cleanly—so phones, PlayStations, and paired laptops reconnect
+   automatically on startup with zero hanging chat tasks.
+2. **Event-Driven Pre-Switch Radio Release (`nmcli device monitor wlp3s0`):**
+   Instead of slow 5-second polling *after* a failed switch,
+   `faithnet-ap-daemon.sh` listens in real time to NetworkManager device events:
+   * On `connecting` / `configuring` / `deactivating` / `disconnected` /
+     `unavailable`: **immediately releases `ap0` and stops `hostapd`** so
+     `RTL8852CE` has 100% free single-channel control to switch Wi-Fi/hotspots
+     without ever locking the PCI driver.
+   * On `: connected`: waits 2s for channel settle, reads the new live channel,
+     and restarts `FaithNet-HomeRoom` on that exact channel (or logs a safe
+     warning if a 5 GHz DFS channel forbids AP mode, leaving upstream Wi-Fi
+     untouched).
+   * On sustained `disconnected` (`>= 10s` true blackout): automatically brings
+     up `FaithNet-HomeRoom` as a standalone offline Channel 6 island.
+3. **Permanent `10.77.77.1` TLS SAN (`interpreter/captive_web.go`):**
+   Pinned `10.77.77.1` directly inside `collectLocalSANs()` so `faithnet-home`
+   signs `10.77.77.1` on boot even before `ap0` comes up.
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / OPERATOR CONTROLS
+// =============================================================================
+
+== Operator Controls (Zero-Brick Emergency Off-Switch Included)
+
+[source,bash]
+----
+# Inspect live persistent router status & logs:
+sudo systemctl status faithnet-ap
+sudo journalctl -u faithnet-ap -f
+
+# Emergency pause / disable at any time (leaves wlp3s0 100% untouched):
+sudo systemctl stop faithnet-ap
+sudo systemctl disable --now faithnet-ap
+----
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / SESSION 006 SIGN-OFF
+// =============================================================================
+
+== Session 006 Sign-Off
+
+Laptop #1 now operates as a true **reboot-persistent, self-healing FaithNet
+Micro-ISP**: both `faithnet-home.service` and `faithnet-ap.service` survive
+reboots automatically, and `RTL8852CE` releases `ap0` cleanly whenever upstream
+Wi-Fi switches.
+
+// End of tests/playtester/reports/SESSION_006_PERSISTENT_BOOT_AP_AND_HOTSPOT_GUARD.adoc
