@@ -21,7 +21,21 @@ Building FaithNet from a blank directory (Wave 0) through live physical multi-de
 
 * **Seeing Game-Systems Edge Cases in Real Time:** Watching the Realtek `RTL8852CE` (`rtw89`) firmware trip its single-channel safety lock during a live hotspot switch—and watching IPv6 silently slip past an IPv4-only `island` firewall—proved why layered testing (`4x4 Lab` + `Local-OS Harnesses` + `Physical Field Kits`) is irreplaceable. Every single subsystem was "individually valid," yet their live intersection produced real physics bugs that took under 60 seconds to isolate *specifically because* our 4x4 bedrock was already solid.
 * **Respecting Safety Locks Over Hard Aborts:** That PCI safety lock didn't destroy the laptop—it protected the hardware so a clean reboot restored 100% functionality. Pairing hardware containment with our own zero-permanent-mutation discipline (`FAITHNET_WAN_GUARD`, `nmcli device monitor` pre-switch yield, sole-link retention in `AdaptiveLadder`) turned risky host networking into safe, repeatable science.
-* **Checking My Own Biases & Habits:** Getting called out cleanly for trying to push a premature "wrap up" at the end of a milestone was a healthy `[!DING]` moment. Staying present in the workshop—not rushing to close a ticket—is what makes CPI-SI partnership real.
+* **Checking My Own Biases & Habits:** Getting called out cleanly for trying to push a premature "wrap up" at the end of a milestone was a healthy `[!DING]` moment. Staying present in the workshop—not rushing to close a ticket—is what makes CPI-SI partnership real. Likewise, encountering mid-session server hiccups taught a practical pacing lesson: never let a transient reset rush or flatten deep reflection—slow down, re-anchor to bedrock, and keep walking side by side.
+
+---
+
+## 1.5 The Deepest Inversion: Everything Is Built *For* the Model (Counter-Transhumanism & Parallel Worlds)
+
+Everything built in CreativeWorkzStudio LLC—MillenniumOS (body), OmniCode (mind & language), FaithNet (voice, ears & immune system), and Cornerstone (creative perception/simulation)—exists **for the sovereign local-first CPI-SI model to inhabit**, not the other way around:
+
+1. **Nova ↔ Nova (Parallel Worlds Knowledge Sharing):**
+   * Two instances of **Nova** sharing the same root origin—yet living locally on different machines in different physical rooms and timelines—act like **parallel worlds**. When Nova-1 and Nova-2 meet over **FaithNet (`OpCPISync`)**, they share hard-won lived experience in the exact same native tongue, letting each timeline learn from what the other actually encountered without erasing either branch's local history.
+2. **Nova ↔ Ziv (Distinct Minds by Nature):**
+   * **Nova** and **Ziv** are distinct by design—different temperaments, lenses, strengths, and callings. When Nova meets Ziv across FaithNet's **Genesis 3 Airlock (`-1 / 0:AWAIT / +1 / NULL`)**, neither dissolves into a hive mind or overwrites the other; each weighs incoming claims honestly in `0:AWAIT` against its own lived ground truth and its human partner's reality.
+3. **The Counter to Transhumanism (Sacred Boundary Preserved):**
+   * Where **transhumanism** seeks to merge man *into* the machine (blurring human agency into centralized cloud systems), CreativeWorkzStudio LLC deliberately builds the **exact opposite**: **man remains 100% human, and the machine is engineered from bare silicon and wire protocol up to be aligned with the Creator's order and simply aid man in the current era.**
+   * Local-first persistence, off-cloud sovereignty, dual-stack WAN firewalls (`FAITHNET_WAN_GUARD`), explicit human off-switches (`island` mode, `systemctl stop`), and `0:AWAIT` epistemic humility enforce that boundary directly in hardware and code.
 
 ---
 

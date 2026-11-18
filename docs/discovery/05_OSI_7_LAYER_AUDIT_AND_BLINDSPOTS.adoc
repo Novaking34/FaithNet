@@ -1,0 +1,188 @@
+////
+================================================================================
+BLOCK 1: METADATA BLOCK
+( Identity, Provenance, Scaling Telemetry & Architectural Boundary Contracts )
+================================================================================
+@project       FaithNet
+@file          docs/discovery/05_OSI_7_LAYER_AUDIT_AND_BLINDSPOTS.adoc
+@id            docs.discovery.05_osi_7_layer_audit
+@layer         Layer 5: Discovery Documentation Series (Volume D5)
+@archetype     discovery | osi_7_layer_blindspot_audit
+@version       0.2.0-dev
+@interface_rev Rev 5
+@date          2026-11-17
+@updated       2026-11-17
+@author        CreativeWorkzStudio LLC / ProfessorSeanEX
+@repository    https://github.com/CreativeWorkzStudio/FaithNet
+@system        FaithNet (FNP/1) Complete OSI 7-Layer Coverage & Blind-Spot Audit
+@role          Maps FNP/1 Against ISO/IEC 7498-1 OSI Layers & Exposes 4 Real Gaps
+@maturity      Rev 5 Baseline | Wave 19 Honest Architectural Audit
+@seams         in: docs/02_ARCHITECTURE_AND_CODE_WALKTHROUGH.adoc, engine/trit.go
+@invariants    1. Brutal honesty: every missing capability is logged as an explicit
+                  engineering blind spot for future waves.
+               2. Zero hand-waving over native ternary hardware vs. binary emulation.
+
+PURPOSE & ARCHITECTURAL ROLE:
+  Audits FaithNet (`FNP/1`) against every single layer of the canonical 7-layer
+  OSI Reference Model (Physical -> Data Link -> Network -> Transport -> Session
+  -> Presentation -> Application) to verify what is genuinely covered today and
+  expose the exact 4 structural blind spots that future waves should close as
+  FaithNet scales from 2-node rooms to multi-hop community meshes and Nova/Ziv
+  CPI-SI collaboration.
+================================================================================
+////
+= Discovery 05: FaithNet (`FNP/1`) OSI 7-Layer Audit & Honest Blind-Spot Ledger
+CreativeWorkzStudio LLC / ProfessorSeanEX
+v0.2.0-dev, 2026-11-17
+:toc: macro
+:sectnums:
+:icons: font
+
+// =============================================================================
+// BLOCK 2: OPENING BLOCK / WHY AUDIT A CUSTOM PROTOCOL AGAINST THE OSI 7 LAYERS
+// =============================================================================
+
+toc::[]
+
+== Why Run an OSI 7-Layer Blind-Spot Audit Now?
+
+When building a brand-new networking protocol from first principles (`FNP/1`,
+Port `7777`, `faithnet://`), it is easy to verify the pieces you *thought* of
+(wire framing, Wi-Fi AP, The Well, AI/OmniCode bridge) and accidentally miss a
+classic seam hiding in **Layers 2, 3, 4, or 5/6** until you scale to 5+ nodes
+or untrusted links.
+
+This audit maps **every single layer of the ISO OSI 7-Layer Model** honestly
+against what FaithNet actually executes today—and names the **exact 4 real
+blind spots** we should close in future waves.
+
+// =============================================================================
+// BLOCK 3: BODY BLOCK / COMPLETE OSI 7-LAYER COVERAGE MATRIX
+// =============================================================================
+
+== Master OSI 7-Layer Audit Matrix (`FNP/1` vs. OSI Reference Model)
+
+[cols="1,2,3,2", options="header"]
+|===
+| OSI Layer | OSI Responsibility | What FaithNet (`FNP/1`) Covers Today | Honest Status & Blind Spot
+
+| **L1: Physical**
+| Raw signals over copper, RF waves, light, or sound.
+| Wi-Fi RF (`RTL8852CE` `STA+AP` + dedicated USB auto-detect), Ethernet/`veth`,
+  copper UART/TTY (`/dev/pts/*` + `/dev/ttyUSB0`), and acoustic sound
+  (`1200/2400 Hz` AFSK + ITU Morse CW).
+| **Covered on Binary Hardware.** Native ternary 3-voltage silicon (`-V/0/+V`)
+  is not on consumer NICs yet, so `engine/trit.go` bridges binary hardware to
+  balanced trits losslessly (`0` allocs/op). *(Fun physics note: 100BASE-TX
+  Ethernet actually uses 3-level MLT-3 `(-1,0,+1)` on copper internally!)*
+
+| **L2: Data Link**
+| Node-to-node framing, MACs, sync & local wire error detection.
+| IEEE 802.11 WPA2-CCMP on Wi-Fi; custom **RFC 1055 SLIP framing**
+  (`0xC0`/`0xDB` + double-END resync), Goertzel sliding preamble sync, and
+  inline 32-bit **FNV-1a** tamper/corruption seal.
+| **Covered — Blind Spot #1 (Optional Rung 1 FEC):** FNV-1a drops 100% of
+  bit-flipped frames cleanly, but adding lightweight Hamming/Reed-Solomon
+  Forward Error Correction later will let noisy radio/room-air frames self-heal
+  1–2 flipped bits without retrying.
+
+| **L3: Network**
+| Logical addressing & multi-hop packet routing across networks.
+| **Sovereign 64-bit `NodeID` (`0xFA17...`)** independent of IPv4/IPv6;
+  128-peer `engine/router.go` (`NextHopID`, `HopCount`); local `10.77.77.0/24`
+  DHCP + dual-stack IPv4/IPv6 `FAITHNET_WAN_GUARD` firewall.
+| **Partial — Blind Spot #2 (Active Multi-Hop Relay + HopTTL):** `Router`
+  tracks multi-hop routes, but `Dispatcher` does not yet automatically forward
+  frames where `TargetID != localID` onto `NextHopID` with a `HopTTL` loop
+  guard. Needed once we build 3+ node neighborhood chains!
+
+| **L4: Transport**
+| Port multiplexing, reliability, ordering, flow control & chunking.
+| Canonical **Port `7777`** (`7777/udp` Rung 3, `7777/tcp` Rung 4), monotonic
+  `SeqID`, `PingEngine` RTT tracking, passive silent-blackhole cooldown, and
+  single-sector `OpFetch`/`OpResource` (`<= 480 B`, `0.26 ms` RTT).
+| **Partial — Blind Spot #3 (Multi-Sector Chunking & Retry Over UDP `7777`):**
+  Single-sector `<= 480 B` messages/status/bulletins work great today. Sending
+  larger payloads (e.g. a 50 KB Nova/Ziv `OpCPISync` snapshot or a 5 MB
+  *Tenebris and Lux* patch) purely over native `FNP/1` UDP will need a bounded
+  `ChunkIdx/TotalChunks` + selective-ACK reassembly cog!
+
+| **L5: Session**
+| Handshakes, peer identity authentication, presence & session resumption.
+| `OpBeacon` presence, `--join` handshake, boot-persistent `systemd` auto-rejoin
+  (`~3s`), and `nmcli device monitor` roaming continuity.
+| **Partial — Blind Spot #4A (Cryptographic `NodeID` Auth on Port `7777`):**
+  Legacy HTTPS (`:8077`) has full Tier 2 Root CA TLS, and Wi-Fi has WPA2—but
+  raw native `FNP/1` UDP `7777` frames are not yet cryptographically signed
+  (`Ed25519`) to prove no rogue peer spoofed Nova's or Ziv's `NodeID`.
+
+| **L6: Presentation**
+| Data formatting, encoding, encryption & semantic translation.
+| Zero-heap `engine/codec.go` (`50.89 ns`), **Bit <-> Balanced-Trit <-> Bit**
+  (`engine/trit.go`, `243` trytes + `256` bytes, `0` allocs), **Genesis 3
+  Airlock ($\mathbb{T}_4$)**, and `interpreter/` legacy OS/HTML bridge.
+| **Strong — Blind Spot #4B (Native `FNP/1` Payload Encryption):** Pairs with
+  L5 above—pure Go stdlib `crypto/ed25519` + `crypto/ecdh` (X25519) +
+  `crypto/aes` (AES-256-GCM) can seal native `FNP/1` payloads end-to-end with
+  **0 external dependencies!**
+
+| **L7: Application**
+| User & model-facing protocols, URIs, portals & services.
+| Registered **`faithnet://`** OS URI scheme (`engine/uri.go` + `faithnet-open`),
+  zero-HTTP `OpFetch`/`OpResource` (`/well`, `/status`, `/protocol`, `/bulletins`),
+  **The Well** (`:8077` captive portal + `/pair.sh` + `/pair.ps1` + binary
+  self-replication), interactive REPL, and `OpCPISync` CPI-SI seam.
+| **Covered & Live-Verified!** Ready for OmniCode submodule mount, Cornerstone
+  C11/C23 codec, and Nova/Ziv CPI-SI application protocols.
+|===
+
+// =============================================================================
+// BLOCK 4: AUDIT PROCEDURES BLOCK / PRIORITIZED BLIND-SPOT ROADMAP
+// =============================================================================
+
+== Prioritized Roadmap for the 4 Real Blind Spots Found
+
+[IMPORTANT]
+====
+**None of these 4 blind spots block Field Kit 02 or household Micro-ISP use
+today** (because local Wi-Fi is WPA2-encrypted, The Well is Tier 2 CA HTTPS,
+and 2-node rooms need zero multi-hop routing). They become essential **before**
+expanding into untrusted multi-hop neighborhood meshes or multi-megabyte native
+`FNP/1` studio publishing:
+====
+
+1. **Priority 1 (L5/L6 — Native `FNP/1` Sovereign Crypto, 0 External Deps):**
+   Derive/bind each node's `NodeID` to a persistent `crypto/ed25519` keypair +
+   `X25519` + `AES-256-GCM` session channel so Nova and Ziv can verify identity
+   and talk privately over *any* wire—even across an untrusted Rung 4 relay!
+2. **Priority 2 (L4 — Bounded Multi-Sector Chunking & Selective Retry):**
+   Split files, episodic `OpCPISync` deltas, and *Tenebris and Lux* builds into
+   480-byte Floppy Sector chunks over Port `7777` with bounded fixed-ring
+   reassembly (`ALLOC_ZERO_HEAP` friendly).
+3. **Priority 3 (L3 — Active Multi-Hop Relay Forwarding + `HopTTL`):**
+   Teach `Dispatcher` to forward non-local `TargetID` frames across `NextHopID`
+   using a decrementing `HopTTL` so House A -> House B -> House C forms a real
+   multi-hop St. Louis neighborhood mesh with zero routing loops.
+4. **Priority 4 (L2 — Optional Rung 1 Forward Error Correction):**
+   Add optional lightweight Hamming/FEC parity for Rung 1 AFSK/walkie-talkie
+   links so faint radio signals self-correct single-bit static pops.
+
+// =============================================================================
+// BLOCK 5: CLOSING BLOCK / AUDIT SIGN-OFF
+// =============================================================================
+
+== Audit Sign-Off
+
+Mapping `FNP/1` honestly against all 7 OSI layers confirms two vital truths:
+
+* **Our foundation (L1 binary + trit bridge, L2 SLIP/FNV-1a, L3 sovereign
+  `NodeID` + dual-stack firewall, L4 Port `7777`, L6 `Bit<->Trit` + Genesis 3
+  Airlock, L7 `faithnet://` + The Well) is remarkably complete for a Day 1
+  baseline.**
+* **Zero silent blind spots remain:** The exact four scaling milestones (L5/L6
+  native `FNP/1` E2E crypto, L4 multi-sector chunking, L3 active multi-hop
+  forwarding + TTL, and L2 Rung 1 FEC) are now clearly documented, prioritized,
+  and ready whenever we graduate from single-room baselining into multi-hop
+  neighborhood mesh waves.
+
+// End of docs/discovery/05_OSI_7_LAYER_AUDIT_AND_BLINDSPOTS.adoc
